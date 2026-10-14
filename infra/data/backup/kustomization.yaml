@@ -1,0 +1,5 @@
+# Applied once the backup-s3 Secret exists (see infra/README.md).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - cronjob.yaml

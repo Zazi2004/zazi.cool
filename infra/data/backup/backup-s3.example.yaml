@@ -1,0 +1,17 @@
+# Template of the Secret holding the Object Storage credentials. Copy it to
+# backup-s3.enc.yaml, fill in the values, then encrypt it in place:
+#   sops encrypt --in-place infra/data/backup/backup-s3.enc.yaml
+# Never commit the filled-in file unencrypted.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backup-s3
+  namespace: data
+type: Opaque
+stringData:
+  BUCKET: zazi-backups
+  # e.g. https://s3.gra.io.cloud.ovh.net for the GRA region
+  RCLONE_CONFIG_OVH_ENDPOINT: https://s3.<region>.io.cloud.ovh.net
+  RCLONE_CONFIG_OVH_REGION: <region>
+  RCLONE_CONFIG_OVH_ACCESS_KEY_ID: <access key>
+  RCLONE_CONFIG_OVH_SECRET_ACCESS_KEY: <secret key>
