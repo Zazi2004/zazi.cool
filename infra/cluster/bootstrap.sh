@@ -36,7 +36,11 @@ KbdInteractiveAuthentication no
 PermitRootLogin no
 CONF
 sshd -t
-systemctl reload ssh
+# Recent Ubuntu releases start sshd on demand (ssh.socket): new connections read the new
+# configuration anyway, there is only something to reload when the service is running.
+if systemctl is-active --quiet ssh; then
+  systemctl reload ssh
+fi
 
 echo "==> Firewall: only 22, 80 and 443 are open"
 ufw default deny incoming
@@ -63,6 +67,9 @@ echo "==> Waiting for the node to be ready"
 for _ in $(seq 60); do
   if k3s kubectl get nodes 2>/dev/null | grep -q " Ready"; then
     k3s kubectl get nodes
+    if [[ -f /var/run/reboot-required ]]; then
+      echo "Updates require a reboot: run 'sudo reboot' (k3s restarts automatically)."
+    fi
     echo "Done. Next step: infra/README.md, section « Accès au cluster »."
     exit 0
   fi

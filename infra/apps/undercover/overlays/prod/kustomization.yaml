@@ -7,4 +7,4 @@ resources:
   - ../../base
 images:
   - name: ghcr.io/zazi2004/undercover
-    newTag: set-by-first-deploy
+    newTag: e36c515
