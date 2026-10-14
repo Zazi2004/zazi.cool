@@ -138,8 +138,22 @@ func TestRandomPair(t *testing.T) {
 	if (got.CivilSide == SideA) != (got.CivilWord == "Chat") || got.CivilWord == got.UndercoverWord {
 		t.Errorf("inconsistent draw: %+v", got)
 	}
-	if !st.lastF.IncludeExtreme || !st.lastF.SuggestionsOnly || len(st.lastF.Exclude) != 2 {
+	if st.lastF.Extreme != store.ExtremeIncluded || !st.lastF.SuggestionsOnly || len(st.lastF.Exclude) != 2 {
 		t.Errorf("filter = %+v, want extreme, suggestions only and 2 exclusions", st.lastF)
+	}
+
+	extremeModes := map[string]store.ExtremeMode{
+		"":               store.ExtremeExcluded,
+		"?extreme=false": store.ExtremeExcluded,
+		"?extreme=true":  store.ExtremeIncluded,
+		"?extreme=only":  store.ExtremeOnly,
+		"?extreme=other": store.ExtremeExcluded,
+	}
+	for query, want := range extremeModes {
+		do(t, h, "GET", "/api/pairs/random"+query, "")
+		if st.lastF.Extreme != want {
+			t.Errorf("GET /api/pairs/random%s: extreme mode = %v, want %v", query, st.lastF.Extreme, want)
+		}
 	}
 
 	if rec := do(t, h, "GET", "/api/pairs/random?exclude=1,x", ""); rec.Code != http.StatusBadRequest {

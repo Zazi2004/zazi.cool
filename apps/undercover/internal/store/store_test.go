@@ -111,7 +111,8 @@ func TestRandomPairFilters(t *testing.T) {
 		allowed []int64
 	}{
 		{"all-ages only", Filter{}, []int64{normal.ID, suggestion.ID}},
-		{"with extreme", Filter{IncludeExtreme: true}, []int64{normal.ID, extreme.ID, suggestion.ID}},
+		{"with extreme", Filter{Extreme: ExtremeIncluded}, []int64{normal.ID, extreme.ID, suggestion.ID}},
+		{"extreme only", Filter{Extreme: ExtremeOnly}, []int64{extreme.ID}},
 		{"suggestions only", Filter{SuggestionsOnly: true}, []int64{suggestion.ID}},
 		{"exclusion", Filter{Exclude: []int64{suggestion.ID}}, []int64{normal.ID}},
 		{"exclusion ignored when exhausted", Filter{SuggestionsOnly: true, Exclude: []int64{suggestion.ID}}, []int64{suggestion.ID}},
@@ -136,9 +137,11 @@ func TestRandomPairNoMatch(t *testing.T) {
 	s := newTestStore(t)
 	mustCreate(t, s, "Chat", "Tigre", false, pairs.SourceSeed)
 
-	_, err := s.RandomPair(context.Background(), Filter{SuggestionsOnly: true})
-	if !errors.Is(err, ErrNotFound) {
-		t.Errorf("RandomPair: error = %v, want ErrNotFound", err)
+	for _, f := range []Filter{{SuggestionsOnly: true}, {Extreme: ExtremeOnly}} {
+		_, err := s.RandomPair(context.Background(), f)
+		if !errors.Is(err, ErrNotFound) {
+			t.Errorf("RandomPair(%+v): error = %v, want ErrNotFound", f, err)
+		}
 	}
 }
 

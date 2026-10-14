@@ -1,6 +1,7 @@
 import { useState } from "preact/hooks";
 import {
   civilCount,
+  type ExtremeMode,
   type Game,
   MAX_NAME_LENGTH,
   MAX_PLAYERS,
@@ -13,6 +14,12 @@ import { loadSetup } from "../game/storage";
 import { ErrorText, Stepper } from "./common";
 import { newGame } from "./newGame";
 import { Link } from "./router";
+
+const EXTREME_CHOICES: [ExtremeMode, string][] = [
+  ["off", "Tout public"],
+  ["on", "Tout public et extrême"],
+  ["only", "Extrême uniquement"],
+];
 
 /** Keeps the names already typed and pads or trims the list to `count`. */
 function resize(names: string[], count: number): string[] {
@@ -112,11 +119,18 @@ export function SetupScreen({ onStart }: { onStart: (game: Game) => void }) {
 
       <fieldset class="card stack">
         <legend>Mots</legend>
-        <Checkbox
-          label="Mode extrême (paires limites, réservé aux adultes)"
-          checked={settings.extreme}
-          onChange={(v) => set("extreme", v)}
-        />
+        {EXTREME_CHOICES.map(([mode, label]) => (
+          <label key={mode} class="checkbox">
+            <input
+              type="radio"
+              name="extreme"
+              checked={settings.extreme === mode}
+              onChange={() => set("extreme", mode)}
+            />
+            <span>{label}</span>
+          </label>
+        ))}
+        <p class="hint">Extrême : paires limites, réservé aux adultes.</p>
         <Checkbox
           label="Uniquement les paires proposées par les joueurs"
           checked={settings.suggestionsOnly}

@@ -9,6 +9,7 @@ import type {
   ReportReason,
   ReportRequest,
 } from "./types";
+import type { ExtremeMode } from "../game/engine";
 
 /** An HTTP error answered by the server, with its decoded JSON body if any. */
 export class ApiError extends Error {
@@ -49,14 +50,17 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
 }
 
 export interface DrawOptions {
-  extreme: boolean;
+  extreme: ExtremeMode;
   suggestionsOnly: boolean;
   exclude: number[];
 }
 
+/** Values of the "extreme" query parameter; "true" predates the "only" mode. */
+const extremeParam: Record<ExtremeMode, string> = { off: "false", on: "true", only: "only" };
+
 export function drawPair({ extreme, suggestionsOnly, exclude }: DrawOptions) {
   const params = new URLSearchParams({
-    extreme: String(extreme),
+    extreme: extremeParam[extreme],
     suggestionsOnly: String(suggestionsOnly),
   });
   if (exclude.length > 0) params.set("exclude", exclude.join(","));

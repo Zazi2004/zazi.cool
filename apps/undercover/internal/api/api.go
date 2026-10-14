@@ -107,7 +107,7 @@ func (s *server) randomPair(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	filter := store.Filter{
-		IncludeExtreme:  q.Get("extreme") == "true",
+		Extreme:         parseExtreme(q.Get("extreme")),
 		SuggestionsOnly: q.Get("suggestionsOnly") == "true",
 		Exclude:         exclude,
 	}
@@ -325,6 +325,19 @@ func parseIDs(s string) ([]int64, error) {
 		ids = append(ids, id)
 	}
 	return ids, nil
+}
+
+// parseExtreme reads the "extreme" query parameter: "true" adds extreme pairs to
+// the draw, "only" restricts it to them, anything else keeps the game all-ages.
+func parseExtreme(s string) store.ExtremeMode {
+	switch s {
+	case "true":
+		return store.ExtremeIncluded
+	case "only":
+		return store.ExtremeOnly
+	default:
+		return store.ExtremeExcluded
+	}
 }
 
 // decodeJSON decodes a small JSON body into v, answering 400 itself on failure.
