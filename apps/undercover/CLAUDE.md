@@ -15,7 +15,8 @@ rôles et détermine la fin de partie.
 Le second pilier du projet est une **banque de paires de mots enrichie par les joueurs**,
 avec une catégorie « extrême » séparée pour que le jeu reste tout public par défaut.
 
-**Statut : en développement** (spécifications validées le 2026-10-14).
+**Statut : en production** sur https://undercover.zazi.cool depuis le 2026-10-14
+(spécifications validées le même jour). Déploiement : [`infra/README.md`](../../infra/README.md).
 
 ---
 
@@ -91,7 +92,7 @@ Vérifiées après chaque élimination (et après la réponse d'un Mr. White él
 | Nombre de Mr. White                      | 0 à …                   | 0                   |
 | Mr. White ne peut pas commencer un tour  | case à cocher           | cochée              |
 | Undercover ne peut pas commencer un tour | case à cocher           | décochée            |
-| Mode extrême                             | case à cocher           | **décochée**        |
+| Mots (mode extrême)                      | tout public / tout public et extrême / extrême uniquement | **tout public** |
 | Uniquement les paires proposées par les joueurs | case à cocher    | décochée            |
 
 Contraintes (validées à la saisie) :
@@ -103,8 +104,9 @@ Avec ces contraintes, il existe toujours un civil en vie pour commencer un tour 
 partie n'est pas terminée : les deux cases « ne peut pas commencer » sont donc compatibles.
 
 Tirage de la paire (les paires masquées ne sont jamais tirées) :
-- **Mode extrême décoché** : seules les paires tout public sont tirées.
-- **Mode extrême coché** : les paires tout public **et** extrêmes sont tirées.
+- **Tout public** : seules les paires tout public sont tirées.
+- **Tout public et extrême** : les paires tout public **et** extrêmes sont tirées.
+- **Extrême uniquement** : seules les paires extrêmes sont tirées.
 - **« Uniquement les paires proposées par les joueurs » coché** : le tirage se limite aux
   suggestions (`source = 'suggestion'`), en respectant toujours le mode extrême.
 - Si aucune paire ne correspond aux réglages, la partie ne démarre pas et un message
@@ -210,7 +212,7 @@ Conséquences : **pas de temps réel** (ni WebSocket ni SSE), **pas de Redis**, 
 
 | Méthode et chemin                      | Rôle                                                             |
 |----------------------------------------|------------------------------------------------------------------|
-| `GET  /api/pairs/random`               | Tire une paire (`extreme`, `suggestionsOnly`, `exclude=<ids>`) → `id`, `civilWord`, `undercoverWord` ; 404 si aucune paire ne correspond |
+| `GET  /api/pairs/random`               | Tire une paire (`extreme=false\|true\|only`, `suggestionsOnly`, `exclude=<ids>`) → `id`, `civilWord`, `undercoverWord` ; 404 si aucune paire ne correspond |
 | `POST /api/pairs/{id}/guess`           | Compare la réponse de Mr. White au mot des civils → `correct`    |
 | `GET  /api/pairs/check`                | Vérifie la redondance d'une paire (`a`, `b`) sans l'enregistrer  |
 | `POST /api/pairs`                      | Propose une paire (201, 409 si doublon, 422 si invalide)         |
@@ -366,6 +368,9 @@ apps/undercover/
 - [x] Moteur de partie **côté client** (exception à la convention racine, voir §4).
 - [x] Base de départ : **100 paires, dont 25 extrêmes**.
 - [x] Réglage « **Uniquement les paires proposées par les joueurs** ».
+- [x] Mode extrême à trois choix : **tout public**, **tout public et extrême**,
+      **extrême uniquement** (ajouté le 2026-10-14). Les réglages enregistrés par le
+      navigateur avec l'ancienne case à cocher sont convertis au chargement.
 
 ### Ouvertes
 

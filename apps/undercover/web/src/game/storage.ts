@@ -3,7 +3,7 @@
 // Storage may be unavailable (private browsing): every access is guarded and the
 // app keeps working, only without memory.
 
-import { defaultSettings, type Game, type Settings } from "./engine";
+import { defaultSettings, type ExtremeMode, type Game, type Settings } from "./engine";
 
 const KEYS = {
   game: "undercover.v1.game",
@@ -36,7 +36,7 @@ export function loadGame(): Game | null {
   const game = read<Game>(KEYS.game);
   // A minimal sanity check: anything else is a stale or foreign value.
   if (!game || !Array.isArray(game.players) || !game.phase || !game.pair) return null;
-  return game;
+  return { ...game, settings: loadSettings(game.settings) };
 }
 
 export function saveGame(game: Game | null): void {
@@ -48,10 +48,24 @@ export interface Setup {
   names: string[];
 }
 
+const EXTREME_MODES: readonly unknown[] = ["off", "on", "only"] satisfies ExtremeMode[];
+
+/**
+ * Fills missing settings with the defaults. The extreme mode used to be a boolean:
+ * values saved by earlier versions are converted.
+ */
+export function loadSettings(saved: Partial<Settings> | undefined): Settings {
+  const settings = { ...defaultSettings, ...saved };
+  const extreme: unknown = settings.extreme;
+  if (extreme === true) settings.extreme = "on";
+  else if (!EXTREME_MODES.includes(extreme)) settings.extreme = "off";
+  return settings;
+}
+
 export function loadSetup(): Setup {
   const setup = read<Partial<Setup>>(KEYS.setup);
   return {
-    settings: { ...defaultSettings, ...setup?.settings },
+    settings: loadSettings(setup?.settings),
     names: Array.isArray(setup?.names) ? setup.names : [],
   };
 }

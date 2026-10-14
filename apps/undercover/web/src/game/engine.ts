@@ -6,13 +6,16 @@ import type { DrawResponse } from "../api/types";
 
 export type Role = "civil" | "undercover" | "mrwhite";
 
+/** Which pairs can be drawn: all-ages only, all-ages and extreme, or extreme only. */
+export type ExtremeMode = "off" | "on" | "only";
+
 export interface Settings {
   playerCount: number;
   undercoverCount: number;
   mrWhiteCount: number;
   mrWhiteCannotStart: boolean;
   undercoverCannotStart: boolean;
-  extreme: boolean;
+  extreme: ExtremeMode;
   suggestionsOnly: boolean;
 }
 
@@ -26,7 +29,7 @@ export const defaultSettings: Settings = {
   mrWhiteCount: 0,
   mrWhiteCannotStart: true,
   undercoverCannotStart: false,
-  extreme: false,
+  extreme: "off",
   suggestionsOnly: false,
 };
 

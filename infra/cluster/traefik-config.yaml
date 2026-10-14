@@ -12,8 +12,6 @@ spec:
         # Keep the client's real IP (needed for per-IP rate limiting) instead of the
         # node's IP after NAT.
         externalTrafficPolicy: Local
-    additionalArguments:
-      # Every HTTP request is permanently redirected to HTTPS.
-      - "--entryPoints.web.http.redirections.entryPoint.to=websecure"
-      - "--entryPoints.web.http.redirections.entryPoint.scheme=https"
-      - "--entryPoints.web.http.redirections.entryPoint.permanent=true"
+    # No global HTTP → HTTPS redirect here: it would also redirect cert-manager's HTTP-01
+    # challenge away from its solver. Each Ingress uses a redirect-https Middleware instead
+    # (see infra/apps/undercover/base/middleware.yaml).

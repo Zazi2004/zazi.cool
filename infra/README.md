@@ -62,7 +62,7 @@ helm repo add jetstack https://charts.jetstack.io && helm repo update
 helm upgrade --install cert-manager jetstack/cert-manager \
   --namespace cert-manager --create-namespace \
   --version v1.21.2 --values infra/cluster/cert-manager-values.yaml --wait
-kubectl apply -k infra/cluster                # Traefik (HTTPS, IP client) + ClusterIssuers
+kubectl apply -k infra/cluster                # Traefik (IP client) + ClusterIssuers
 ```
 
 ## 5. PostgreSQL
@@ -105,6 +105,10 @@ curl -sI https://undercover.zazi.cool/healthz
 ```
 
 Revenir en arrière : remettre l'ancien SHA dans `newTag` et réappliquer.
+
+Chaque Ingress d'application référence deux Middlewares Traefik de son namespace :
+`redirect-https` (HTTP → HTTPS) et `security-headers` (HSTS) ; voir
+`infra/apps/undercover/base/middleware.yaml`.
 
 ## 7. Sauvegardes
 

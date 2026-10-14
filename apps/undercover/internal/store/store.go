@@ -39,9 +39,21 @@ func (s *Store) Ping(ctx context.Context) error {
 	return s.pool.Ping(ctx)
 }
 
+// ExtremeMode tells whether extreme pairs can be drawn.
+type ExtremeMode int
+
+const (
+	// ExtremeExcluded draws all-ages pairs only (the zero value, so the default).
+	ExtremeExcluded ExtremeMode = iota
+	// ExtremeIncluded draws all-ages and extreme pairs.
+	ExtremeIncluded
+	// ExtremeOnly draws extreme pairs only.
+	ExtremeOnly
+)
+
 // Filter restricts which pairs can be drawn.
 type Filter struct {
-	IncludeExtreme  bool
+	Extreme         ExtremeMode
 	SuggestionsOnly bool
 	// Exclude lists pairs already played on this device.
 	Exclude []int64
@@ -70,11 +82,12 @@ func (s *Store) randomPair(ctx context.Context, f Filter) (pairs.Pair, error) {
 		SELECT `+pairColumns+` FROM word_pairs
 		WHERE NOT hidden
 		  AND (NOT extreme OR $1)
-		  AND (NOT $2 OR source = 'suggestion')
-		  AND id <> ALL($3)
+		  AND (extreme OR NOT $2)
+		  AND (NOT $3 OR source = 'suggestion')
+		  AND id <> ALL($4)
 		ORDER BY random()
 		LIMIT 1`,
-		f.IncludeExtreme, f.SuggestionsOnly, exclude)
+		f.Extreme != ExtremeExcluded, f.Extreme == ExtremeOnly, f.SuggestionsOnly, exclude)
 	return scanPair(row)
 }
 
