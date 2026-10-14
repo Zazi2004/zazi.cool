@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: undercover
+  namespace: undercover
+spec:
+  # The server is stateless, but its rate limiting is in memory: one replica.
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: undercover
+  template:
+    metadata:
+      labels:
+        app: undercover
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532 # nonroot user of the distroless image
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: undercover
+          # The tag is set by the overlay (git SHA built by the CI).
+          image: ghcr.io/zazi2004/undercover
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            # Traefik sets X-Forwarded-For with the client IP.
+            - name: TRUST_PROXY
+              value: "true"
+          envFrom:
+            # DATABASE_URL and IP_HASH_SALT (overlays/prod/secret.enc.yaml).
+            - secretRef:
+                name: undercover-env
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
