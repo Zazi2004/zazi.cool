@@ -43,7 +43,8 @@ PostgreSQL. Table `pastes` : `id`, `content`, `language`, `created_at`, `expires
 
 ## Décisions ouvertes
 
-- [x] Stack : **Go** (décision commune, voir `CLAUDE.md` racine §9).
+- [x] Stack : **Go**, front en rendu serveur (décision commune, voir `CLAUDE.md` racine §9).
+      Un petit module TypeScript seulement si le chiffrement côté client est retenu.
 - [ ] Création publique ou authentifiée.
 - [ ] Chiffrement côté client ou non.
 - [ ] Durées d'expiration proposées et durée par défaut.

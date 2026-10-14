@@ -55,9 +55,15 @@ Les spécifications détaillées de chaque projet seront ajoutées dans leur `CL
 
 - **Hébergement : VPS OVHcloud, 2 vCPU / 4 Go RAM**. Assez pour k3s, PostgreSQL,
   cert-manager et les applis légères ; à réévaluer si la mémoire devient un problème.
-- **Stack applicative : Go pour toutes les applications** (bibliothèque standard en
-  priorité : `net/http`, `html/template`, `log/slog`…). Binaire unique, images minimales,
-  faible empreinte mémoire. Les dépendances restent soumises à la règle du §5.
+- **Stack applicative : Go côté serveur, TypeScript pour les fronts interactifs.**
+  - **Back-end : Go pour toutes les applications** (bibliothèque standard en priorité :
+    `net/http`, `html/template`, `log/slog`, `embed`…). Binaire unique, images minimales,
+    faible empreinte mémoire.
+  - **Front par défaut : rendu serveur** (`html/template`) avec peu ou pas de JS.
+  - **Front interactif (ex. Undercover) : TypeScript + Vite**, dans `web/`. Le build produit
+    des fichiers statiques **embarqués dans le binaire Go** (`embed`) : une seule image,
+    un seul déploiement, pas de serveur Node en production.
+  - Les dépendances restent soumises à la règle du §5.
 
 - **Kubernetes : k3s, un seul cluster mono-nœud**. Un cluster par projet serait du
   surdimensionnement pour un VPS unique ; l'isolation se fait par **namespace**.
@@ -113,16 +119,23 @@ apps/<nom>/
 ├── compose.yaml               # app + dépendances pour le dev local
 ├── .env.example               # toutes les variables d'environnement, documentées
 ├── Makefile                   # cibles standard (voir §4)
-├── src/ …                     # code (structure selon la stack)
-└── tests/ …
+├── go.mod
+├── cmd/<nom>/main.go          # point d'entrée
+├── internal/ …                # code applicatif (non importable hors de l'app)
+├── migrations/                # migrations SQL (si base de données)
+└── web/                       # front TypeScript + Vite (seulement si front interactif)
 ```
+
+Les tests Go sont placés à côté du code testé (`*_test.go`), selon la convention Go.
 
 ---
 
 ## 4. Développement local
 
-- Prérequis : Docker (avec Compose v2), `make`, et la toolchain de la stack du projet.
-- Chaque application expose les **mêmes cibles `make`**, quelle que soit sa stack :
+- Prérequis : Docker (avec Compose v2), `make`, Go, et Node.js pour les apps qui ont un
+  front TypeScript (`web/`).
+- Chaque application expose les **mêmes cibles `make`**. Si l'app a un front `web/`,
+  les cibles couvrent **les deux parties** (ex. `make lint` = lint Go + lint TS) :
 
 | Cible         | Rôle                                                        |
 |---------------|-------------------------------------------------------------|
@@ -167,8 +180,23 @@ apps/<nom>/
 - Arrêt propre sur `SIGTERM` (fin des requêtes en cours, fermeture des connexions).
 - Écoute sur le port défini par `PORT` (défaut `8080`).
 
+### Go
+- Code **idiomatique et simple** : formaté par `gofmt`, vérifié par `go vet`, erreurs
+  retournées et enrichies (`fmt.Errorf("…: %w", err)`), jamais ignorées.
+- Pas de framework web : `net/http` (routage avec motifs depuis Go 1.22) suffit.
+- `context.Context` propagé dans les appels I/O (base, HTTP) pour les timeouts et l'arrêt propre.
+
+### TypeScript (fronts interactifs)
+- `"strict": true`, aucune utilisation de `any` sans justification.
+- Vite pour le dev (HMR) et le build ; `package-lock.json` versionné, installation via `npm ci`.
+- Les messages échangés avec le serveur Go (HTTP/WebSocket) ont un **format défini à un seul
+  endroit** et documenté ; les types Go et TS doivent rester alignés (tests à l'appui).
+- Ne jamais faire confiance au client : toute règle métier est validée côté Go.
+
 ### Docker
 - Build **multi-stage**, image finale minimale (distroless/alpine/slim), **utilisateur non-root**.
+  Avec un front `web/` : étape Node (build Vite) → étape Go (compile en embarquant le
+  build) → image finale distroless contenant uniquement le binaire.
 - Tags d'images versionnés (SHA git et/ou semver), **jamais `latest` en production**.
 - Fichier `.dockerignore` systématique.
 
@@ -232,8 +260,10 @@ apps/<nom>/
 - [x] Sous-domaine du jeu Undercover : **`undercover.zazi.cool`**.
 - [x] Apex `zazi.cool` : **page d'accueil dédiée** (`apps/home/`, statique) ;
       `www.zazi.cool` redirige en 301 vers l'apex.
-- [x] Stack technique : **Go pour toutes les applications**. Le front et les choix
-      détaillés (bibliothèques, front, temps réel) se font au cadrage de chaque projet.
+- [x] Stack technique : **Go pour tous les back-ends** ; front en rendu serveur par défaut,
+      **TypeScript + Vite** (embarqué dans le binaire Go) pour les fronts interactifs comme
+      Undercover. Les choix détaillés (bibliothèques, temps réel) se font au cadrage de
+      chaque projet.
 - [x] VPS : **OVHcloud, 2 vCPU / 4 Go RAM**. Sauvegardes sur **OVHcloud Object Storage**.
 - [x] Choix d'infra du §2 **validés** (k3s, Traefik, cert-manager, Kustomize, SOPS + age,
       PostgreSQL partagé).
@@ -260,3 +290,6 @@ apps/<nom>/
 - Livrer du code testé : lancer `make lint` et `make test` et rapporter fidèlement le résultat.
 - Rester simple : pas d'abstraction, de microservice ou d'outil d'infra supplémentaire
   sans besoin concret.
+- **Le développeur découvre Go** : écrire du Go idiomatique et sans astuce, et expliquer
+  dans les réponses (pas dans les commentaires du code) les idiomes Go non évidents
+  (gestion d'erreurs, interfaces, goroutines/channels, `context`…).

@@ -42,7 +42,11 @@ d'une prochaine session.
 
 ## Points techniques
 
+- **Stack** : serveur **Go** (état des parties, temps réel, règles) et front **TypeScript +
+  Vite** dans `web/`, compilé puis embarqué dans le binaire Go (voir `CLAUDE.md` racine §2).
 - **Temps réel** : WebSockets (ou SSE) pour synchroniser l'état de la partie.
+- **Protocole** : les messages client ↔ serveur sont définis et documentés à un seul endroit ;
+  les types Go et TypeScript doivent rester alignés.
 - **Le serveur fait autorité** : rôles et mots ne sont envoyés qu'au joueur concerné, jamais
   diffusés à tous ; les votes sont validés côté serveur.
 - **Reconnexion** : un joueur qui recharge la page ou perd le réseau doit retrouver sa place
@@ -56,9 +60,10 @@ d'une prochaine session.
 ## Décisions ouvertes
 
 - [x] Sous-domaine : **`undercover.zazi.cool`** (décidé le 2026-10-14).
-- [x] Langage du back : **Go** (décision commune, voir `CLAUDE.md` racine §9).
+- [x] Stack : **Go** côté serveur, **TypeScript + Vite** côté front (décidé le 2026-10-14).
 - [ ] Règles exactes et variantes retenues (Mr. White, conditions de victoire, indices oraux ou écrits).
 - [ ] Nombre de joueurs min/max.
 - [ ] Source et volume de la banque de paires de mots.
 - [ ] Transport temps réel (WebSocket via une dépendance type `coder/websocket`, ou SSE en
-      bibliothèque standard) et approche front.
+      bibliothèque standard).
+- [ ] Framework front : TypeScript sans framework, ou bibliothèque légère (Preact, Svelte…).

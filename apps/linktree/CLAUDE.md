@@ -38,6 +38,6 @@ Dans le cas 1, le `compose.yaml` local se limite au serveur web.
 ## Décisions ouvertes
 
 - [x] Sous-domaine : **`link.zazi.cool`** seul (décidé le 2026-10-14).
-- [x] Stack : **Go** (décision commune, voir `CLAUDE.md` racine §9).
+- [x] Stack : **Go**, front en rendu serveur (décision commune, voir `CLAUDE.md` racine §9).
 - [ ] Statique ou dynamique.
 - [ ] Liste initiale des liens et identité visuelle.
