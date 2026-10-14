@@ -96,18 +96,23 @@ Les spécifications détaillées de chaque projet seront ajoutées dans leur `CL
 ```
 zazi/
 ├── CLAUDE.md                  # ce fichier
+├── .sops.yaml                 # règles de chiffrement SOPS (clé publique age)
+├── .github/workflows/<nom>.yml  # CI par application
 ├── apps/
 │   ├── home/
 │   ├── pastebin/
 │   ├── linktree/
 │   └── undercover/
-└── infra/                     # (à créer)
-    ├── cluster/               # bootstrap k3s, cert-manager, ClusterIssuer…
-    ├── data/                  # PostgreSQL, sauvegardes
+└── infra/                     # procédures : infra/README.md
+    ├── cluster/               # bootstrap du VPS, tunnel kubectl, Traefik, ClusterIssuers
+    ├── data/                  # PostgreSQL, bases par application, sauvegardes
     └── apps/<nom>/            # manifests Kustomize par application
         ├── base/
-        └── overlays/prod/
+        └── overlays/prod/     # tag d'image + secret.enc.yaml (SOPS)
 ```
+
+Les secrets sont des fichiers `*.enc.yaml` chiffrés par SOPS (seules les valeurs le sont),
+appliqués avec `sops decrypt <fichier> | kubectl apply -f -` (Kustomize ne déchiffre pas).
 
 Structure attendue de chaque application :
 
@@ -273,6 +278,21 @@ Les tests Go sont placés à côté du code testé (`*_test.go`), selon la conve
       PostgreSQL partagé).
 - [x] Monitoring : **uptime externe uniquement** pour commencer.
 - [x] Migrations : **exécuteur maison** (`embed` + `schema_migrations`), commun aux apps (§5).
+
+### Prises (2026-10-14, mise en production)
+
+- [x] VPS sous **Ubuntu**, administré avec l'utilisateur **`ubuntu`** (sudo), SSH par clé
+      uniquement. Bootstrap scripté : `infra/cluster/bootstrap.sh`.
+- [x] Accès `kubectl` par **tunnel SSH** (port local 16443), kubeconfig dans `~/.kube/zazi.yaml`.
+- [x] Images sur ghcr.io sous **`ghcr.io/zazi2004/<app>`**, **packages publics** (le dépôt
+      reste privé ; les images ne contiennent aucun secret) : pas de secret de pull.
+- [x] Let's Encrypt **sans adresse e-mail** (pas d'avis d'expiration ; renouvellement automatique).
+- [x] PostgreSQL : **StatefulSet** `postgres:18.6-alpine` simple (pas d'opérateur), volume
+      `local-path` du nœud ; bases créées par le Job `create-databases`.
+- [x] Sauvegardes : `pg_dump` par base + rôles, envoyés par **rclone** vers Object Storage,
+      rétention 30 jours ; Job de test de restauration.
+- [x] Traefik : redirection HTTP → HTTPS globale et `externalTrafficPolicy: Local` (IP
+      réelle du client pour le rate limiting).
 
 ### Ouvertes
 
