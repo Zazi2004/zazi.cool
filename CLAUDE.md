@@ -291,8 +291,10 @@ Les tests Go sont placés à côté du code testé (`*_test.go`), selon la conve
       `local-path` du nœud ; bases créées par le Job `create-databases`.
 - [x] Sauvegardes : `pg_dump` par base + rôles, envoyés par **rclone** vers Object Storage,
       rétention 30 jours ; Job de test de restauration.
-- [x] Traefik : redirection HTTP → HTTPS globale et `externalTrafficPolicy: Local` (IP
-      réelle du client pour le rate limiting).
+- [x] Traefik : `externalTrafficPolicy: Local` (IP réelle du client pour le rate limiting).
+      Redirection HTTP → HTTPS **par Ingress** (Middleware `redirect-https` dans chaque
+      namespace d'app) et non globale : une redirection globale empêche la validation
+      HTTP-01 de Let's Encrypt.
 
 ### Ouvertes
 

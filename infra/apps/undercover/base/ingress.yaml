@@ -5,8 +5,8 @@ metadata:
   namespace: undercover
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-    # <namespace>-<name>@kubernetescrd refers to the Traefik Middleware above.
-    traefik.ingress.kubernetes.io/router.middlewares: undercover-security-headers@kubernetescrd
+    # <namespace>-<name>@kubernetescrd refers to the Traefik Middlewares of middleware.yaml.
+    traefik.ingress.kubernetes.io/router.middlewares: undercover-redirect-https@kubernetescrd,undercover-security-headers@kubernetescrd
 spec:
   ingressClassName: traefik
   tls:
