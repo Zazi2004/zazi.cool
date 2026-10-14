@@ -15,7 +15,8 @@ rôles et détermine la fin de partie.
 Le second pilier du projet est une **banque de paires de mots enrichie par les joueurs**,
 avec une catégorie « extrême » séparée pour que le jeu reste tout public par défaut.
 
-**Statut : en développement** (spécifications validées le 2026-10-14).
+**Statut : en production** sur https://undercover.zazi.cool depuis le 2026-10-14
+(spécifications validées le même jour). Déploiement : [`infra/README.md`](../../infra/README.md).
 
 ---
 

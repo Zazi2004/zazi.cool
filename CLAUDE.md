@@ -22,7 +22,7 @@ et **prime sur ce fichier** en cas de conflit pour ce qui la concerne.
 | Accueil      | `apps/home/`       | `zazi.cool` (+ `www.zazi.cool` → redirection 301) | Cadrage    |
 | Pastebin     | `apps/pastebin/`   | `pb.zazi.cool`                                  | Cadrage    |
 | Linktree     | `apps/linktree/`   | `link.zazi.cool`                                | Cadrage    |
-| Undercover   | `apps/undercover/` | `undercover.zazi.cool`                          | Développement |
+| Undercover   | `apps/undercover/` | `undercover.zazi.cool`                          | Production (2026-10-14) |
 
 Les spécifications détaillées de chaque projet seront ajoutées dans leur `CLAUDE.md` respectif.
 
