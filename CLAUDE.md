@@ -22,7 +22,7 @@ et **prime sur ce fichier** en cas de conflit pour ce qui la concerne.
 | Accueil      | `apps/home/`       | `zazi.cool` (+ `www.zazi.cool` → redirection 301) | Cadrage    |
 | Pastebin     | `apps/pastebin/`   | `pb.zazi.cool`                                  | Cadrage    |
 | Linktree     | `apps/linktree/`   | `link.zazi.cool`                                | Cadrage    |
-| Undercover   | `apps/undercover/` | `undercover.zazi.cool`                          | Cadrage    |
+| Undercover   | `apps/undercover/` | `undercover.zazi.cool`                          | Développement |
 
 Les spécifications détaillées de chaque projet seront ajoutées dans leur `CLAUDE.md` respectif.
 
@@ -204,6 +204,10 @@ Les tests Go sont placés à côté du code testé (`*_test.go`), selon la conve
 - Schéma géré **exclusivement par des migrations versionnées** (jamais de modification
   manuelle en prod).
 - Migrations rétro-compatibles quand c'est possible (déploiement sans interruption).
+- Outil : **petit exécuteur maison**, sans dépendance. Les fichiers SQL de `migrations/`
+  sont embarqués dans le binaire (`embed`) et appliqués dans l'ordre. Une table
+  `schema_migrations` garde la trace de ceux déjà passés. L'exécuteur tourne au démarrage
+  de l'app et via `make migrate`.
 
 ---
 
@@ -268,6 +272,7 @@ Les tests Go sont placés à côté du code testé (`*_test.go`), selon la conve
 - [x] Choix d'infra du §2 **validés** (k3s, Traefik, cert-manager, Kustomize, SOPS + age,
       PostgreSQL partagé).
 - [x] Monitoring : **uptime externe uniquement** pour commencer.
+- [x] Migrations : **exécuteur maison** (`embed` + `schema_migrations`), commun aux apps (§5).
 
 ### Ouvertes
 
