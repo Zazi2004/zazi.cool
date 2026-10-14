@@ -1,0 +1,70 @@
+{
+  "checkResponse": {
+    "status": "duplicate",
+    "error": "message",
+    "duplicate": {
+      "id": 1,
+      "wordA": "Chat",
+      "wordB": "Tigre",
+      "extreme": false
+    },
+    "similar": [
+      {
+        "id": 1,
+        "wordA": "Chat",
+        "wordB": "Tigre",
+        "extreme": false
+      }
+    ],
+    "related": [
+      {
+        "id": 1,
+        "wordA": "Chat",
+        "wordB": "Tigre",
+        "extreme": false
+      }
+    ]
+  },
+  "createPairRequest": {
+    "wordA": "Chat",
+    "wordB": "Tigre",
+    "extreme": true,
+    "confirmSimilar": true,
+    "website": ""
+  },
+  "createPairResponse": {
+    "pair": {
+      "id": 1,
+      "wordA": "Chat",
+      "wordB": "Tigre",
+      "extreme": false
+    }
+  },
+  "drawResponse": {
+    "id": 1,
+    "civilWord": "Tigre",
+    "undercoverWord": "Chat",
+    "civilSide": "b",
+    "extreme": false
+  },
+  "errorResponse": {
+    "error": "message"
+  },
+  "guessRequest": {
+    "civilSide": "b",
+    "guess": "tigre"
+  },
+  "guessResponse": {
+    "correct": true,
+    "expected": "Tigre"
+  },
+  "pairView": {
+    "id": 1,
+    "wordA": "Chat",
+    "wordB": "Tigre",
+    "extreme": false
+  },
+  "reportRequest": {
+    "reason": "extreme"
+  }
+}
