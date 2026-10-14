@@ -1,0 +1,444 @@
+/* Mobile-first, dark by default: the game is mostly played in the evening. */
+:root {
+  color-scheme: dark;
+  --bg: #14151c;
+  --surface: #1f2130;
+  --surface-strong: #2a2d40;
+  --border: #383c55;
+  --text: #f1f1f5;
+  --muted: #a3a6bb;
+  --accent: #f2c14e;
+  --accent-text: #1a1406;
+  --danger: #ef6f6c;
+  --success: #6fcf97;
+  --civil: #6fa8ff;
+  --undercover: #ef6f6c;
+  --mrwhite: #e9e9f0;
+  --radius: 14px;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  line-height: 1.5;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f6f6f9;
+    --surface: #ffffff;
+    --surface-strong: #ececf3;
+    --border: #d6d7e3;
+    --text: #1a1b25;
+    --muted: #5c5f73;
+    --accent: #d99a12;
+    --accent-text: #1a1406;
+    --danger: #c23b38;
+    --success: #1e7d45;
+    --civil: #2f6fd6;
+    --undercover: #c9403d;
+    --mrwhite: #4a4c5e;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 17px;
+}
+
+h1,
+h2 {
+  margin: 0;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 1.6rem;
+}
+
+h2 {
+  font-size: 1.2rem;
+  margin-top: 0.5rem;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+}
+
+.topbar {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+.page {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 20px 16px 48px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.center {
+  text-align: center;
+  align-items: stretch;
+}
+
+.hero {
+  padding: 24px 0 8px;
+  text-align: center;
+}
+
+.hero h1 {
+  font-size: 2.4rem;
+  color: var(--accent);
+}
+
+.hero p {
+  margin-top: 8px;
+  color: var(--muted);
+}
+
+.eyebrow {
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.hint {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin: 0;
+}
+
+fieldset.card {
+  min-width: 0;
+}
+
+legend {
+  font-weight: 600;
+  padding: 0 6px;
+}
+
+/* Buttons: large touch targets, usable with one hand. */
+.button,
+.choice,
+.stepper button {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.button {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 16px;
+  text-align: center;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.button.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #1d0605;
+}
+
+.button.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+
+.button.small {
+  min-height: 40px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  width: auto;
+}
+
+.page > .button.ghost.small {
+  margin: 24px auto 0;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input[type="text"] {
+  width: 100%;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checkbox {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.checkbox input {
+  width: 22px;
+  height: 22px;
+  margin: 1px 0 0;
+  flex-shrink: 0;
+  accent-color: var(--accent);
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.stepper-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stepper button {
+  width: 44px;
+  height: 44px;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.stepper output {
+  min-width: 2ch;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+.names {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding-left: 1.6em;
+}
+
+.order {
+  margin: 0;
+  padding-left: 2.4em;
+  font-size: 1.25rem;
+}
+
+.order li {
+  padding: 6px 0;
+}
+
+.order li:first-child {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.choice {
+  min-height: 52px;
+  padding: 10px;
+  overflow-wrap: anywhere;
+}
+
+.choice.selected {
+  border-color: var(--danger);
+  box-shadow: inset 0 0 0 2px var(--danger);
+}
+
+.secret {
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 32px 16px;
+}
+
+.secret-label {
+  color: var(--muted);
+}
+
+.secret-word {
+  font-size: 2.2rem;
+  font-weight: 800;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+
+.role {
+  font-size: 2.2rem;
+  font-weight: 800;
+}
+
+.role-civil {
+  color: var(--civil);
+}
+
+.role-undercover {
+  color: var(--undercover);
+}
+
+.role-mrwhite {
+  color: var(--mrwhite);
+}
+
+.result {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  text-align: left;
+}
+
+.result dt {
+  color: var(--muted);
+}
+
+.result dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.players {
+  list-style: none;
+  padding: 8px 16px;
+}
+
+.players li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.players li:last-child {
+  border-bottom: none;
+}
+
+.players .eliminated .player-name {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.tag {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  margin-left: 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+
+.report {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+details summary {
+  cursor: pointer;
+}
+
+.pair-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.error {
+  color: var(--danger);
+}
+
+.warning {
+  color: var(--accent);
+}
+
+.success {
+  color: var(--success);
+}
+
+.honeypot {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.prose ul,
+.prose ol {
+  margin: 0;
+  padding-left: 1.3em;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
