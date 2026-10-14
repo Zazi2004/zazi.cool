@@ -1,0 +1,7 @@
+# Cluster-wide configuration. cert-manager itself is installed with Helm first
+# (see infra/README.md), because these resources depend on its CRDs.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - traefik-config.yaml
+  - cluster-issuers.yaml

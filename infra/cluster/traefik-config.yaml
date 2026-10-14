@@ -1,0 +1,19 @@
+# Customizes the Traefik bundled with k3s (applied with kubectl, merged by k3s' Helm
+# controller into its own chart values).
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    service:
+      spec:
+        # Keep the client's real IP (needed for per-IP rate limiting) instead of the
+        # node's IP after NAT.
+        externalTrafficPolicy: Local
+    additionalArguments:
+      # Every HTTP request is permanently redirected to HTTPS.
+      - "--entryPoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entryPoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entryPoints.web.http.redirections.entryPoint.permanent=true"
