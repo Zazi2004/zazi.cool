@@ -3,7 +3,7 @@
 
 -include .env
 
-IMAGE ?= ghcr.io/zazi/undercover
+IMAGE ?= ghcr.io/zazi2004/undercover
 TAG   ?= $(shell git rev-parse --short HEAD)
 # Go packages of the app (`go list` skips web/node_modules thanks to go.mod's ignore).
 GO_DIRS = $(shell go list -f '{{.Dir}}' ./...)
