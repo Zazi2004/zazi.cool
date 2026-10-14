@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: undercover
+  labels:
+    # Allowed to reach PostgreSQL (infra/data/networkpolicy.yaml).
+    zazi.cool/database: "true"

@@ -1,0 +1,11 @@
+# HSTS: browsers will only use HTTPS for the site and its subdomains for a year.
+# The app sets the other security headers (CSP, nosniff…) itself.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: security-headers
+  namespace: undercover
+spec:
+  headers:
+    stsSeconds: 31536000
+    stsIncludeSubdomains: true

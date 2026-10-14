@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: undercover
+  namespace: undercover
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # <namespace>-<name>@kubernetescrd refers to the Traefik Middleware above.
+    traefik.ingress.kubernetes.io/router.middlewares: undercover-security-headers@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - undercover.zazi.cool
+      secretName: undercover-tls
+  rules:
+    - host: undercover.zazi.cool
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: undercover
+                port:
+                  name: http

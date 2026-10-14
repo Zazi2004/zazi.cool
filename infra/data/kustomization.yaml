@@ -1,0 +1,17 @@
+# PostgreSQL and per-app databases. Secrets are applied separately with SOPS
+# (see infra/README.md); backups live in backup/.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - postgres.yaml
+  - networkpolicy.yaml
+  - databases-job.yaml
+configMapGenerator:
+  - name: create-databases
+    namespace: data
+    files:
+      - create-databases.sh
+generatorOptions:
+  # A stable name, so the Job can reference it.
+  disableNameSuffixHash: true

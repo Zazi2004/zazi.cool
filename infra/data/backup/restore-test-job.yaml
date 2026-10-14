@@ -1,0 +1,88 @@
+# Restore test: downloads the latest backup, restores the undercover dump into a
+# throw-away database, prints row counts, then drops it. Production data is untouched.
+#   kubectl create -f infra/data/backup/restore-test-job.yaml
+#   kubectl -n data logs -f job/<name> -c restore
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: restore-test-
+  namespace: data
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: download
+          image: rclone/rclone:1.75.2
+          securityContext:
+            runAsUser: 65534
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          envFrom:
+            - secretRef:
+                name: backup-s3
+          env:
+            - name: HOME
+              value: /tmp
+            - name: RCLONE_CONFIG_OVH_TYPE
+              value: s3
+            - name: RCLONE_CONFIG_OVH_PROVIDER
+              value: Other
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              latest=$(rclone lsf --dirs-only "ovh:$BUCKET/postgres" | sort | tail -n 1)
+              echo "latest backup: $latest"
+              rclone copy "ovh:$BUCKET/postgres/$latest" /restore
+          volumeMounts:
+            - { name: restore, mountPath: /restore }
+            - { name: tmp, mountPath: /tmp }
+      containers:
+        - name: restore
+          image: postgres:18.6-alpine
+          securityContext:
+            runAsUser: 70
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: PGHOST
+              value: postgres
+            - name: PGUSER
+              value: postgres
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-superuser
+                  key: password
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              psql -d postgres -c 'DROP DATABASE IF EXISTS restore_test'
+              psql -d postgres -c 'CREATE DATABASE restore_test'
+              pg_restore --no-owner --exit-on-error --dbname=restore_test /restore/undercover.dump
+              psql -d restore_test -c 'SELECT count(*) AS word_pairs FROM word_pairs'
+              psql -d restore_test -c 'SELECT count(*) AS pair_reports FROM pair_reports'
+              psql -d postgres -c 'DROP DATABASE restore_test'
+              echo "RESTORE TEST OK"
+          volumeMounts:
+            - { name: restore, mountPath: /restore, readOnly: true }
+      volumes:
+        - name: restore
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}

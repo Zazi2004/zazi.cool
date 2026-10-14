@@ -1,0 +1,107 @@
+# Daily backup: one pg_dump per app database (+ roles), uploaded to OVHcloud Object
+# Storage; backups older than 30 days are deleted. Credentials: Secret backup-s3.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: data
+spec:
+  schedule: "0 3 * * *"
+  timeZone: Europe/Paris
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: dump
+              image: postgres:18.6-alpine
+              securityContext:
+                runAsUser: 70
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              env:
+                - name: PGHOST
+                  value: postgres
+                - name: PGUSER
+                  value: postgres
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-superuser
+                      key: password
+                # Space-separated list of the databases to back up.
+                - name: DATABASES
+                  value: "undercover"
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  dir="/backup/$(date -u +%Y-%m-%dT%H%MZ)"
+                  mkdir -p "$dir"
+                  for db in $DATABASES; do
+                    pg_dump --format=custom --dbname="$db" --file="$dir/$db.dump"
+                  done
+                  pg_dumpall --globals-only --no-role-passwords --file="$dir/globals.sql"
+                  ls -l "$dir"
+              resources:
+                requests: { cpu: 50m, memory: 64Mi }
+                limits: { memory: 256Mi }
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+          containers:
+            - name: upload
+              image: rclone/rclone:1.75.2
+              securityContext:
+                runAsUser: 65534
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              envFrom:
+                - secretRef:
+                    name: backup-s3
+              env:
+                - name: HOME
+                  value: /tmp
+                - name: RCLONE_CONFIG_OVH_TYPE
+                  value: s3
+                - name: RCLONE_CONFIG_OVH_PROVIDER
+                  value: Other
+                - name: RCLONE_CONFIG_OVH_NO_CHECK_BUCKET
+                  value: "true"
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  rclone copy /backup "ovh:$BUCKET/postgres" --verbose
+                  rclone delete "ovh:$BUCKET/postgres" --min-age 30d --verbose
+                  rclone rmdirs "ovh:$BUCKET/postgres" --leave-root
+              resources:
+                requests: { cpu: 50m, memory: 32Mi }
+                limits: { memory: 128Mi }
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: backup
+              emptyDir: {}
+            - name: tmp
+              emptyDir: {}

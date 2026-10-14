@@ -1,0 +1,8 @@
+# SOPS encrypts Kubernetes Secrets with age. Only the values (data/stringData) are
+# encrypted, so names and keys stay readable in diffs.
+# Private key: outside the repository and the VPS
+# (macOS: ~/Library/Application Support/sops/age/keys.txt).
+creation_rules:
+  - path_regex: \.enc\.ya?ml$
+    encrypted_regex: ^(data|stringData)$
+    age: age1x5qdxhhtpwlf6j69avle3v3md2x679882zm738dyldzxmd3gs4hs6qlu00
