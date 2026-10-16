@@ -2,7 +2,7 @@
 
 | Champ          | Valeur |
 |----------------|--------|
-| Statut         | **Brouillon** (spec pilote du workflow, à valider) |
+| Statut         | **En revue** — décisions D1 à D5 tranchées le 2026-10-16 (spec pilote du workflow) |
 | Issue Multica  | ONBO-1 (conception du workflow) ; une issue de cadrage dédiée sera créée à la validation |
 | Application    | `apps/pastebin/` |
 | Auteur, valideur | Mika / Noah |
@@ -11,7 +11,7 @@
 > workflow : il part de zéro (cadrage → premier déploiement), il a une base de données
 > (migrations, création de la base dans `infra/data`), un endpoint public d'écriture
 > (rate limiting, abus), du contenu non fiable (XSS, CSP), une tâche de fond (purge) et
-> des décisions ouvertes à trancher. Undercover est déjà en production, l'accueil et le
+> des décisions à trancher. Undercover est déjà en production, l'accueil et le
 > linktree sont statiques : ils n'auraient testé qu'une partie du cycle.
 
 ## 1. Contexte
@@ -37,13 +37,15 @@ code, ni CI, ni manifests, ni base.
 ### Inclus (MVP)
 - Création d'un paste (texte brut) depuis un formulaire web.
 - Lecture : vue formatée (avec numéros de ligne) et vue brute.
-- Coloration syntaxique avec choix du langage (sous réserve de D4).
-- Expiration choisie à la création ; refus de servir un paste expiré ; purge.
+- Coloration syntaxique avec choix du langage (`chroma`, D4).
+- Expiration choisie à la création (**10 minutes par défaut**, D3) ; refus de servir un
+  paste expiré ; purge.
 - Taille maximale, rate limiting, champ piège (honeypot).
 
 ### Hors périmètre
-- « Burn after reading », mot de passe, chiffrement côté client (pistes ultérieures du
-  `CLAUDE.md` de l'app).
+- « Burn after reading », mot de passe, chiffrement côté client (D2) (pistes ultérieures
+  du `CLAUDE.md` de l'app).
+- Expiration « jamais » (D3) et création authentifiée (D1).
 - Création via `curl` / API (piste ultérieure ; le modèle de données la permet déjà).
 - Lien de suppression pour l'auteur, comptes utilisateurs, liste des pastes.
 - Détection automatique du langage (choix manuel, « Texte brut » par défaut).
@@ -53,11 +55,12 @@ code, ni CI, ni manifests, ni base.
 ### Fonctionnelles
 
 - **F1** — La page `/` affiche un formulaire : zone de texte, langage (liste, défaut
-  « Texte brut »), expiration (liste, voir D3), bouton « Créer ».
+  « Texte brut »), expiration (10 min, 1 h, 1 jour, 1 semaine, 1 mois ; **10 min
+  présélectionné**, voir D3), bouton « Créer ».
 - **F2** — À la création, le serveur génère un identifiant de **8 caractères** base62
   (`crypto/rand`, ~47 bits), enregistre le paste et redirige (`303`) vers `/<id>`.
   Une collision d'identifiant est réessayée côté serveur.
-- **F3** — `GET /<id>` affiche le paste formaté (numéros de ligne, coloration si D4),
+- **F3** — `GET /<id>` affiche le paste formaté (numéros de ligne, coloration `chroma`),
   la date d'expiration et un lien vers la vue brute et un bouton « Copier le lien ».
 - **F4** — `GET /raw/<id>` renvoie le contenu tel quel en
   `Content-Type: text/plain; charset=utf-8`.
@@ -68,7 +71,11 @@ code, ni CI, ni manifests, ni base.
   leur expiration.
 - **F7** — Validation côté serveur : contenu non vide, UTF-8 valide, au plus
   `MAX_PASTE_BYTES` octets ; langage et expiration dans les listes autorisées. Erreur →
-  formulaire réaffiché avec le contenu saisi et un message en français.
+  formulaire réaffiché avec le contenu saisi et un message en français. Une expiration
+  absente du formulaire vaut la valeur par défaut (10 minutes).
+- **F8** — `GET /version` renvoie le SHA git de l'image en cours d'exécution (injecté au
+  build), pour la vérification automatique des déploiements
+  (`docs/workflow/cycle-de-vie.md`).
 
 ### Non fonctionnelles
 
@@ -95,6 +102,7 @@ code, ni CI, ni manifests, ni base.
 | `GET /{id}` | Vue formatée | 200 ; 404 |
 | `GET /raw/{id}` | Vue brute (`text/plain`) | 200 ; 404 |
 | `GET /healthz`, `GET /readyz` | Santé (readyz : base joignable) | 200 ; 503 |
+| `GET /version` | SHA de build (`text/plain`) | 200 |
 
 Pages en **rendu serveur** (`html/template`), sans front TypeScript, conformément à la
 décision commune (`CLAUDE.md` racine §9).
@@ -109,7 +117,7 @@ Table `pastes` (migration `001_create_pastes.sql`) :
 | `content` | `text` not null | ≤ `MAX_PASTE_BYTES` |
 | `language` | `text` not null | clé de la liste autorisée, `plaintext` par défaut |
 | `created_at` | `timestamptz` not null default `now()` | |
-| `expires_at` | `timestamptz` null | `null` = jamais (si D3 le retient) |
+| `expires_at` | `timestamptz` not null | pas d'expiration « jamais » (D3) |
 
 Index sur `expires_at`. Base `pastebin` et utilisateur dédié, créés par le Job
 `create-databases` (`infra/data`). La purge (F6) est faite par l'application : une
@@ -128,11 +136,15 @@ sans risque avec une seule réplique ; la requête est idempotente si on en ajou
 | `PURGE_INTERVAL` | Période de la purge | `15m` |
 | `BASE_URL` | URL publique, pour les liens affichés | `https://pb.zazi.cool` |
 
+Les durées d'expiration proposées et la valeur par défaut (10 minutes) sont des
+constantes du code, pas des variables d'environnement : elles font partie de la spec.
+
 ## 5. Critères d'acceptation
 
-- **CA1** (F1, F2) — Étant donné un texte valide et l'expiration « 1 jour », quand je
-  soumets le formulaire, alors je suis redirigé vers `/<id>` où `id` fait 8 caractères
-  base62, et le texte s'affiche à l'identique.
+- **CA1** (F1, F2) — Étant donné un texte valide et l'expiration laissée à sa valeur
+  par défaut, quand je soumets le formulaire, alors je suis redirigé vers `/<id>` où `id`
+  fait 8 caractères base62, le texte s'affiche à l'identique et `expires_at` vaut
+  `created_at` + 10 minutes.
 - **CA2** (F4) — Quand j'appelle `/raw/<id>`, alors je reçois exactement les octets
   envoyés, en `text/plain; charset=utf-8` avec `nosniff`.
 - **CA3** (F5) — Étant donné un paste dont `expires_at` est dans le passé et pas encore
@@ -148,49 +160,49 @@ sans risque avec une seule réplique ; la requête est idempotente si on en ajou
 - **CA7** (NF2) — La 11ᵉ création depuis une même IP dans l'heure renvoie `429` ; une
   soumission avec le honeypot rempli ne crée rien.
 - **CA8** (production) — `https://pb.zazi.cool/healthz` et `/readyz` répondent `200`,
-  `http://` redirige vers `https://`, le certificat est valide.
+  `/version` renvoie le SHA déployé, `http://` redirige vers `https://`, le certificat est
+  valide.
+- **CA9** (F1, D3) — Le formulaire propose exactement 10 min, 1 h, 1 jour, 1 semaine et
+  1 mois, avec 10 min présélectionné ; une expiration hors liste (dont « jamais ») est
+  refusée.
 
 ## 6. Risques et points d'attention
 
 | Risque | Impact | Probabilité | Parade |
 |--------|--------|-------------|--------|
-| Spam / contenus illicites hébergés sous `zazi.cool` | Élevé (réputation, signalements) | Moyenne si public | Rate limiting, taille max, pas d'expiration « jamais » publique (D1, D3), `noindex` |
+| Spam / contenus illicites hébergés sous `zazi.cool` | Élevé (réputation, signalements) | Moyenne si public | Rate limiting, taille max, pas d'expiration « jamais » et défaut à 10 min (D1, D3), `noindex` |
 | XSS via contenu collé | Élevé | Faible avec `html/template` | NF1, CA6, review sécurité |
 | Remplissage de la base / du disque du VPS | Moyen (toutes les apps partagent PostgreSQL) | Faible | Taille max, rate limiting, purge ; surveiller la taille de la base |
+| Liens partagés expirés trop tôt (défaut 10 min) | Faible | Moyenne | Durée affichée sur le formulaire et la page du paste ; choix jusqu'à 1 mois |
 | Énumération des identifiants | Moyen | Faible (~47 bits) | `crypto/rand`, 404 indistinctes, rate limiting global possible plus tard |
-| Dépendance de coloration syntaxique | Faible | — | D4 : à valider avant le ticket concerné, sinon MVP sans coloration |
+| Dépendance de coloration syntaxique (`chroma`) | Faible | — | Isolée dans T6 : le MVP peut être livré sans |
 
-## 7. Décisions ouvertes
+## 7. Décisions
 
-- [ ] **D1** — Création publique ou authentifiée ? **Proposition :** publique, avec les
-  parades de NF2 ; ajouter un jeton (`CREATE_TOKEN`) plus tard si l'abus apparaît.
-  (bloque : T3)
-- [ ] **D2** — Chiffrement côté client ? **Proposition :** non pour le MVP (hors
-  périmètre) ; il impliquerait un module TypeScript et rendrait la coloration serveur
-  impossible. (ne bloque rien)
-- [ ] **D3** — Durées proposées et défaut ? **Proposition :** 10 min, 1 h, 1 jour,
-  1 semaine, 1 mois ; **défaut 1 jour** ; pas de « jamais » tant que la création est
-  publique. (bloque : T3, T4)
-- [ ] **D4** — Coloration syntaxique : bibliothèque Go
-  [`chroma`](https://github.com/alecthomas/chroma) côté serveur (dépendance
-  significative, à approuver selon le `CLAUDE.md` racine §10, mais zéro JS), ou rien
-  dans le MVP ? **Proposition :** `chroma`, dans un ticket séparé pour pouvoir livrer
-  sans. (bloque : T5)
-- [ ] **D5** — Base dans `infra/data` : la création de la base `pastebin` modifie
-  l'infrastructure partagée. **Proposition :** l'agent prépare la PR (mot de passe chiffré
-  par Noah avec `sops edit`, ligne `create_app_db`), Noah l'applique. (bloque : T2)
+Toutes tranchées par Noah le 2026-10-16.
+
+- [x] **D1** — Création **publique**, avec les parades de NF2 ; un jeton (`CREATE_TOKEN`)
+  pourra être ajouté plus tard si l'abus apparaît.
+- [x] **D2** — **Pas de chiffrement côté client** pour le MVP (hors périmètre).
+- [x] **D3** — Durées : 10 min, 1 h, 1 jour, 1 semaine, 1 mois ; **défaut 10 minutes** ;
+  pas d'option « jamais ».
+- [x] **D4** — Coloration syntaxique côté serveur avec
+  [`chroma`](https://github.com/alecthomas/chroma) (dépendance approuvée), dans un ticket
+  séparé (T6).
+- [x] **D5** — Base `pastebin` dans `infra/data` : l'agent prépare la PR (mot de passe
+  chiffré par Noah avec `sops edit`, ligne `create_app_db`), Noah l'applique.
 
 ## 8. Découpage en tickets
 
 | # | Étape | Ticket | Exigences | Dépend de | Type |
 |---|-------|--------|-----------|-----------|------|
-| T1 | 1 | Squelette de l'app : `cmd/pastebin`, `/healthz` `/readyz`, arrêt propre, exécuteur de migrations, `Makefile` (cibles standard), `compose.yaml`, `Dockerfile`, `.env.example`, `README.md` ; workflow CI `.github/workflows/pastebin.yml` calqué sur celui d'Undercover | NF3 | — | dev + infra |
+| T1 | 1 | Squelette de l'app : `cmd/pastebin`, `/healthz` `/readyz` `/version` (SHA injecté au build), arrêt propre, exécuteur de migrations, `Makefile` (cibles standard), `compose.yaml`, `Dockerfile`, `.env.example`, `README.md` ; workflow CI `.github/workflows/pastebin.yml` calqué sur celui d'Undercover | F8, NF3 | — | dev + infra |
 | T2 | 1 | Manifests `infra/apps/pastebin/{base,overlays/prod}` (Deployment, Service, Ingress `pb.zazi.cool`, Middlewares, secret SOPS) et base `pastebin` dans `infra/data` | NF3, D5 | — | infra |
-| T3 | 2 | Création et lecture : formulaire, `POST /`, vue formatée, vue brute, validation, en-têtes de sécurité, migration `001_create_pastes.sql` | F1–F5, F7, NF1, NF4 ; CA1–CA3, CA5, CA6 | T1 | dev |
-| T4 | 2 | Expiration et purge périodique | F5, F6 ; CA3, CA4 | T3 (même étape, après T3) | dev |
+| T3 | 2 | Création et lecture : formulaire, `POST /`, vue formatée, vue brute, validation, en-têtes de sécurité, migration `001_create_pastes.sql` | F1–F5, F7, NF1, NF4 ; CA1–CA3, CA5, CA6, CA9 | T1 | dev |
+| T4 | 2 | Expiration (durées et défaut 10 min de D3) et purge périodique | F5, F6 ; CA3, CA4 | T3 (même étape, après T3) | dev |
 | T5 | 2 | Anti-abus : rate limiting par IP et honeypot | NF2 ; CA7 | T1 | dev |
-| T6 | 3 | Coloration syntaxique (si D4 accepté) | F3 | T3 | dev |
-| T7 | 4 | **Déployer pastebin `<sha7>`** : premier déploiement (namespace, secret, base, `newTag`), recette §9, ajout au service d'uptime quand il sera choisi | CA8 | T1–T5 (T6 si retenu) | déploiement |
+| T6 | 3 | Coloration syntaxique avec `chroma` | F3 | T3 | dev |
+| T7 | 4 | **Déployer pastebin `<sha7>`** : premier déploiement (base dans `infra/data`, namespace, secret, `newTag`) selon l'étape de la trajectoire de déploiement en vigueur (`docs/workflow/cycle-de-vie.md`), recette §9, ajout au service d'uptime quand il sera choisi | CA8 | T1–T5 | déploiement |
 
 T4 et T5 peuvent avancer en parallèle de T3 sur des branches distinctes ; T4 se rebase
 sur T3. Le premier déploiement (T7) peut aussi se faire dès la fin de l'étape 2, T6
@@ -198,11 +210,13 @@ suivant alors avec son propre ticket de déploiement.
 
 ## 9. Recette après déploiement
 
-- [ ] `curl -sI https://pb.zazi.cool/healthz` → `200` ; `/readyz` → `200`.
+- [ ] `curl -sI https://pb.zazi.cool/healthz` → `200` ; `/readyz` → `200` ;
+      `curl -s https://pb.zazi.cool/version` → SHA déployé (vérifié par le job `verify`
+      dès l'étape 2 de la trajectoire).
 - [ ] `curl -sI http://pb.zazi.cool/` → redirection vers `https://`.
 - [ ] Certificat Let's Encrypt valide pour `pb.zazi.cool`.
 - [ ] Créer un paste depuis un téléphone, l'ouvrir depuis un autre appareil, ouvrir
       `/raw/<id>`.
 - [ ] Coller `<script>alert(1)</script>` : affiché comme texte, en-tête CSP présent.
-- [ ] Créer un paste « 10 min », vérifier la 404 après expiration.
+- [ ] Créer un paste avec l'expiration par défaut (10 min), vérifier la 404 après expiration.
 - [ ] Mettre à jour le tableau des projets du `CLAUDE.md` racine (statut « Production »).

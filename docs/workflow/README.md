@@ -12,8 +12,8 @@ ce workflow les **orchestre**, il ne les remplace pas.
 | [`organisation-multica.md`](organisation-multica.md) | Proposition de projets, agents et automatisations dans Multica |
 | [`../specs/pastebin.md`](../specs/pastebin.md) | Spec pilote, rédigée avec le modèle |
 
-> **Statut : proposition** (2026-10-16), en attente de validation. Rien n'est encore créé
-> dans Multica.
+> **Statut : validé par Noah le 2026-10-16.** L'organisation Multica décrite n'est pas
+> encore créée dans le workspace.
 
 ---
 
@@ -28,7 +28,8 @@ flowchart LR
     E --> F[Review]
     F -->|merge main| G[Image ghcr.io]
     G --> H[Ticket de déploiement<br/>PR newTag]
-    H -->|kubectl apply par Noah| I[Vérification<br/>/healthz + recette]
+    H -->|aujourd'hui : kubectl apply par Noah<br/>cible : Flux, automatique| I[Vérification<br/>/version, /healthz, /readyz, TLS]
+    I -->|échec| J[Rollback]
 ```
 
 1. **Spec** : une issue de cadrage produit `docs/specs/<app>.md` (ou
@@ -40,7 +41,9 @@ flowchart LR
 4. **CI** : le workflow GitHub Actions de l'app (lint → tests sur la PR ; image sur `main`).
 5. **Review** puis **merge** par Noah.
 6. **Déploiement** : ticket dédié qui bascule `newTag` dans `infra/apps/<app>/overlays/prod/`,
-   appliqué par Noah (l'accès au cluster passe par son tunnel SSH), puis vérifié.
+   puis vérifié de l'extérieur. Aujourd'hui, Noah l'applique par son tunnel SSH ;
+   **l'objectif est un déploiement 100 % automatisé** (merge + CI verte → mise en
+   production, vérification et rollback automatiques), atteint par étapes.
 
 Le détail des statuts et des critères est dans [`cycle-de-vie.md`](cycle-de-vie.md).
 
@@ -83,7 +86,8 @@ Le détail des statuts et des critères est dans [`cycle-de-vie.md`](cycle-de-vi
 - Images publiques sur **ghcr.io**.
 - **Déploiement manuel** : PR `chore(infra): deploy <app> <sha>` qui met à jour `newTag`,
   puis `kubectl apply -k` à travers le tunnel SSH (`infra/cluster/tunnel.sh`), puis
-  `kubectl rollout status` et `curl /healthz`. Pas de GitOps pour l'instant.
+  `kubectl rollout status` et `curl /healthz`. Pas encore de GitOps : la trajectoire vers
+  le déploiement automatisé est décrite dans [`cycle-de-vie.md`](cycle-de-vie.md#déploiement).
 - Infra partagée : PostgreSQL (`infra/data`, Job `create-databases`), sauvegardes
   `pg_dump` → Object Storage (CronJob 3 h, rétention 30 jours, Job de test de restauration).
 - Monitoring : uptime externe prévu, **service pas encore choisi**.
@@ -94,8 +98,9 @@ Le détail des statuts et des critères est dans [`cycle-de-vie.md`](cycle-de-vi
   puis PR de déploiement séparée. Le workflow le formalise plutôt que de le changer.
 - Le déploiement exige le tunnel SSH et la clé age de Noah : **un agent ne peut pas
   déployer seul**, et le `CLAUDE.md` racine (§10) lui demande de toute façon de demander
-  avant toute action sur la production. L'étape reste donc humaine, avec une vérification
-  externe automatisable (voir [`cycle-de-vie.md`](cycle-de-vie.md#déploiement)).
+  avant toute action sur la production. L'automatisation visée ne donne donc pas d'accès
+  aux agents : c'est le cluster qui tire `main` (GitOps), et le merge reste humain (voir
+  [`cycle-de-vie.md`](cycle-de-vie.md#déploiement)).
 - Quelques branches déjà mergées traînent sur `origin` (`feat/undercover-mvp`,
   `chore/infra-*`, `feat/undercover-extreme-only`) : activer la suppression automatique
   des branches après merge éviterait l'accumulation.

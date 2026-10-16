@@ -24,7 +24,8 @@ et **prime sur ce fichier** en cas de conflit pour ce qui la concerne.
 | Linktree     | `apps/linktree/`   | `link.zazi.cool`                                | Cadrage    |
 | Undercover   | `apps/undercover/` | `undercover.zazi.cool`                          | Production (2026-10-14) |
 
-Les spécifications détaillées de chaque projet seront ajoutées dans leur `CLAUDE.md` respectif.
+Les spécifications sont rédigées dans `docs/specs/<app>.md` pendant le cadrage, puis leurs
+règles durables sont reportées dans le `CLAUDE.md` de l'app. Workflow complet : `docs/workflow/`.
 
 ---
 
@@ -243,8 +244,8 @@ Les tests Go sont placés à côté du code testé (`*_test.go`), selon la conve
 ### Déploiement
 1. Merge sur `main` → la CI construit et pousse l'image taguée avec le SHA.
 2. Mise à jour du tag dans `infra/apps/<nom>/overlays/prod/` → `kubectl apply -k`.
-3. À terme, possibilité de passer en **GitOps** (Argo CD ou Flux) si les déploiements
-   manuels deviennent pénibles — pas avant.
+3. Objectif (décidé le 2026-10-16) : **déploiement 100 % automatisé à terme** (GitOps avec
+   Flux recommandé), par étapes : voir `docs/workflow/cycle-de-vie.md`.
 
 ### Chaque Deployment doit définir
 - `resources.requests` et `resources.limits` (le VPS est partagé entre toutes les apps).
