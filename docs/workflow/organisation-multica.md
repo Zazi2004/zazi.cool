@@ -97,5 +97,5 @@ Par ordre d'utilité. Aucune n'est indispensable pour démarrer.
 ### Mise en place
 
 - Le dépôt est enregistré dans le workspace Multica (2026-10-16).
-- **Reste à faire par Noah** : installer l'intégration GitHub de Multica sur le dépôt, pour
-  que les PR soient liées aux issues et que les réveils `--until-pr checks` fonctionnent.
+- L'intégration GitHub de Multica est installée sur le dépôt (2026-10-16) : les PR sont
+  liées aux issues et les réveils `--until-pr checks` peuvent fonctionner.
