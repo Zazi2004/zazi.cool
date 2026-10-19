@@ -8,8 +8,9 @@
 Service de partage de texte et de code : on colle un contenu, on obtient une URL courte
 à partager. Service personnel hébergé sur `pb.zazi.cool`.
 
-**Statut : MVP de `docs/specs/pastebin.md` (qui fait foi) développé** : création, lecture,
-anti-abus, expiration, purge et coloration syntaxique (ONBO-5, ONBO-7, ONBO-6, ONBO-8).
+**Statut : en production** sur https://pb.zazi.cool depuis le 2026-10-19 (`3a6919e`, ONBO-9) :
+MVP de `docs/specs/pastebin.md` (qui fait foi) — création, lecture, anti-abus, expiration,
+purge et coloration syntaxique (ONBO-5, ONBO-7, ONBO-6, ONBO-8).
 
 ## Périmètre envisagé (à confirmer)
 
