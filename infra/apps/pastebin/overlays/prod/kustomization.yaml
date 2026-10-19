@@ -7,5 +7,4 @@ resources:
   - ../../base
 images:
   - name: ghcr.io/zazi2004/pastebin
-    # Placeholder: no image is published yet. The first "Deploy pastebin <sha7>" ticket sets it.
-    newTag: "0000000"
+    newTag: 3a6919e
