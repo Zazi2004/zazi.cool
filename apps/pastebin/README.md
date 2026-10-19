@@ -18,7 +18,8 @@ curl localhost:8080/readyz
 curl localhost:8080/version   # « local » en Compose, le SHA git avec `make build`
 ```
 
-`.env` est créé depuis `.env.example` si absent. Les migrations sont appliquées au démarrage.
+`.env` est créé depuis `.env.example` si absent. Les migrations sont appliquées au démarrage ;
+les pastes expirés sont purgés au démarrage puis toutes les `PURGE_INTERVAL` (15 min).
 
 ## Développement
 

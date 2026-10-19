@@ -46,6 +46,22 @@ func TestLoadConfig(t *testing.T) {
 			t.Errorf("RATE_LIMIT_CREATE=%q: want an error", bad)
 		}
 	}
+	t.Setenv("RATE_LIMIT_CREATE", "")
+
+	if cfg.purgeInterval != 15*time.Minute {
+		t.Errorf("default purge interval = %v, want 15m", cfg.purgeInterval)
+	}
+	t.Setenv("PURGE_INTERVAL", "30s")
+	if cfg, err := loadConfig(); err != nil || cfg.purgeInterval != 30*time.Second {
+		t.Errorf("PURGE_INTERVAL=30s: got %v, %v", cfg.purgeInterval, err)
+	}
+	// F6: a paste must be purged at most one hour after it expires.
+	for _, bad := range []string{"0", "-1m", "15", "2h"} {
+		t.Setenv("PURGE_INTERVAL", bad)
+		if _, err := loadConfig(); err == nil {
+			t.Errorf("PURGE_INTERVAL=%q: want an error", bad)
+		}
+	}
 }
 
 func TestServeShutsDownWhenContextIsCancelled(t *testing.T) {
