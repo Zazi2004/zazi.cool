@@ -112,16 +112,14 @@ base en conteneurs), `make dev` (base en Compose, serveur Go sur l'hôte), `make
   `X-Robots-Tag: noindex`, `Referrer-Policy: no-referrer` et `Cache-Control: no-store` sur
   toutes les réponses (`internal/server/headers.go`) ; la vue brute ajoute
   `Content-Security-Policy: sandbox`. Aucun style ni script inline : tout passe par
-  `/static/`. Les seuls scripts sont `copy.js` (bouton « Copier le lien ») et `fx.js`
-  (halo qui suit le pointeur, purement décoratif).
+  `/static/`. Le seul script est `copy.js` (bouton « Copier le lien »).
 - Couche esthétique (ONBO-13) : **pas de React ni de bibliothèque** (React Bits suppose
   React ; le front est rendu côté serveur sous CSP stricte, sans bundler). Les effets
   inspirés de React Bits sont en CSS natif dans `style.css` : fond « aurore » animé
-  (`body::before`), titres en dégradé, apparition de la page et des lignes de code, halo
-  au survol des cartes (`.fx-card`, `.code`, variables `--mx`/`--my` posées par `fx.js`),
-  bouton principal en dégradé. Coût : ~1 Kio de JS, aucune dépendance. Sous
-  `prefers-reduced-motion: reduce`, toutes les animations et transitions sont coupées et
-  `fx.js` ne fait rien. Le code et le texte restent sur fond opaque pour la lisibilité.
+  (`body::before`), titres en dégradé, apparition de la page et des lignes de code, bordure
+  accentuée au survol des cartes (`.fx-card`, `.code`), bouton principal en dégradé. Aucun JS,
+  aucune dépendance. L'animation au pointeur (halo, `fx.js`) a été retirée (ONBO-14). Sous
+  `prefers-reduced-motion: reduce`, toutes les animations et transitions sont coupées. Le code et le texte restent sur fond opaque pour la lisibilité.
 - Corps de `POST /` plafonné à `3 × MAX_PASTE_BYTES + 4 Kio` (l'encodage URL triple au pire
   la taille du texte non ASCII) ; le contenu décodé est ensuite comparé à `MAX_PASTE_BYTES`.
 - Le contenu est stocké **octet pour octet** (les fins de ligne `\r\n` envoyées par les
