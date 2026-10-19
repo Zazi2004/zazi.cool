@@ -1,0 +1,11 @@
+# Production. To deploy a new version: set newTag to the 7-character git SHA built by
+# the CI (ghcr.io/zazi2004/pastebin:<sha>), commit, then `kubectl apply -k` this folder.
+# The Secret (secret.enc.yaml) is applied separately with SOPS (see infra/README.md).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+images:
+  - name: ghcr.io/zazi2004/pastebin
+    # Placeholder: no image is published yet. The first "Deploy pastebin <sha7>" ticket sets it.
+    newTag: "0000000"

@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pastebin
+  namespace: pastebin
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # <namespace>-<name>@kubernetescrd refers to the Traefik Middlewares of middleware.yaml.
+    traefik.ingress.kubernetes.io/router.middlewares: pastebin-redirect-https@kubernetescrd,pastebin-security-headers@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - pb.zazi.cool
+      secretName: pastebin-tls
+  rules:
+    - host: pb.zazi.cool
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pastebin
+                port:
+                  name: http

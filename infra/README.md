@@ -110,6 +110,22 @@ Chaque Ingress d'application référence deux Middlewares Traefik de son namespa
 `redirect-https` (HTTP → HTTPS) et `security-headers` (HSTS) ; voir
 `infra/apps/undercover/base/middleware.yaml`.
 
+### Première fois pour pastebin (`pb.zazi.cool`)
+
+Le secret n'est pas versionné tant que Noah ne l'a pas chiffré. Dans l'ordre :
+
+```sh
+# 1. Ajouter la clé `pastebin` (mot de passe aléatoire) dans le secret des bases
+sops edit infra/data/secrets/app-db-passwords.enc.yaml
+# 2. Créer la base : appliquer les secrets puis infra/data (voir §5)
+# 3. Chiffrer le secret de l'app, avec le même mot de passe dans DATABASE_URL
+cp infra/apps/pastebin/overlays/prod/secret.example.yaml infra/apps/pastebin/overlays/prod/secret.enc.yaml
+sops encrypt --in-place infra/apps/pastebin/overlays/prod/secret.enc.yaml
+# 4. Namespace et secret, puis le déploiement comme pour undercover
+kubectl apply -f infra/apps/pastebin/base/namespace.yaml
+sops decrypt infra/apps/pastebin/overlays/prod/secret.enc.yaml | kubectl apply -f -
+```
+
 ## 7. Sauvegardes
 
 Prérequis : un bucket Object Storage OVHcloud (S3) et un utilisateur S3 avec ses clés.
