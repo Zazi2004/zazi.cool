@@ -8,8 +8,8 @@
 Service de partage de texte et de code : on colle un contenu, on obtient une URL courte
 à partager. Service personnel hébergé sur `pb.zazi.cool`.
 
-**Statut : création et lecture des pastes en place** (ONBO-5) ; restent la purge (T4),
-l'anti-abus (T5) et la coloration syntaxique (T6) de `docs/specs/pastebin.md`, qui fait foi.
+**Statut : création, lecture et anti-abus en place** (ONBO-5, ONBO-7) ; restent la purge (T4)
+et la coloration syntaxique (T6) de `docs/specs/pastebin.md`, qui fait foi.
 
 ## Périmètre envisagé (à confirmer)
 
@@ -77,3 +77,18 @@ PostgreSQL. Table `pastes` (`migrations/001_create_pastes.sql`) : `id`, `content
   `--build-arg VERSION=<sha7>` du Dockerfile ; il est servi par `GET /version`.
 - Dépendance : `pgx` (pilote PostgreSQL), comme Undercover.
 - Ports locaux par défaut : app 8080, base 5434.
+- Anti-abus (NF2, ONBO-7) : `POST /` passe par `guardCreate` (`internal/server/abuse.go`,
+  rate limiting) **avant toute lecture du corps**, puis par le handler de création, qui
+  plafonne le corps, lit le formulaire, vérifie le honeypot puis valide.
+  - Limite : `RATE_LIMIT_CREATE` créations par IP sur une **fenêtre glissante d'une heure**,
+    `429` + `Retry-After` au-delà. Toute tentative compte, y compris invalide ou piégée.
+  - IP du client : **dernière** entrée de `X-Forwarded-For` (celle ajoutée par Traefik ; les
+    précédentes viennent du client et sont falsifiables), sinon `RemoteAddr`. Les IPv6
+    sont regroupées par /64.
+  - Compteurs **en mémoire seulement** (NF4) : ils repartent à zéro au redémarrage et
+    imposent **une seule réplique** (sinon la limite est multipliée par le nombre de pods).
+  - Honeypot : champ `website` hors écran (classe CSS `.trap`) ; rempli → `303` vers `/`,
+    rien n'est créé.
+  - Aucun middleware ne doit lire le formulaire avant le handler de création : le plafond
+    de taille (`http.MaxBytesReader`, NF3) y est posé, et une erreur de taille avalée par
+    un `PostFormValue` en amont ferait passer un paste trop gros pour un paste vide.

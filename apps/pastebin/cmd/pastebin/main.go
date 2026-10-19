@@ -68,6 +68,7 @@ func run(args []string) error {
 		Version:       version,
 		MaxPasteBytes: cfg.maxPasteBytes,
 		BaseURL:       cfg.baseURL,
+		Limiter:       server.NewRateLimiter(cfg.rateLimitCreate, server.RateWindow),
 	}))
 }
 
@@ -111,10 +112,11 @@ func serve(ctx context.Context, addr string, handler http.Handler) error {
 }
 
 type config struct {
-	port          string
-	databaseURL   string
-	maxPasteBytes int
-	baseURL       string
+	port            string
+	databaseURL     string
+	maxPasteBytes   int
+	baseURL         string
+	rateLimitCreate int
 }
 
 // loadConfig reads the configuration from environment variables (see .env.example).
@@ -132,6 +134,11 @@ func loadConfig() (config, error) {
 		return config{}, fmt.Errorf("MAX_PASTE_BYTES must be a positive number of bytes, got %q", os.Getenv("MAX_PASTE_BYTES"))
 	}
 	cfg.maxPasteBytes = maxBytes
+	limit, err := strconv.Atoi(getenv("RATE_LIMIT_CREATE", "10"))
+	if err != nil || limit < 1 {
+		return config{}, fmt.Errorf("RATE_LIMIT_CREATE must be a positive integer, got %q", os.Getenv("RATE_LIMIT_CREATE"))
+	}
+	cfg.rateLimitCreate = limit
 	return cfg, nil
 }
 

@@ -67,6 +67,9 @@ textarea {
 select, button, .link { font: inherit; padding: .4rem .6rem; }
 .options select { display: block; margin-top: .25rem; }
 
+/* Honeypot field: off screen rather than display:none, which some bots detect. */
+.trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+
 .error { color: var(--error); font-weight: 600; }
 
 .meta {

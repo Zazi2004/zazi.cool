@@ -34,6 +34,18 @@ func TestLoadConfig(t *testing.T) {
 			t.Errorf("loadConfig with MAX_PASTE_BYTES=%q: want an error", bad)
 		}
 	}
+	t.Setenv("MAX_PASTE_BYTES", "")
+
+	if cfg.rateLimitCreate != 10 {
+		t.Errorf("default rate limit = %d, want 10", cfg.rateLimitCreate)
+	}
+
+	for _, bad := range []string{"0", "-1", "ten"} {
+		t.Setenv("RATE_LIMIT_CREATE", bad)
+		if _, err := loadConfig(); err == nil {
+			t.Errorf("RATE_LIMIT_CREATE=%q: want an error", bad)
+		}
+	}
 }
 
 func TestServeShutsDownWhenContextIsCancelled(t *testing.T) {

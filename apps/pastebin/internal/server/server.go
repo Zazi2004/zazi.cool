@@ -34,6 +34,8 @@ type Config struct {
 	MaxPasteBytes int
 	// BaseURL is the public URL of the service, used for the links shown to users.
 	BaseURL string
+	// Limiter caps paste creations per client (RATE_LIMIT_CREATE).
+	Limiter *RateLimiter
 }
 
 //go:embed templates/*.html
@@ -65,7 +67,7 @@ func NewHandler(cfg Config) http.Handler {
 	mux.HandleFunc("GET /version", h.version)
 	mux.Handle("GET /static/", cacheable(http.StripPrefix("/static/", http.FileServerFS(static))))
 	mux.HandleFunc("GET /{$}", h.form)
-	mux.HandleFunc("POST /{$}", h.create)
+	mux.Handle("POST /{$}", guardCreate(cfg.Limiter, http.HandlerFunc(h.create)))
 	mux.HandleFunc("GET /{id}", h.view)
 	mux.HandleFunc("GET /raw/{id}", h.raw)
 	return securityHeaders(mux)

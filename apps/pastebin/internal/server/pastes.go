@@ -75,6 +75,13 @@ func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Bots fill in every field; humans never see this one. Pretend success and drop it.
+	if r.PostForm.Get(honeypotField) != "" {
+		slog.InfoContext(r.Context(), "honeypot filled, paste dropped")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
 	page.Content = r.PostForm.Get("content")
 	if v := r.PostForm.Get("language"); v != "" {
 		page.Language = v

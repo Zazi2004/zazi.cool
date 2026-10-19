@@ -62,7 +62,13 @@ func (f *fakeStore) count() int {
 const testMaxBytes = 1024
 
 func newTestHandler(s *fakeStore) http.Handler {
-	return NewHandler(Config{Store: s, Version: "abc1234", MaxPasteBytes: testMaxBytes, BaseURL: "https://pb.example/"})
+	return NewHandler(Config{
+		Store:         s,
+		Version:       "abc1234",
+		MaxPasteBytes: testMaxBytes,
+		BaseURL:       "https://pb.example/",
+		Limiter:       NewRateLimiter(100, RateWindow),
+	})
 }
 
 func do(t *testing.T, h http.Handler, method, path string) *httptest.ResponseRecorder {
@@ -133,6 +139,7 @@ func TestFormOffersExpirations(t *testing.T) {
 		`<option value="1w">1 semaine</option>`,
 		`<option value="1mo">1 mois</option>`,
 		`<option value="plaintext" selected>Texte brut</option>`,
+		`name="website"`,
 	} {
 		if !strings.Contains(body, opt) {
 			t.Errorf("form lacks %s", opt)
