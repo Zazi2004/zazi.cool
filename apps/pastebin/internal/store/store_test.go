@@ -106,3 +106,54 @@ func TestGetHidesExpiredAndUnknownPastes(t *testing.T) {
 		}
 	}
 }
+
+// CA4: a purge removes the expired pastes, expired or not yet read, and leaves the
+// others untouched.
+func TestPurgeDeletesOnlyExpiredPastes(t *testing.T) {
+	s, pool := newTestStore(t)
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx, `INSERT INTO pastes (id, content, expires_at) VALUES
+		('expired1', 'old', now() - interval '1 second'),
+		('expired2', 'older', now() - interval '2 days')`); err != nil {
+		t.Fatal(err)
+	}
+	alive, err := s.Create(ctx, "still here", "plaintext", 10*time.Minute)
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	n, err := s.Purge(ctx)
+	if err != nil {
+		t.Fatalf("Purge: %v", err)
+	}
+	if n != 2 {
+		t.Errorf("Purge removed %d pastes, want 2", n)
+	}
+
+	var ids []string
+	rows, err := pool.Query(ctx, `SELECT id FROM pastes ORDER BY id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(ids) != 1 || ids[0] != alive.ID {
+		t.Errorf("pastes left = %v, want only %s", ids, alive.ID)
+	}
+	if got, err := s.Get(ctx, alive.ID); err != nil || got.Content != "still here" {
+		t.Errorf("Get(%s) = %q, %v; want the untouched paste", alive.ID, got.Content, err)
+	}
+
+	if n, err := s.Purge(ctx); err != nil || n != 0 {
+		t.Errorf("second Purge = %d, %v; want 0, nil", n, err)
+	}
+}

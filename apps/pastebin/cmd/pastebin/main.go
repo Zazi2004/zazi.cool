@@ -21,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"zazi.cool/pastebin/internal/migrate"
+	"zazi.cool/pastebin/internal/purge"
 	"zazi.cool/pastebin/internal/server"
 	"zazi.cool/pastebin/internal/store"
 	"zazi.cool/pastebin/migrations"
@@ -63,8 +64,23 @@ func run(args []string) error {
 		return nil
 	}
 
+	st := store.New(pool)
+
+	// The purge runs in the background while serving. When serve returns (signal or
+	// listen error), stop cancels ctx and run waits for the purge to end before the
+	// deferred pool.Close.
+	purgeDone := make(chan struct{})
+	go func() {
+		defer close(purgeDone)
+		purge.Run(ctx, st, cfg.purgeInterval)
+	}()
+	defer func() {
+		stop()
+		<-purgeDone
+	}()
+
 	return serve(ctx, ":"+cfg.port, server.NewHandler(server.Config{
-		Store:         store.New(pool),
+		Store:         st,
 		Version:       version,
 		MaxPasteBytes: cfg.maxPasteBytes,
 		BaseURL:       cfg.baseURL,
@@ -117,6 +133,7 @@ type config struct {
 	maxPasteBytes   int
 	baseURL         string
 	rateLimitCreate int
+	purgeInterval   time.Duration
 }
 
 // loadConfig reads the configuration from environment variables (see .env.example).
@@ -139,6 +156,11 @@ func loadConfig() (config, error) {
 		return config{}, fmt.Errorf("RATE_LIMIT_CREATE must be a positive integer, got %q", os.Getenv("RATE_LIMIT_CREATE"))
 	}
 	cfg.rateLimitCreate = limit
+	interval, err := time.ParseDuration(getenv("PURGE_INTERVAL", purge.DefaultInterval.String()))
+	if err != nil || interval <= 0 || interval > purge.MaxInterval {
+		return config{}, fmt.Errorf("PURGE_INTERVAL must be a duration between 0 and %s (F6), got %q", purge.MaxInterval, os.Getenv("PURGE_INTERVAL"))
+	}
+	cfg.purgeInterval = interval
 	return cfg, nil
 }
 

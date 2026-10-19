@@ -86,3 +86,13 @@ func (s *Store) Get(ctx context.Context, id string) (paste.Paste, error) {
 	}
 	return p, nil
 }
+
+// Purge deletes the expired pastes and returns how many were removed (F6). It is
+// idempotent, so several replicas running it at once would be harmless.
+func (s *Store) Purge(ctx context.Context) (int64, error) {
+	tag, err := s.pool.Exec(ctx, `DELETE FROM pastes WHERE expires_at <= now()`)
+	if err != nil {
+		return 0, fmt.Errorf("delete expired pastes: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}

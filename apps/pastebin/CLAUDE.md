@@ -8,8 +8,8 @@
 Service de partage de texte et de code : on colle un contenu, on obtient une URL courte
 à partager. Service personnel hébergé sur `pb.zazi.cool`.
 
-**Statut : création, lecture et anti-abus en place** (ONBO-5, ONBO-7) ; restent la purge (T4)
-et la coloration syntaxique (T6) de `docs/specs/pastebin.md`, qui fait foi.
+**Statut : création, lecture, anti-abus, expiration et purge en place** (ONBO-5, ONBO-7,
+ONBO-6) ; reste la coloration syntaxique (T6) de `docs/specs/pastebin.md`, qui fait foi.
 
 ## Périmètre envisagé (à confirmer)
 
@@ -34,8 +34,8 @@ et la coloration syntaxique (T6) de `docs/specs/pastebin.md`, qui fait foi.
   publique (avec rate limiting strict) ou réservée (authentification simple, token).
 - Le contenu des pastes est **non fiable** : échapper systématiquement à l'affichage (XSS),
   CSP stricte, servir la vue brute en `text/plain` avec `X-Content-Type-Options: nosniff`.
-- Purge des pastes expirés : `CronJob` Kubernetes (ou tâche planifiée applicative), et
-  refus de servir un paste expiré même s'il n'est pas encore purgé.
+- Purge des pastes expirés par l'application (spec §4, Données), et refus de servir un
+  paste expiré même s'il n'est pas encore purgé.
 
 ## Données (proposition)
 
@@ -57,6 +57,7 @@ PostgreSQL. Table `pastes` (`migrations/001_create_pastes.sql`) : `id`, `content
 - Paquets : `cmd/pastebin` (point d'entrée, configuration, arrêt propre), `internal/paste`
   (identifiant, langages et durées autorisés), `internal/store` (accès PostgreSQL),
   `internal/server` (handlers HTTP, templates et fichiers statiques embarqués),
+  `internal/purge` (purge périodique),
   `internal/migrate` (exécuteur de migrations), `migrations/` (SQL embarqué).
 - Les durées d'expiration et les langages sont des **constantes du code**
   (`internal/paste`), pas de la configuration : ils font partie de la spec. Les clés de
@@ -64,6 +65,12 @@ PostgreSQL. Table `pastes` (`migrations/001_create_pastes.sql`) : `id`, `content
 - `created_at` et `expires_at` viennent de l'horloge de PostgreSQL (`now()`), dans la même
   requête. Une lecture filtre toujours `expires_at > now()` : un paste expiré non purgé
   donne la même 404 qu'un identifiant inconnu.
+- Purge (F6, ONBO-6) : une goroutine lancée par `run` (`internal/purge`) exécute
+  `DELETE FROM pastes WHERE expires_at <= now()` au démarrage puis toutes les
+  `PURGE_INTERVAL` (`15m` par défaut, refusé au-delà de `1h` pour tenir F6). La borne
+  `<=` est le complément exact du filtre de lecture `> now()`. Un échec est journalisé
+  et retenté au tick suivant. À l'arrêt, `run` annule le contexte et attend la fin de la
+  purge avant de fermer le pool.
 - Sécurité : rendu uniquement par `html/template` ; CSP stricte, `nosniff`,
   `X-Robots-Tag: noindex`, `Referrer-Policy: no-referrer` et `Cache-Control: no-store` sur
   toutes les réponses (`internal/server/headers.go`) ; la vue brute ajoute
