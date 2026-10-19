@@ -2,7 +2,7 @@
 <form method="post" action="/">
   {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
   <label for="content">Contenu <span class="hint">({{.MaxKiB}} Kio au plus)</span></label>
-  <textarea id="content" name="content" rows="20" required autofocus spellcheck="false">{{.Content}}</textarea>
+  <textarea class="fx-card" id="content" name="content" rows="20" required autofocus spellcheck="false">{{.Content}}</textarea>
   <div class="options">
     <label>Langage
       <select name="language">

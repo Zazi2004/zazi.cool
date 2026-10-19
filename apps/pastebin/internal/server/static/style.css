@@ -13,6 +13,10 @@
   --error-bg: #ffebe9;
   --radius: 10px;
   --shadow: 0 1px 2px rgb(31 35 40 / 6%), 0 4px 12px rgb(31 35 40 / 5%);
+  --glow-a: #8250df;
+  --glow-b: #0969da;
+  --glow-c: #1a7f64;
+  --glow-opacity: .22;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   line-height: 1.5;
 }
@@ -31,17 +35,37 @@
     --error: #f85149;
     --error-bg: #2d1416;
     --shadow: 0 1px 2px rgb(0 0 0 / 40%);
+    --glow-a: #a371f7;
+    --glow-b: #4493f8;
+    --glow-c: #3fb9a0;
+    --glow-opacity: .28;
   }
 }
 
 * { box-sizing: border-box; }
 
 body {
+  position: relative;
   margin: 0 auto;
   max-width: 72rem;
   padding: 0 1rem 3rem;
   background: var(--bg);
   color: var(--fg);
+}
+
+/* Aurora: three blurred colour blobs drifting behind the page. Decorative only. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(40rem 28rem at 15% 10%, var(--glow-a), transparent 70%),
+    radial-gradient(36rem 26rem at 85% 20%, var(--glow-b), transparent 70%),
+    radial-gradient(34rem 26rem at 50% 95%, var(--glow-c), transparent 70%);
+  opacity: var(--glow-opacity);
+  filter: blur(40px);
 }
 
 a { color: var(--accent); }
@@ -61,16 +85,27 @@ header {
 }
 
 .brand {
-  color: var(--fg);
+  background: linear-gradient(90deg, var(--fg), var(--glow-a), var(--glow-b), var(--fg)) 0 / 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: -.01em;
   text-decoration: none;
 }
 
-.brand:hover { color: var(--accent); }
+.brand:hover { background-position: 100% 0; }
 
-h1 { margin: 0 0 .75rem; font-size: 1.5rem; letter-spacing: -.01em; }
+h1 {
+  margin: 0 0 .75rem;
+  font-size: 1.5rem;
+  letter-spacing: -.01em;
+  background: linear-gradient(90deg, var(--fg), var(--glow-a));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
 
 label { display: block; margin-bottom: .5rem; font-weight: 600; }
 .hint { color: var(--muted); font-size: .9em; font-weight: 400; }
@@ -127,7 +162,9 @@ button {
   cursor: pointer;
 }
 
-button:hover { border-color: var(--accent); }
+button { transition: transform .15s ease, border-color .15s ease, background-color .15s ease, box-shadow .15s ease; }
+button:hover { border-color: var(--accent); transform: translateY(-1px); }
+button:active { transform: translateY(0) scale(.98); }
 
 button[type="submit"] {
   padding: .5rem 1.5rem;
@@ -136,7 +173,15 @@ button[type="submit"] {
   color: var(--accent-fg);
 }
 
-button[type="submit"]:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+button[type="submit"] {
+  background-image: linear-gradient(120deg, var(--accent), var(--glow-a));
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+button[type="submit"]:hover {
+  border-color: var(--accent-hover);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 50%, transparent);
+}
 
 /* Honeypot field: off screen rather than display:none, which some bots detect. */
 .trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
@@ -205,6 +250,46 @@ button[type="submit"]:hover { background: var(--accent-hover); border-color: var
   color: var(--muted);
   border-right: 1px solid var(--border);
   user-select: none;
+}
+
+/* Spotlight: fx.js moves --mx/--my; without it the gradient stays out of sight. */
+.fx-card, .code {
+  --mx: -100px;
+  --my: -100px;
+  background-image: radial-gradient(18rem circle at var(--mx) var(--my),
+    color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%);
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+.fx-card:hover, .code:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+
+/* Entrance: the page fades in and the code lines cascade in (first 24 only). */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes drift {
+  to { transform: translate3d(2%, 3%, 0) scale(1.08); }
+}
+
+main > * { animation: rise .45s ease-out both; }
+main > :nth-child(2) { animation-delay: .06s; }
+main > :nth-child(3) { animation-delay: .12s; }
+.line { animation: rise .35s ease-out both; }
+.line:nth-child(n+2) { animation-delay: .02s; }
+.line:nth-child(n+4) { animation-delay: .04s; }
+.line:nth-child(n+8) { animation-delay: .08s; }
+.line:nth-child(n+16) { animation-delay: .12s; }
+.line:nth-child(n+24) { animation-delay: .16s; }
+body::before { animation: drift 18s ease-in-out infinite alternate; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  button:hover, button:active { transform: none; }
 }
 
 @media (max-width: 40rem) {
