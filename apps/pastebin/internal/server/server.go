@@ -17,9 +17,11 @@ type Pinger interface {
 	Ping(ctx context.Context) error
 }
 
-// NewHandler returns the router. version is the git SHA of the running build.
-func NewHandler(db Pinger, version string) http.Handler {
+// NewHandler returns the router. version is the git SHA of the running build;
+// limiter caps paste creations per client (RATE_LIMIT_CREATE).
+func NewHandler(db Pinger, version string, limiter *RateLimiter) http.Handler {
 	mux := http.NewServeMux()
+	mux.Handle("POST /{$}", guardCreate(limiter, http.HandlerFunc(createPaste)))
 	mux.HandleFunc("GET /healthz", healthz)
 	mux.HandleFunc("GET /readyz", readyz(db))
 	mux.HandleFunc("GET /version", versionHandler(version))
@@ -43,6 +45,12 @@ func readyz(db Pinger) http.HandlerFunc {
 		}
 		writeText(w, http.StatusOK, "ok")
 	}
+}
+
+// createPaste is a placeholder until paste creation lands (ONBO-5), so that the
+// anti-abuse guard in front of it can already be wired and tested.
+func createPaste(w http.ResponseWriter, _ *http.Request) {
+	writeText(w, http.StatusNotImplemented, "not implemented")
 }
 
 func versionHandler(version string) http.HandlerFunc {

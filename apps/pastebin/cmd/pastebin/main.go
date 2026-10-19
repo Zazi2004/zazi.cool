@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -61,7 +62,7 @@ func run(args []string) error {
 		return nil
 	}
 
-	return serve(ctx, ":"+cfg.port, server.NewHandler(pool, version))
+	return serve(ctx, ":"+cfg.port, server.NewHandler(pool, version, server.NewRateLimiter(cfg.rateLimitCreate, server.RateWindow)))
 }
 
 // serve runs the HTTP server until ctx is cancelled, then shuts it down gracefully:
@@ -104,8 +105,9 @@ func serve(ctx context.Context, addr string, handler http.Handler) error {
 }
 
 type config struct {
-	port        string
-	databaseURL string
+	port            string
+	databaseURL     string
+	rateLimitCreate int
 }
 
 // loadConfig reads the configuration from environment variables (see .env.example).
@@ -117,6 +119,11 @@ func loadConfig() (config, error) {
 	if cfg.databaseURL == "" {
 		return config{}, errors.New("DATABASE_URL is required")
 	}
+	limit, err := strconv.Atoi(getenv("RATE_LIMIT_CREATE", "10"))
+	if err != nil || limit < 1 {
+		return config{}, fmt.Errorf("RATE_LIMIT_CREATE must be a positive integer, got %q", os.Getenv("RATE_LIMIT_CREATE"))
+	}
+	cfg.rateLimitCreate = limit
 	return cfg, nil
 }
 
