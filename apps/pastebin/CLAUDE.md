@@ -8,7 +8,7 @@
 Service de partage de texte et de code : on colle un contenu, on obtient une URL courte
 à partager. Service personnel hébergé sur `pb.zazi.cool`.
 
-**Statut : cadrage.** Les spécifications détaillées seront complétées lors d'une prochaine session.
+**Statut : squelette en place** (ONBO-3) ; fonctionnalités à venir selon `docs/specs/pastebin.md`.
 
 ## Périmètre envisagé (à confirmer)
 
@@ -48,3 +48,12 @@ PostgreSQL. Table `pastes` : `id`, `content`, `language`, `created_at`, `expires
 - [ ] Création publique ou authentifiée.
 - [ ] Chiffrement côté client ou non.
 - [ ] Durées d'expiration proposées et durée par défaut.
+
+## Conventions de l'app
+
+- Paquets : `cmd/pastebin` (point d'entrée, configuration, arrêt propre), `internal/server`
+  (handlers HTTP), `internal/migrate` (exécuteur de migrations), `migrations/` (SQL embarqué).
+- Le SHA git est injecté dans `main.version` (`-ldflags "-X main.version=…"`), via
+  `--build-arg VERSION=<sha7>` du Dockerfile ; il est servi par `GET /version`.
+- Dépendance : `pgx` (pilote PostgreSQL), comme Undercover.
+- Ports locaux par défaut : app 8080, base 5434.
