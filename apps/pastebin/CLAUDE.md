@@ -8,8 +8,8 @@
 Service de partage de texte et de code : on colle un contenu, on obtient une URL courte
 à partager. Service personnel hébergé sur `pb.zazi.cool`.
 
-**Statut : création, lecture, anti-abus, expiration et purge en place** (ONBO-5, ONBO-7,
-ONBO-6) ; reste la coloration syntaxique (T6) de `docs/specs/pastebin.md`, qui fait foi.
+**Statut : MVP de `docs/specs/pastebin.md` (qui fait foi) développé** : création, lecture,
+anti-abus, expiration, purge et coloration syntaxique (ONBO-5, ONBO-7, ONBO-6, ONBO-8).
 
 ## Périmètre envisagé (à confirmer)
 
@@ -57,7 +57,7 @@ PostgreSQL. Table `pastes` (`migrations/001_create_pastes.sql`) : `id`, `content
 - Paquets : `cmd/pastebin` (point d'entrée, configuration, arrêt propre), `internal/paste`
   (identifiant, langages et durées autorisés), `internal/store` (accès PostgreSQL),
   `internal/server` (handlers HTTP, templates et fichiers statiques embarqués),
-  `internal/purge` (purge périodique),
+  `internal/purge` (purge périodique), `internal/highlight` (coloration `chroma`),
   `internal/migrate` (exécuteur de migrations), `migrations/` (SQL embarqué).
 - Les durées d'expiration et les langages sont des **constantes du code**
   (`internal/paste`), pas de la configuration : ils font partie de la spec. Les clés de
@@ -82,7 +82,16 @@ PostgreSQL. Table `pastes` (`migrations/001_create_pastes.sql`) : `id`, `content
   navigateurs sont conservées dans la vue brute).
 - Le SHA git est injecté dans `main.version` (`-ldflags "-X main.version=…"`), via
   `--build-arg VERSION=<sha7>` du Dockerfile ; il est servi par `GET /version`.
-- Dépendance : `pgx` (pilote PostgreSQL), comme Undercover.
+- Coloration (F3, ONBO-8) : `internal/highlight` découpe le contenu en lignes de
+  `Span{Class, Text}` avec le lexer `chroma` du langage (texte brut si le lexer est inconnu
+  ou échoue). Le HTML est écrit par `html/template` (`view.html`), jamais par le
+  formateur HTML de `chroma` : chaque token reste échappé. Les couleurs (styles `github` et
+  `github-dark`, selon `prefers-color-scheme`) sont générées au démarrage et servies en
+  fichier par `GET /static/highlight.css`, chargé **avant** `style.css` : aucun style
+  inline, la CSP ne change pas. Les classes `chroma` sont préfixées `hl-` pour ne pas
+  heurter celles de l'app (`.line`). Un test vérifie que chaque langage du formulaire a
+  un lexer.
+- Dépendances : `pgx` (pilote PostgreSQL), comme Undercover ; `chroma` (D4).
 - Ports locaux par défaut : app 8080, base 5434.
 - Anti-abus (NF2, ONBO-7) : `POST /` passe par `guardCreate` (`internal/server/abuse.go`,
   rate limiting) **avant toute lecture du corps**, puis par le handler de création, qui

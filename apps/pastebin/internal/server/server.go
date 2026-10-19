@@ -2,6 +2,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"html/template"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"zazi.cool/pastebin/internal/highlight"
 	"zazi.cool/pastebin/internal/paste"
 )
 
@@ -60,17 +62,30 @@ func NewHandler(cfg Config) http.Handler {
 	if err != nil {
 		panic(err) // the directory is embedded at build time: this cannot fail at run time
 	}
+	highlightCSS, err := highlight.CSS()
+	if err != nil {
+		panic(err) // built-in chroma styles written to memory: this cannot fail at run time
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", healthz)
 	mux.HandleFunc("GET /readyz", h.readyz)
 	mux.HandleFunc("GET /version", h.version)
 	mux.Handle("GET /static/", cacheable(http.StripPrefix("/static/", http.FileServerFS(static))))
+	mux.Handle("GET /static/highlight.css", cacheable(serveBytes("highlight.css", highlightCSS)))
 	mux.HandleFunc("GET /{$}", h.form)
 	mux.Handle("POST /{$}", guardCreate(cfg.Limiter, http.HandlerFunc(h.create)))
 	mux.HandleFunc("GET /{id}", h.view)
 	mux.HandleFunc("GET /raw/{id}", h.raw)
 	return securityHeaders(mux)
+}
+
+// serveBytes serves a file generated at start-up. The name sets the Content-Type.
+func serveBytes(name string, content []byte) http.Handler {
+	modTime := time.Now()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.ServeContent(w, r, name, modTime, bytes.NewReader(content))
+	})
 }
 
 // healthz is the liveness probe: the process answers, nothing else is checked.
