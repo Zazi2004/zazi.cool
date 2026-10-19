@@ -252,14 +252,8 @@ button[type="submit"]:hover {
   user-select: none;
 }
 
-/* Spotlight: fx.js moves --mx/--my; without it the gradient stays out of sight. */
-.fx-card, .code {
-  --mx: -100px;
-  --my: -100px;
-  background-image: radial-gradient(18rem circle at var(--mx) var(--my),
-    color-mix(in srgb, var(--accent) 10%, transparent), transparent 70%);
-  transition: border-color .2s ease, box-shadow .2s ease;
-}
+/* Cards: soft border highlight on hover. */
+.fx-card, .code { transition: border-color .2s ease, box-shadow .2s ease; }
 
 .fx-card:hover, .code:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
 
