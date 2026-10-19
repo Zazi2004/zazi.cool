@@ -159,7 +159,7 @@ func TestCreateAndRead(t *testing.T) {
 	h := newTestHandler(s)
 	content := "<script>alert(1)</script>\r\nsecond line é\n"
 
-	rec := post(t, h, url.Values{"content": {content}, "language": {"go"}})
+	rec := post(t, h, url.Values{"content": {content}, "language": {"plaintext"}})
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("POST status = %d, want 303; body: %s", rec.Code, rec.Body)
 	}
@@ -185,7 +185,7 @@ func TestCreateAndRead(t *testing.T) {
 		`<span class="line">second line é</span>`,
 		`href="/raw/` + id + `"`,
 		`value="https://pb.example/` + id + `"`,
-		"Go",
+		"Texte brut",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("view lacks %s", want)
@@ -322,27 +322,55 @@ func TestSecurityHeaders(t *testing.T) {
 	}
 }
 
+// F3, NF1: the formatted view is highlighted with classes only, never inline styles,
+// and pasted markup stays escaped inside highlighted tokens.
+func TestViewIsHighlighted(t *testing.T) {
+	s := newFakeStore()
+	h := newTestHandler(s)
+	p, _ := s.Create(context.Background(), "package main\n\nvar s = \"<script>alert(1)</script>\"\n", "go", time.Minute)
+
+	body := do(t, h, http.MethodGet, "/"+p.ID).Body.String()
+	for _, want := range []string{
+		`<pre class="code hl-chroma">`,
+		`<span class="line"><span class="hl-kn">package</span>`,
+		`<span class="line"></span>`,
+		`&#34;&lt;script&gt;alert(1)&lt;/script&gt;&#34;`,
+		`<link rel="stylesheet" href="/static/highlight.css">`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("view lacks %s", want)
+		}
+	}
+	if strings.Contains(body, "<script>alert") || strings.Contains(body, "style=") {
+		t.Error("view contains unescaped markup or an inline style")
+	}
+}
+
+func TestHighlightStyleSheet(t *testing.T) {
+	rec := do(t, newTestHandler(newFakeStore()), http.MethodGet, "/static/highlight.css")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if got := rec.Header().Get("Content-Type"); !strings.HasPrefix(got, "text/css") {
+		t.Errorf("Content-Type = %q, want text/css", got)
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "public, max-age=3600" {
+		t.Errorf("Cache-Control = %q", got)
+	}
+	css := rec.Body.String()
+	for _, want := range []string{".hl-chroma .hl-k ", "@media (prefers-color-scheme: dark)"} {
+		if !strings.Contains(css, want) {
+			t.Errorf("style sheet lacks %q", want)
+		}
+	}
+}
+
 func TestStaticFiles(t *testing.T) {
 	h := newTestHandler(newFakeStore())
 	for _, path := range []string{"/static/style.css", "/static/copy.js"} {
 		rec := do(t, h, http.MethodGet, path)
 		if rec.Code != http.StatusOK || rec.Body.Len() == 0 {
 			t.Errorf("GET %s status = %d, %d bytes", path, rec.Code, rec.Body.Len())
-		}
-	}
-}
-
-func TestLines(t *testing.T) {
-	tests := map[string][]string{
-		"a":          {"a"},
-		"a\n":        {"a"},
-		"a\r\nb\r\n": {"a", "b"},
-		"a\n\nb":     {"a", "", "b"},
-	}
-	for in, want := range tests {
-		got := lines(in)
-		if strings.Join(got, "|") != strings.Join(want, "|") {
-			t.Errorf("lines(%q) = %q, want %q", in, got, want)
 		}
 	}
 }

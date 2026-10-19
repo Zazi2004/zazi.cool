@@ -11,6 +11,7 @@ import (
 	_ "time/tzdata" // the distroless image has no time zone database
 	"unicode/utf8"
 
+	"zazi.cool/pastebin/internal/highlight"
 	"zazi.cool/pastebin/internal/paste"
 	"zazi.cool/pastebin/internal/store"
 )
@@ -137,11 +138,13 @@ type viewPage struct {
 	ID        string
 	URL       string
 	Language  string
-	Lines     []string
+	PreClass  string
+	Lines     []highlight.Line
 	ExpiresAt string
 }
 
-// view serves the formatted view of a paste (F3).
+// view serves the formatted view of a paste, with line numbers and syntax
+// highlighting (F3).
 func (h *handler) view(w http.ResponseWriter, r *http.Request) {
 	p, ok := h.lookup(w, r)
 	if !ok {
@@ -151,7 +154,8 @@ func (h *handler) view(w http.ResponseWriter, r *http.Request) {
 		ID:        p.ID,
 		URL:       h.cfg.BaseURL + "/" + p.ID,
 		Language:  languageLabel(p.Language),
-		Lines:     lines(p.Content),
+		PreClass:  highlight.PreClass,
+		Lines:     highlight.Lines(p.Content, p.Language),
 		ExpiresAt: p.ExpiresAt.In(displayZone).Format("02/01/2006 à 15:04"),
 	})
 }
@@ -189,17 +193,6 @@ func (h *handler) lookup(w http.ResponseWriter, r *http.Request) (paste.Paste, b
 		return paste.Paste{}, false
 	}
 	return p, true
-}
-
-// lines splits content for display with line numbers. A final line break does not
-// open an extra empty line, and Windows line endings lose their "\r".
-func lines(content string) []string {
-	content = strings.TrimSuffix(content, "\n")
-	out := strings.Split(content, "\n")
-	for i, l := range out {
-		out[i] = strings.TrimSuffix(l, "\r")
-	}
-	return out
 }
 
 func languageLabel(key string) string {

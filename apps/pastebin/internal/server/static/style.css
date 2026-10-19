@@ -90,8 +90,12 @@ select, button, .link { font: inherit; padding: .4rem .6rem; }
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--code-bg);
+  color: var(--fg);
   counter-reset: line;
 }
+
+/* Token colours come from /static/highlight.css, generated from chroma's styles and
+   loaded before this file so the background and text colour above win. */
 
 /* Line numbers come from CSS, so selecting and copying the code leaves them out. */
 .line { counter-increment: line; padding-right: .75rem; }
