@@ -1,0 +1,12 @@
+{{define "view"}}{{template "header" .ID}}
+<div class="meta">
+  <span>{{.Language}}</span>
+  <span>Expire le {{.ExpiresAt}}</span>
+  <a href="/raw/{{.ID}}">Vue brute</a>
+  <input class="link" type="text" value="{{.URL}}" readonly aria-label="Lien du paste">
+  <button type="button" data-copy="{{.URL}}" hidden>Copier le lien</button>
+</div>
+<pre class="code">{{range .Lines}}<span class="line">{{.}}</span>
+{{end}}</pre>
+<script src="/static/copy.js" defer></script>
+{{template "footer"}}{{end}}

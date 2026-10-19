@@ -1,0 +1,26 @@
+{{define "form"}}{{template "header" "Nouveau paste"}}
+<form method="post" action="/">
+  {{with .Error}}<p class="error" role="alert">{{.}}</p>{{end}}
+  <label for="content">Contenu <span class="hint">({{.MaxKiB}} Kio au plus)</span></label>
+  <textarea id="content" name="content" rows="20" required autofocus spellcheck="false">{{.Content}}</textarea>
+  <div class="options">
+    <label>Langage
+      <select name="language">
+        {{- $selected := .Language}}
+        {{- range .Languages}}
+        <option value="{{.Key}}"{{if eq .Key $selected}} selected{{end}}>{{.Label}}</option>
+        {{- end}}
+      </select>
+    </label>
+    <label>Expire après
+      <select name="expires_in">
+        {{- $selected := .ExpiresIn}}
+        {{- range .Expirations}}
+        <option value="{{.Key}}"{{if eq .Key $selected}} selected{{end}}>{{.Label}}</option>
+        {{- end}}
+      </select>
+    </label>
+    <button type="submit">Créer</button>
+  </div>
+</form>
+{{template "footer"}}{{end}}
