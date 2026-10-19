@@ -8,7 +8,8 @@
 Service de partage de texte et de code : on colle un contenu, on obtient une URL courte
 à partager. Service personnel hébergé sur `pb.zazi.cool`.
 
-**Statut : squelette en place** (ONBO-3) ; fonctionnalités à venir selon `docs/specs/pastebin.md`.
+**Statut : création, lecture et anti-abus en place** (ONBO-5, ONBO-7) ; restent la purge (T4)
+et la coloration syntaxique (T6) de `docs/specs/pastebin.md`, qui fait foi.
 
 ## Périmètre envisagé (à confirmer)
 
@@ -38,27 +39,47 @@ Service de partage de texte et de code : on colle un contenu, on obtient une URL
 
 ## Données (proposition)
 
-PostgreSQL. Table `pastes` : `id`, `content`, `language`, `created_at`, `expires_at`
-(nullable), `burn_after_read`, éventuellement `password_hash`. Index sur `expires_at`.
+PostgreSQL. Table `pastes` (`migrations/001_create_pastes.sql`) : `id`, `content`,
+`language`, `created_at`, `expires_at` (non nul : pas d'expiration « jamais »). Index sur
+`expires_at`. `burn_after_read` ou `password_hash` viendront avec les pistes ultérieures.
 
 ## Décisions ouvertes
 
 - [x] Stack : **Go**, front en rendu serveur (décision commune, voir `CLAUDE.md` racine §9).
       Un petit module TypeScript seulement si le chiffrement côté client est retenu.
-- [ ] Création publique ou authentifiée.
-- [ ] Chiffrement côté client ou non.
-- [ ] Durées d'expiration proposées et durée par défaut.
+- [x] Création **publique** avec rate limiting et honeypot (spec D1).
+- [x] **Pas** de chiffrement côté client pour le MVP (spec D2).
+- [x] Durées : 10 min, 1 h, 1 jour, 1 semaine, 1 mois ; **défaut 10 min** ; pas de
+      « jamais » (spec D3).
 
 ## Conventions de l'app
 
-- Paquets : `cmd/pastebin` (point d'entrée, configuration, arrêt propre), `internal/server`
-  (handlers HTTP), `internal/migrate` (exécuteur de migrations), `migrations/` (SQL embarqué).
+- Paquets : `cmd/pastebin` (point d'entrée, configuration, arrêt propre), `internal/paste`
+  (identifiant, langages et durées autorisés), `internal/store` (accès PostgreSQL),
+  `internal/server` (handlers HTTP, templates et fichiers statiques embarqués),
+  `internal/migrate` (exécuteur de migrations), `migrations/` (SQL embarqué).
+- Les durées d'expiration et les langages sont des **constantes du code**
+  (`internal/paste`), pas de la configuration : ils font partie de la spec. Les clés de
+  langage sont des noms de lexers `chroma` (T6).
+- `created_at` et `expires_at` viennent de l'horloge de PostgreSQL (`now()`), dans la même
+  requête. Une lecture filtre toujours `expires_at > now()` : un paste expiré non purgé
+  donne la même 404 qu'un identifiant inconnu.
+- Sécurité : rendu uniquement par `html/template` ; CSP stricte, `nosniff`,
+  `X-Robots-Tag: noindex`, `Referrer-Policy: no-referrer` et `Cache-Control: no-store` sur
+  toutes les réponses (`internal/server/headers.go`) ; la vue brute ajoute
+  `Content-Security-Policy: sandbox`. Aucun style ni script inline : tout passe par
+  `/static/`. Le seul script est le bouton « Copier le lien ».
+- Corps de `POST /` plafonné à `3 × MAX_PASTE_BYTES + 4 Kio` (l'encodage URL triple au pire
+  la taille du texte non ASCII) ; le contenu décodé est ensuite comparé à `MAX_PASTE_BYTES`.
+- Le contenu est stocké **octet pour octet** (les fins de ligne `\r\n` envoyées par les
+  navigateurs sont conservées dans la vue brute).
 - Le SHA git est injecté dans `main.version` (`-ldflags "-X main.version=…"`), via
   `--build-arg VERSION=<sha7>` du Dockerfile ; il est servi par `GET /version`.
 - Dépendance : `pgx` (pilote PostgreSQL), comme Undercover.
 - Ports locaux par défaut : app 8080, base 5434.
-- Anti-abus (NF2, ONBO-7) dans `internal/server/abuse.go` : `POST /` passe par `guardCreate`
-  (rate limiting puis honeypot) avant le handler de création.
+- Anti-abus (NF2, ONBO-7) : `POST /` passe par `guardCreate` (`internal/server/abuse.go`,
+  rate limiting) **avant toute lecture du corps**, puis par le handler de création, qui
+  plafonne le corps, lit le formulaire, vérifie le honeypot puis valide.
   - Limite : `RATE_LIMIT_CREATE` créations par IP sur une **fenêtre glissante d'une heure**,
     `429` + `Retry-After` au-delà. Toute tentative compte, y compris invalide ou piégée.
   - IP du client : **dernière** entrée de `X-Forwarded-For` (celle ajoutée par Traefik ; les
@@ -66,6 +87,8 @@ PostgreSQL. Table `pastes` : `id`, `content`, `language`, `created_at`, `expires
     sont regroupées par /64.
   - Compteurs **en mémoire seulement** (NF4) : ils repartent à zéro au redémarrage et
     imposent **une seule réplique** (sinon la limite est multipliée par le nombre de pods).
-  - Honeypot : champ `website` caché ; rempli → `303` vers `/`, rien n'est créé.
-  - Le plafond de taille du corps (`http.MaxBytesReader`, NF3) doit s'appliquer **avant**
-    `guardCreate`, qui lit le formulaire pour le honeypot.
+  - Honeypot : champ `website` hors écran (classe CSS `.trap`) ; rempli → `303` vers `/`,
+    rien n'est créé.
+  - Aucun middleware ne doit lire le formulaire avant le handler de création : le plafond
+    de taille (`http.MaxBytesReader`, NF3) y est posé, et une erreur de taille avalée par
+    un `PostFormValue` en amont ferait passer un paste trop gros pour un paste vide.

@@ -24,6 +24,18 @@ func TestLoadConfig(t *testing.T) {
 	if cfg.port != "8080" {
 		t.Errorf("default port = %q, want 8080", cfg.port)
 	}
+	if cfg.maxPasteBytes != 512*1024 {
+		t.Errorf("default max paste bytes = %d, want 524288", cfg.maxPasteBytes)
+	}
+
+	for _, bad := range []string{"0", "-1", "512k"} {
+		t.Setenv("MAX_PASTE_BYTES", bad)
+		if _, err := loadConfig(); err == nil {
+			t.Errorf("loadConfig with MAX_PASTE_BYTES=%q: want an error", bad)
+		}
+	}
+	t.Setenv("MAX_PASTE_BYTES", "")
+
 	if cfg.rateLimitCreate != 10 {
 		t.Errorf("default rate limit = %d, want 10", cfg.rateLimitCreate)
 	}

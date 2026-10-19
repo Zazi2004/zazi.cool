@@ -132,27 +132,39 @@ func TestEleventhCreationIsRateLimited(t *testing.T) {
 
 // CA7: a submission with the honeypot filled in creates nothing.
 func TestHoneypotDropsSubmission(t *testing.T) {
-	next := &countingHandler{}
-	h := guardCreate(NewRateLimiter(10, RateWindow), next)
+	s := newFakeStore()
+	h := newTestHandler(s)
 
 	rec := postForm(t, h, "203.0.113.7", url.Values{"content": {"spam"}, "website": {"http://spam.example"}})
-	if next.calls != 0 {
-		t.Error("honeypot submission reached the creation handler")
+	if s.count() != 0 {
+		t.Error("honeypot submission created a paste")
 	}
 	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
 		t.Errorf("honeypot response = %d to %q, want a silent 303 to /", rec.Code, rec.Header().Get("Location"))
 	}
 
 	postForm(t, h, "203.0.113.7", url.Values{"content": {"hello"}, "website": {""}})
-	if next.calls != 1 {
+	if s.count() != 1 {
 		t.Error("empty honeypot was rejected")
 	}
 }
 
+// Oversized and invalid submissions count towards the limit too: the limiter runs
+// before the body is read.
 func TestCreateRouteIsGuarded(t *testing.T) {
-	h := NewHandler(fakeDB{}, "dev", NewRateLimiter(1, RateWindow))
-	postForm(t, h, "203.0.113.7", url.Values{"content": {"hello"}})
+	s := newFakeStore()
+	h := NewHandler(Config{Store: s, MaxPasteBytes: testMaxBytes, Limiter: NewRateLimiter(2, RateWindow)})
+
+	if rec := postForm(t, h, "203.0.113.7", url.Values{"content": {strings.Repeat("é", 2*testMaxBytes)}}); rec.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("oversized POST / status = %d, want 413", rec.Code)
+	}
+	if rec := postForm(t, h, "203.0.113.7", url.Values{"content": {""}}); rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("empty POST / status = %d, want 422", rec.Code)
+	}
 	if rec := postForm(t, h, "203.0.113.7", url.Values{"content": {"hello"}}); rec.Code != http.StatusTooManyRequests {
-		t.Errorf("2nd POST / status = %d, want 429", rec.Code)
+		t.Errorf("3rd POST / status = %d, want 429", rec.Code)
+	}
+	if s.count() != 0 {
+		t.Error("a rate-limited submission created a paste")
 	}
 }

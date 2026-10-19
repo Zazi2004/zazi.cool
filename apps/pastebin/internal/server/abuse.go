@@ -1,7 +1,6 @@
 package server
 
 import (
-	"log/slog"
 	"net"
 	"net/http"
 	"net/netip"
@@ -83,9 +82,10 @@ func dropOlder(times []time.Time, cutoff time.Time) []time.Time {
 	return times[i:]
 }
 
-// guardCreate protects paste creation: per-client rate limiting (429 beyond the limit),
-// then the honeypot (a filled-in website field is silently dropped). Every attempt counts
-// towards the limit, including invalid or honeypot submissions.
+// guardCreate rate limits paste creation per client (429 beyond the limit). It runs
+// before the body is read, so every attempt counts towards the limit, including
+// oversized, invalid or honeypot submissions. The honeypot itself is checked by the
+// creation handler, after the body size cap.
 func guardCreate(limiter *RateLimiter, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		allowed, retryAfter := limiter.Allow(clientKey(r))
@@ -93,11 +93,6 @@ func guardCreate(limiter *RateLimiter, next http.Handler) http.Handler {
 			w.Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())+1))
 			writeText(w, http.StatusTooManyRequests,
 				"Trop de pastes créés depuis votre adresse. Réessayez plus tard.")
-			return
-		}
-		if r.PostFormValue(honeypotField) != "" {
-			slog.Info("honeypot filled, paste dropped")
-			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
 		next.ServeHTTP(w, r)

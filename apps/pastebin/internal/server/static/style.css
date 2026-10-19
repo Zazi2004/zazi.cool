@@ -1,0 +1,108 @@
+:root {
+  color-scheme: light dark;
+  --bg: #fdfdfc;
+  --fg: #1f2328;
+  --muted: #6e7781;
+  --border: #d0d7de;
+  --code-bg: #f6f8fa;
+  --accent: #0969da;
+  --error: #cf222e;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --fg: #e6edf3;
+    --muted: #8d96a0;
+    --border: #30363d;
+    --code-bg: #161b22;
+    --accent: #4493f8;
+    --error: #f85149;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0 auto;
+  max-width: 72rem;
+  padding: 1rem;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+a { color: var(--accent); }
+
+header { margin-bottom: 1rem; }
+.brand { font-weight: 600; text-decoration: none; }
+
+label { display: block; margin-bottom: .5rem; }
+.hint { color: var(--muted); font-size: .9em; }
+
+textarea, .code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .875rem;
+}
+
+textarea {
+  width: 100%;
+  padding: .75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--code-bg);
+  color: inherit;
+  resize: vertical;
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: end;
+  margin-top: 1rem;
+}
+
+.options label { margin: 0; }
+select, button, .link { font: inherit; padding: .4rem .6rem; }
+.options select { display: block; margin-top: .25rem; }
+
+/* Honeypot field: off screen rather than display:none, which some bots detect. */
+.trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+
+.error { color: var(--error); font-weight: 600; }
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  color: var(--muted);
+}
+
+.link { flex: 1; min-width: 16rem; }
+
+.code {
+  margin: 0;
+  padding: .75rem 0;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--code-bg);
+  counter-reset: line;
+}
+
+/* Line numbers come from CSS, so selecting and copying the code leaves them out. */
+.line { counter-increment: line; padding-right: .75rem; }
+.line::before {
+  content: counter(line);
+  display: inline-block;
+  width: 3.5rem;
+  margin-right: 1rem;
+  padding-right: .5rem;
+  text-align: right;
+  color: var(--muted);
+  border-right: 1px solid var(--border);
+  user-select: none;
+}

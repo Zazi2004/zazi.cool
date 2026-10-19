@@ -22,6 +22,7 @@ import (
 
 	"zazi.cool/pastebin/internal/migrate"
 	"zazi.cool/pastebin/internal/server"
+	"zazi.cool/pastebin/internal/store"
 	"zazi.cool/pastebin/migrations"
 )
 
@@ -62,7 +63,13 @@ func run(args []string) error {
 		return nil
 	}
 
-	return serve(ctx, ":"+cfg.port, server.NewHandler(pool, version, server.NewRateLimiter(cfg.rateLimitCreate, server.RateWindow)))
+	return serve(ctx, ":"+cfg.port, server.NewHandler(server.Config{
+		Store:         store.New(pool),
+		Version:       version,
+		MaxPasteBytes: cfg.maxPasteBytes,
+		BaseURL:       cfg.baseURL,
+		Limiter:       server.NewRateLimiter(cfg.rateLimitCreate, server.RateWindow),
+	}))
 }
 
 // serve runs the HTTP server until ctx is cancelled, then shuts it down gracefully:
@@ -107,6 +114,8 @@ func serve(ctx context.Context, addr string, handler http.Handler) error {
 type config struct {
 	port            string
 	databaseURL     string
+	maxPasteBytes   int
+	baseURL         string
 	rateLimitCreate int
 }
 
@@ -115,10 +124,16 @@ func loadConfig() (config, error) {
 	cfg := config{
 		port:        getenv("PORT", "8080"),
 		databaseURL: os.Getenv("DATABASE_URL"),
+		baseURL:     getenv("BASE_URL", "https://pb.zazi.cool"),
 	}
 	if cfg.databaseURL == "" {
 		return config{}, errors.New("DATABASE_URL is required")
 	}
+	maxBytes, err := strconv.Atoi(getenv("MAX_PASTE_BYTES", "524288"))
+	if err != nil || maxBytes <= 0 {
+		return config{}, fmt.Errorf("MAX_PASTE_BYTES must be a positive number of bytes, got %q", os.Getenv("MAX_PASTE_BYTES"))
+	}
+	cfg.maxPasteBytes = maxBytes
 	limit, err := strconv.Atoi(getenv("RATE_LIMIT_CREATE", "10"))
 	if err != nil || limit < 1 {
 		return config{}, fmt.Errorf("RATE_LIMIT_CREATE must be a positive integer, got %q", os.Getenv("RATE_LIMIT_CREATE"))
