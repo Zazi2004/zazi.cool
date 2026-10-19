@@ -8,43 +8,79 @@
 Service de partage de texte et de code : on colle un contenu, on obtient une URL courte
 à partager. Service personnel hébergé sur `pb.zazi.cool`.
 
-**Statut : en production** sur https://pb.zazi.cool depuis le 2026-10-19 (`3a6919e`, ONBO-9) :
-MVP de `docs/specs/pastebin.md` (qui fait foi) — création, lecture, anti-abus, expiration,
-purge et coloration syntaxique (ONBO-5, ONBO-7, ONBO-6, ONBO-8).
+**Statut : en production** sur https://pb.zazi.cool depuis le 2026-10-19 : MVP de
+`docs/specs/pastebin.md` (qui fait foi) — création, lecture, anti-abus, expiration, purge
+et coloration syntaxique (ONBO-5 à ONBO-8, déploiement ONBO-9).
 
-## Périmètre envisagé (à confirmer)
+Le tag d'image déployé est celui de `infra/apps/pastebin/overlays/prod/kustomization.yaml`
+(`3a6919e` au 2026-10-19). Le rafraîchissement visuel (ONBO-10, `style.css`) est fusionné
+sur `main` mais **pas encore déployé** : il part avec le prochain changement de tag. L'état
+réel du cluster n'est pas accessible aux agents ; seul Noah le vérifie (`GET /version`).
 
-### MVP
-- Créer un paste (texte brut) et obtenir une URL unique, courte et non devinable
-  (ex. identifiant aléatoire de 8 caractères).
-- Consulter un paste : vue formatée et vue brute (`/raw/<id>`, `Content-Type: text/plain`).
-- Coloration syntaxique avec choix du langage (ou détection automatique).
-- Expiration configurable (10 min, 1 h, 1 jour, 1 semaine, jamais…).
-- Taille maximale par paste (ex. 512 Ko, configurable).
+## Fonctionnalités
 
-### Pistes ultérieures
-- « Burn after reading » (suppression à la première lecture).
-- Protection par mot de passe, ou chiffrement côté client (la clé dans le fragment `#`
-  de l'URL, le serveur ne voit jamais le contenu en clair).
-- Création via API / `curl` (ex. `curl --data-binary @file https://pb.zazi.cool`).
-- Lien de suppression pour l'auteur.
+- `GET /` : formulaire (contenu, langage, expiration). `POST /` crée le paste et répond
+  `303` vers `/<id>`.
+- `GET /<id>` : vue formatée avec coloration et bouton « Copier le lien ». `GET /raw/<id>` :
+  vue brute en `text/plain`.
+- Identifiant : 8 caractères base62 aléatoires (`crypto/rand`).
+- Expiration : 10 min (défaut), 1 h, 1 jour, 1 semaine, 1 mois ; pas de « jamais ».
+- Taille maximale : `MAX_PASTE_BYTES` (512 Kio par défaut).
+- Sondes et diagnostic : `GET /healthz` (liveness, sans base), `GET /readyz` (base
+  jointe), `GET /version` (SHA git).
 
 ## Points d'attention
 
-- **Abus** : un pastebin public attire spam et contenus illicites. Trancher entre création
-  publique (avec rate limiting strict) ou réservée (authentification simple, token).
-- Le contenu des pastes est **non fiable** : échapper systématiquement à l'affichage (XSS),
-  CSP stricte, servir la vue brute en `text/plain` avec `X-Content-Type-Options: nosniff`.
+- **Abus** : création publique avec rate limiting strict et honeypot (voir « Conventions »).
+- Le contenu des pastes est **non fiable** : échappement systématique à l'affichage (XSS),
+  CSP stricte, vue brute en `text/plain` avec `X-Content-Type-Options: nosniff`.
 - Purge des pastes expirés par l'application (spec §4, Données), et refus de servir un
   paste expiré même s'il n'est pas encore purgé.
+- **Une seule réplique** : le rate limiting est en mémoire (voir « Conventions »).
 
-## Données (proposition)
+## Pistes ultérieures (hors MVP)
 
-PostgreSQL. Table `pastes` (`migrations/001_create_pastes.sql`) : `id`, `content`,
+- « Burn after reading », protection par mot de passe, lien de suppression pour l'auteur.
+- Création via API / `curl` documentée (le `POST /` en formulaire fonctionne déjà avec
+  `curl --data-urlencode content=…`).
+- Chiffrement côté client : écarté pour le MVP (spec D2).
+
+## Données
+
+PostgreSQL 18. Table `pastes` (`migrations/001_create_pastes.sql`) : `id`, `content`,
 `language`, `created_at`, `expires_at` (non nul : pas d'expiration « jamais »). Index sur
-`expires_at`. `burn_after_read` ou `password_hash` viendront avec les pistes ultérieures.
+`expires_at`. Les migrations sont embarquées et appliquées au démarrage
+(`internal/migrate`) ; `pastebin migrate` les applique puis quitte.
 
-## Décisions ouvertes
+## Configuration
+
+Variables d'environnement (voir `.env.example`) : `DATABASE_URL` (obligatoire), `PORT`
+(`8080`), `BASE_URL` (`https://pb.zazi.cool`), `MAX_PASTE_BYTES` (`524288`),
+`RATE_LIMIT_CREATE` (créations par IP et par heure), `PURGE_INTERVAL` (`15m`, max `1h`).
+En production, `PORT` et `BASE_URL` sont dans `infra/apps/pastebin/base/deployment.yaml` et
+`DATABASE_URL` dans le Secret SOPS `overlays/prod/secret.enc.yaml`.
+
+## Commandes
+
+Depuis `apps/pastebin/` (détails dans le `README.md`) : `make up` / `make down` (app +
+base en conteneurs), `make dev` (base en Compose, serveur Go sur l'hôte), `make test`
+(avec intégration PostgreSQL), `make lint` (gofmt + `go vet`), `make fmt`, `make build`
+(image taguée avec le SHA git), `make migrate`.
+
+## Déploiement
+
+- Image `ghcr.io/zazi2004/pastebin:<sha7>` construite par la CI (Dockerfile multi-étapes,
+  binaire statique, image distroless non-root).
+- Manifests dans `infra/apps/pastebin/` : `base/` (namespace `pastebin`, Deployment à
+  1 réplique, Service, Ingress Traefik `pb.zazi.cool` avec certificat Let's Encrypt,
+  Middlewares de redirection HTTPS et d'en-têtes de sécurité) et `overlays/prod/` (tag
+  d'image + Secret chiffré).
+- Pod durci : non-root, système de fichiers en lecture seule, capacités retirées,
+  `RuntimeDefault` seccomp, sondes `/readyz` et `/healthz`.
+- Pour déployer : mettre à jour `newTag` dans `overlays/prod/kustomization.yaml`, puis
+  `kubectl apply -k` (par Noah ; aucun agent n'accède au cluster).
+
+## Décisions
 
 - [x] Stack : **Go**, front en rendu serveur (décision commune, voir `CLAUDE.md` racine §9).
       Un petit module TypeScript seulement si le chiffrement côté client est retenu.
