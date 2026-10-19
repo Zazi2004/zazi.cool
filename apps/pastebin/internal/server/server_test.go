@@ -35,7 +35,7 @@ func TestEndpoints(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rec := get(t, NewHandler(tt.db, "abc1234"), http.MethodGet, tt.path)
+			rec := get(t, NewHandler(tt.db, "abc1234", NewRateLimiter(10, RateWindow)), http.MethodGet, tt.path)
 			if rec.Code != tt.wantStatus {
 				t.Errorf("status = %d, want %d", rec.Code, tt.wantStatus)
 			}
@@ -50,7 +50,7 @@ func TestEndpoints(t *testing.T) {
 }
 
 func TestNonGetIsRejected(t *testing.T) {
-	rec := get(t, NewHandler(fakeDB{}, "dev"), http.MethodPost, "/healthz")
+	rec := get(t, NewHandler(fakeDB{}, "dev", NewRateLimiter(10, RateWindow)), http.MethodPost, "/healthz")
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("POST /healthz status = %d, want 405", rec.Code)
 	}

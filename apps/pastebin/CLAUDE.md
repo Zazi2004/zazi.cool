@@ -57,3 +57,15 @@ PostgreSQL. Table `pastes` : `id`, `content`, `language`, `created_at`, `expires
   `--build-arg VERSION=<sha7>` du Dockerfile ; il est servi par `GET /version`.
 - Dépendance : `pgx` (pilote PostgreSQL), comme Undercover.
 - Ports locaux par défaut : app 8080, base 5434.
+- Anti-abus (NF2, ONBO-7) dans `internal/server/abuse.go` : `POST /` passe par `guardCreate`
+  (rate limiting puis honeypot) avant le handler de création.
+  - Limite : `RATE_LIMIT_CREATE` créations par IP sur une **fenêtre glissante d'une heure**,
+    `429` + `Retry-After` au-delà. Toute tentative compte, y compris invalide ou piégée.
+  - IP du client : **dernière** entrée de `X-Forwarded-For` (celle ajoutée par Traefik ; les
+    précédentes viennent du client et sont falsifiables), sinon `RemoteAddr`. Les IPv6
+    sont regroupées par /64.
+  - Compteurs **en mémoire seulement** (NF4) : ils repartent à zéro au redémarrage et
+    imposent **une seule réplique** (sinon la limite est multipliée par le nombre de pods).
+  - Honeypot : champ `website` caché ; rempli → `303` vers `/`, rien n'est créé.
+  - Le plafond de taille du corps (`http.MaxBytesReader`, NF3) doit s'appliquer **avant**
+    `guardCreate`, qui lit le formulaire pour le honeypot.

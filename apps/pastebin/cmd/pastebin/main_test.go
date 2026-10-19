@@ -24,6 +24,16 @@ func TestLoadConfig(t *testing.T) {
 	if cfg.port != "8080" {
 		t.Errorf("default port = %q, want 8080", cfg.port)
 	}
+	if cfg.rateLimitCreate != 10 {
+		t.Errorf("default rate limit = %d, want 10", cfg.rateLimitCreate)
+	}
+
+	for _, bad := range []string{"0", "-1", "ten"} {
+		t.Setenv("RATE_LIMIT_CREATE", bad)
+		if _, err := loadConfig(); err == nil {
+			t.Errorf("RATE_LIMIT_CREATE=%q: want an error", bad)
+		}
+	}
 }
 
 func TestServeShutsDownWhenContextIsCancelled(t *testing.T) {
