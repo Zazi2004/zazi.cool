@@ -94,8 +94,9 @@ Puis, à chaque version :
 
 1. Le merge sur `main` déclenche la CI, qui publie `ghcr.io/zazi2004/undercover:<sha>`
    (les 7 premiers caractères du commit).
-2. Mettre ce SHA dans `newTag` de `infra/apps/undercover/overlays/prod/kustomization.yaml`
-   et committer (`chore(infra): deploy undercover <sha>`).
+2. Le job `bump` de la CI ouvre la PR `chore(infra): deploy undercover <sha>` qui met ce SHA
+   dans `newTag` de `infra/apps/undercover/overlays/prod/kustomization.yaml` (une seule PR
+   ouverte par app, mise à jour par un nouveau merge). La relire et la merger.
 3. Appliquer et vérifier :
 
 ```sh
@@ -195,3 +196,16 @@ kubectl -n undercover describe certificate undercover-tls      # certificat Let'
 kubectl -n cert-manager logs deploy/cert-manager
 ssh ubuntu@$VPS 'sudo journalctl -u k3s --since "10 min ago"'
 ```
+
+## PR de bump automatique
+
+Le workflow `.github/workflows/bump.yml` est appelé par chaque workflow d'app après le push
+de l'image. Réglages à faire une fois par Noah :
+
+1. Dépôt → Settings → Actions → General → « Workflow permissions » : cocher
+   **Allow GitHub Actions to create and approve pull requests**.
+2. Les pushs faits avec le `GITHUB_TOKEN` ne déclenchent pas de workflows : la PR de bump
+   n'aurait alors aucun check, et `ci / required` resterait en attente. Créer un PAT
+   fin (ou une GitHub App) avec `contents` et `pull requests` en écriture sur ce dépôt, et
+   l'enregistrer comme secret de dépôt **`BUMP_TOKEN`**. Sans ce secret, le workflow
+   retombe sur `GITHUB_TOKEN` (PR créée, mais sans checks).

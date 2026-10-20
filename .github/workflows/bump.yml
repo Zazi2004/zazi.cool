@@ -1,0 +1,71 @@
+name: bump
+
+# Called by the app workflows once the image is pushed: opens (or updates) the PR that sets
+# `newTag` in infra/apps/<app>/overlays/prod/kustomization.yaml. The PR is never merged here.
+on:
+  workflow_call:
+    inputs:
+      app:
+        description: Application name (folder under infra/apps)
+        required: true
+        type: string
+    secrets:
+      BUMP_TOKEN:
+        description: >-
+          Optional PAT or GitHub App token. Pushes made with GITHUB_TOKEN do not trigger
+          workflows, so the PR would have no checks; set this secret to get them.
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  bump:
+    name: ${{ inputs.app }} / bump
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    # At most one bump per app at a time; a newer run replaces a pending older one.
+    concurrency:
+      group: bump-${{ inputs.app }}
+      cancel-in-progress: false
+    env:
+      APP: ${{ inputs.app }}
+      GH_TOKEN: ${{ secrets.BUMP_TOKEN || secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          token: ${{ secrets.BUMP_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Open or update the bump PR
+        run: |
+          set -euo pipefail
+          sha="${GITHUB_SHA::7}"
+          file="infra/apps/$APP/overlays/prod/kustomization.yaml"
+          branch="chore/infra-deploy-$APP"
+          title="chore(infra): deploy $APP $sha"
+
+          current="$(sed -n 's/^ *newTag: *//p' "$file")"
+          if [ "$current" = "$sha" ]; then
+            echo "newTag is already $sha, nothing to do"
+            exit 0
+          fi
+
+          sed -i "s/^\( *newTag:\).*/\1 $sha/" "$file"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$branch"
+          git add "$file"
+          git commit -m "$title"
+          # The branch only holds the bump commit, so a force push is how a newer merge
+          # replaces the previous bump.
+          git push --force origin "$branch"
+
+          body="Automatic bump of \`newTag\` to \`$sha\` (image \`ghcr.io/zazi2004/$APP:$sha\`), opened by the CI after the push to \`main\`. Merging it does not deploy: Noah applies it (see infra/README.md)."
+          existing="$(gh pr list --head "$branch" --base main --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --title "$title" --body "$body"
+          else
+            gh pr create --head "$branch" --base main --title "$title" --body "$body"
+          fi
