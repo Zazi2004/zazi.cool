@@ -79,6 +79,7 @@ func (f *fakeStore) Report(_ context.Context, id int64, reason pairs.Reason, has
 func newTestHandler(st *fakeStore) http.Handler {
 	return NewHandler(st, Config{
 		IPHashSalt:      "test",
+		Version:         "abc1234",
 		SuggestionLimit: 100,
 		ReportLimit:     100,
 		CheckLimit:      100,
@@ -120,6 +121,19 @@ func TestHealth(t *testing.T) {
 	st.pingErr = errors.New("down")
 	if rec := do(t, h, "GET", "/readyz", ""); rec.Code != http.StatusServiceUnavailable {
 		t.Errorf("readyz with database down = %d, want 503", rec.Code)
+	}
+}
+
+func TestVersion(t *testing.T) {
+	rec := do(t, newTestHandler(&fakeStore{}), "GET", "/version", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("version = %d, want 200", rec.Code)
+	}
+	if got := strings.TrimSpace(rec.Body.String()); got != "abc1234" {
+		t.Errorf("version body = %q, want abc1234", got)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "text/plain; charset=utf-8" {
+		t.Errorf("Content-Type = %q", ct)
 	}
 }
 
