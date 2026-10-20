@@ -176,8 +176,11 @@ avec la trajectoire :
 
 À toutes les étapes, si la vérification échoue : rollback (manuel aux étapes 1 à 3,
 automatique à l'étape 4), ticket → `blocked` avec le constat, et ticket `fix/…`.
-`done` reste posé par Noah aux étapes 1 à 3 ; à l'étape 4, la clôture automatique du
-ticket de trace quand `verify` est vert est à confirmer au moment de la mettre en place.
+`done` reste posé par Noah aux étapes 1 à 3. À l'étape 4, le ticket de trace est créé et
+clos par l'autopilot « Trace des déploiements » (webhook appelé par le job `notify` de
+`deploy-verify`) : clos si `verify` est vert, `blocked` + ticket `fix/…` sinon. Cette
+clôture automatique, seule exception à « `done` est posé par Noah », est **à confirmer par
+Noah** avant d'activer l'autopilot.
 
 #### Gabarit (étape 3)
 

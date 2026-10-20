@@ -184,3 +184,42 @@ jobs:
           url="$(gh pr create --head "$branch" --base main --title "$title" \
             --body "Automatic rollback: verify failed for \`$APP\` $SHA ($RUN_URL). Puts \`newTag\` back to \`$PREVIOUS\`; Flux reapplies it and \`deploy-verify\` checks it after the merge.")"
           gh pr merge "$url" --auto --squash || echo "::warning::auto-merge unavailable, merge $url by hand"
+
+  # Leaves a trace of each deployment in Multica (autopilot "Trace des déploiements"): the
+  # autopilot opens the "Déployer <app> <sha7>" issue, and on failure blocks it and opens a
+  # fix issue. The webhook URL is a credential: it lives in the MULTICA_WEBHOOK_URL secret.
+  notify:
+    name: ${{ matrix.app }} / notify
+    needs: [detect, verify, rollback]
+    if: always() && needs.detect.outputs.deployments != '[]'
+    runs-on: ubuntu-latest
+    permissions: {}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.detect.outputs.deployments) }}
+    env:
+      WEBHOOK_URL: ${{ secrets.MULTICA_WEBHOOK_URL }}
+      APP: ${{ matrix.app }}
+      SHA: ${{ matrix.sha }}
+      PREVIOUS: ${{ matrix.previous }}
+      IS_ROLLBACK: ${{ matrix.is_rollback }}
+      RESULT: ${{ needs.verify.result }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Notify Multica
+        run: |
+          set -euo pipefail
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "::warning::MULTICA_WEBHOOK_URL is not set, no trace left in Multica"
+            exit 0
+          fi
+          body="$(jq -n --arg app "$APP" --arg sha "${SHA:0:7}" --arg result "$RESULT" \
+            --arg previous "$PREVIOUS" --arg run_url "$RUN_URL" --argjson rollback "$IS_ROLLBACK" \
+            '{app: $app, sha: $sha, result: $result, previous: $previous, rollback: $rollback, run_url: $run_url}')"
+          # --retry makes a transient failure harmless; the key makes a retry idempotent.
+          curl -fsS --max-time 20 --retry 3 --retry-delay 5 \
+            -H 'Content-Type: application/json' \
+            -H "Idempotency-Key: deploy-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$APP" \
+            -d "$body" "$WEBHOOK_URL" >/dev/null
+          echo "Multica notified: $APP ${SHA:0:7} ($RESULT)"
