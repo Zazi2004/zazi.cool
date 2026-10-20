@@ -76,3 +76,14 @@ jobs:
           labels: org.opencontainers.image.source=https://github.com/Zazi2004/zazi.cool
           cache-from: type=gha,scope=pastebin
           cache-to: type=gha,mode=max,scope=pastebin
+
+  bump:
+    name: pastebin / bump
+    needs: image
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/bump.yml
+    with:
+      app: pastebin
+    secrets: inherit

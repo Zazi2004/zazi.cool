@@ -80,3 +80,14 @@ jobs:
           labels: org.opencontainers.image.source=https://github.com/Zazi2004/zazi.cool
           cache-from: type=gha,scope=undercover
           cache-to: type=gha,mode=max,scope=undercover
+
+  bump:
+    name: undercover / bump
+    needs: image
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/bump.yml
+    with:
+      app: undercover
+    secrets: inherit

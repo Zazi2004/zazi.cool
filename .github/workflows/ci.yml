@@ -65,18 +65,22 @@ jobs:
     needs: changes
     if: needs.changes.outputs.pastebin == 'true'
     permissions:
-      contents: read
+      contents: write
       packages: write
+      pull-requests: write
     uses: ./.github/workflows/pastebin.yml
+    secrets: inherit
 
   undercover:
     name: undercover
     needs: changes
     if: needs.changes.outputs.undercover == 'true'
     permissions:
-      contents: read
+      contents: write
       packages: write
+      pull-requests: write
     uses: ./.github/workflows/undercover.yml
+    secrets: inherit
 
   # The only status check required by the `main` ruleset. App workflows only run when
   # their paths changed, so this job is always executed and fails if any job failed or
