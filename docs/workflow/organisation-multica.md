@@ -63,7 +63,7 @@ Par ordre d'utilité. Aucune n'est indispensable pour démarrer.
 | **Attente de la vérification** (étapes 1 à 3 du déploiement) | Réveil d'issue sur commentaire de Noah, puis `--until-pr checks` sur la PR de bump | Après « déployé » commenté par Noah (étape 1), ou quand le job `verify` est terminé (étapes 2 et 3), l'agent consigne le résultat et la recette. |
 | **Maintenance hebdomadaire** | Autopilot planifié (lundi 9 h, Europe/Paris), projet Infra | Crée une issue « Revue hebdo » : mises à jour disponibles (Go, Node, images de base, k3s, cert-manager), branches mergées à supprimer, PR en attente. Lecture seule. |
 | **Rappel de test de restauration** | Autopilot planifié (mensuel), assigné à Noah | Crée une issue avec les commandes du test de restauration (`infra/README.md` §7), qui demande l'accès au cluster. |
-| **Trace des déploiements** (étape 4) | Autopilot webhook appelé par le job CI `verify` | Crée « Déployer <app> <sha7> » avec le résultat de la vérification ; en cas d'échec (rollback automatique fait), l'issue est assignée au Développeur zazi en `blocked` avec le constat. |
+| **Trace des déploiements** (étape 4) | Autopilot webhook « Trace des déploiements », appelé par le job `notify` de `deploy-verify` (secret GitHub `MULTICA_WEBHOOK_URL`) | Crée « Déployer <app> <sha7> » ; `verify` vert : ticket clos ; échec : ticket `blocked` avec le constat, ticket `fix/…` créé, Noah alerté. Voir [`infra/README.md`](../../infra/README.md#notification-multica). |
 
 ---
 

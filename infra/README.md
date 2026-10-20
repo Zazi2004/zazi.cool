@@ -198,6 +198,24 @@ Prérequis : le secret `BUMP_TOKEN` (voir ci-dessous), sinon la PR de rollback n
 checks et ne peut pas être mergée ; l'option « Allow auto-merge » du dépôt, sinon la PR est
 laissée à merger à la main.
 
+### Notification Multica
+
+Le job `notify` de `deploy-verify` appelle, pour chaque déploiement, le webhook de
+l'autopilot Multica « Trace des déploiements » avec `app`, `sha` (7 caractères), `result`
+(`success`, `failure`, `cancelled`), `rollback`, `previous` et `run_url`. L'autopilot ouvre
+le ticket « Déployer <app> <sha7> » : il le clôt si `verify` est vert ; sinon il le passe en
+`blocked`, ouvre un ticket `fix/…` et alerte Noah.
+
+Mise en place (Noah) :
+
+1. Multica → Autopilots → « Trace des déploiements » → trigger `deploy-verify` : copier l'URL
+   du webhook (c'est un identifiant : ne jamais la coller dans un ticket, un commentaire ou le dépôt).
+2. `gh secret set MULTICA_WEBHOOK_URL` (collage sur l'entrée standard), ou Settings → Secrets and variables → Actions.
+3. Passer l'autopilot de `paused` à `active` (`multica autopilot update <id> --status active`).
+
+Sans le secret, `notify` émet un avertissement et ne fait rien : le déploiement n'est pas
+bloqué. Rotation : `multica autopilot trigger-rotate-url`, puis mettre à jour le secret.
+
 Test de bout en bout (en production, protégé par les `readinessProbe`) : merger une PR de bump
 dont `newTag` est un SHA sans image (par exemple `0000000`). Les nouveaux pods ne démarrent
 pas, l'ancienne version reste en service, `verify` échoue après 300 s, puis la PR de rollback
