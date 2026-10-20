@@ -9,7 +9,7 @@ code passé par une PR dont la CI est verte.
 | Workflow | Rôle |
 |----------|------|
 | `ci.yml` | Point d'entrée sur chaque PR et chaque push sur `main`. Détecte les apps modifiées, appelle leurs workflows, scanne les secrets (Gitleaks) et les dépendances/manifests (Trivy), puis le job final **`ci / required`** agrège le tout. |
-| `pastebin.yml`, `undercover.yml` | Workflows **réutilisables** (`workflow_call`), appelés uniquement par `ci.yml` si `apps/<app>/**` ou leur fichier a changé : lint, tests, puis (sur `main`) scan Trivy de l'image, build et push. |
+| `app.yml` | Workflow **réutilisable** (`workflow_call`, entrées `app` et `node`), appelé uniquement par `ci.yml` si `apps/<app>/**` ou `app.yml` a changé et que l'app a un `Dockerfile` : lint, tests, puis (sur `main`) scan Trivy de l'image, build et push. |
 
 `ci / required` est le **seul check requis** : il réussit si tous les jobs ont réussi
 ou été ignorés (app non modifiée), et échoue sinon. Une PR qui ne touche aucune app
