@@ -29,15 +29,33 @@ function errorMessage(body: unknown): string | undefined {
   return undefined;
 }
 
-async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal) {
-  let res: Response;
-  try {
-    res = await fetch(path, {
+interface RequestOptions {
+  signal?: AbortSignal;
+  /**
+   * Retry once when the request never reached the server. Only for requests that are
+   * safe to repeat: a connection reused after a long pause may have been closed in
+   * the meantime (Mr. White thinking, phone asleep), and browsers do not retry a POST
+   * on their own.
+   */
+  retryOnNetworkError?: boolean;
+}
+
+async function request<T>(method: string, path: string, body?: unknown, opts: RequestOptions = {}) {
+  const send = () =>
+    fetch(path, {
       method,
       headers: body === undefined ? undefined : { "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
-      signal,
+      signal: opts.signal,
     });
+  let res: Response;
+  try {
+    try {
+      res = await send();
+    } catch (err) {
+      if (!opts.retryOnNetworkError || opts.signal?.aborted) throw err;
+      res = await send();
+    }
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") throw err;
     throw new Error("Impossible de joindre le serveur. Vérifiez la connexion.", { cause: err });
@@ -68,12 +86,14 @@ export function drawPair({ extreme, suggestionsOnly, exclude }: DrawOptions) {
 }
 
 export function checkGuess(pairId: number, req: GuessRequest) {
-  return request<GuessResponse>("POST", `/api/pairs/${pairId}/guess`, req);
+  return request<GuessResponse>("POST", `/api/pairs/${pairId}/guess`, req, {
+    retryOnNetworkError: true, // a pure comparison: repeating it changes nothing
+  });
 }
 
 export function checkPair(a: string, b: string, signal?: AbortSignal) {
   const params = new URLSearchParams({ a, b });
-  return request<CheckResponse>("GET", `/api/pairs/check?${params}`, undefined, signal);
+  return request<CheckResponse>("GET", `/api/pairs/check?${params}`, undefined, { signal });
 }
 
 export type CreateResult =
