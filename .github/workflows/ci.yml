@@ -70,9 +70,11 @@ jobs:
     needs: changes
     if: needs.changes.outputs.home == 'true'
     permissions:
-      contents: read
+      contents: write
       packages: write
+      pull-requests: write
     uses: ./.github/workflows/app.yml
+    secrets: inherit
     with:
       app: home
 
@@ -81,9 +83,11 @@ jobs:
     needs: changes
     if: needs.changes.outputs.linktree == 'true'
     permissions:
-      contents: read
+      contents: write
       packages: write
+      pull-requests: write
     uses: ./.github/workflows/app.yml
+    secrets: inherit
     with:
       app: linktree
 
@@ -92,9 +96,11 @@ jobs:
     needs: changes
     if: needs.changes.outputs.pastebin == 'true'
     permissions:
-      contents: read
+      contents: write
       packages: write
+      pull-requests: write
     uses: ./.github/workflows/app.yml
+    secrets: inherit
     with:
       app: pastebin
 
@@ -103,9 +109,11 @@ jobs:
     needs: changes
     if: needs.changes.outputs.undercover == 'true'
     permissions:
-      contents: read
+      contents: write
       packages: write
+      pull-requests: write
     uses: ./.github/workflows/app.yml
+    secrets: inherit
     with:
       app: undercover
       node: true

@@ -28,6 +28,9 @@ import (
 	"zazi.cool/undercover/web"
 )
 
+// version is the git SHA of the build, injected with -ldflags "-X main.version=<sha>".
+var version = "dev"
+
 // shutdownTimeout bounds how long in-flight requests may take to finish on SIGTERM.
 const shutdownTimeout = 10 * time.Second
 
@@ -70,6 +73,7 @@ func run(args []string) error {
 	handler := api.NewHandler(st, api.Config{
 		TrustProxy:      cfg.trustProxy,
 		IPHashSalt:      cfg.ipHashSalt,
+		Version:         version,
 		SuggestionLimit: cfg.suggestionLimit,
 		ReportLimit:     cfg.reportLimit,
 		CheckLimit:      cfg.checkLimit,
@@ -110,7 +114,7 @@ func serve(ctx context.Context, addr string, handler http.Handler) error {
 	// through a channel. The buffer lets the goroutine exit even if nobody reads.
 	errc := make(chan error, 1)
 	go func() {
-		slog.Info("listening", "addr", addr)
+		slog.Info("listening", "addr", addr, "version", version)
 		errc <- srv.ListenAndServe()
 	}()
 

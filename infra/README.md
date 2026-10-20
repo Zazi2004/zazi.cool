@@ -94,8 +94,9 @@ Puis, à chaque version :
 
 1. Le merge sur `main` déclenche la CI, qui publie `ghcr.io/zazi2004/undercover:<sha>`
    (les 7 premiers caractères du commit).
-2. Mettre ce SHA dans `newTag` de `infra/apps/undercover/overlays/prod/kustomization.yaml`
-   et committer (`chore(infra): deploy undercover <sha>`).
+2. Le job `bump` de la CI ouvre la PR `chore(infra): deploy undercover <sha>` qui met ce SHA
+   dans `newTag` de `infra/apps/undercover/overlays/prod/kustomization.yaml` (une seule PR
+   ouverte par app, mise à jour par un nouveau merge). La relire et la merger.
 3. Appliquer et vérifier :
 
 ```sh
@@ -125,6 +126,42 @@ sops encrypt --in-place infra/apps/pastebin/overlays/prod/secret.enc.yaml
 kubectl apply -f infra/apps/pastebin/base/namespace.yaml
 sops decrypt infra/apps/pastebin/overlays/prod/secret.enc.yaml | kubectl apply -f -
 ```
+
+## Vérifier un déploiement
+
+Le workflow réutilisable `.github/workflows/verify.yml` contrôle une app depuis l'extérieur.
+Il attend (polling toutes les 5 s, borné par `timeout`) que `GET /version` renvoie le SHA
+attendu, puis vérifie `/healthz`, `/readyz`, la redirection HTTP → HTTPS et la validité du
+certificat TLS (chaîne, nom, expiration dans plus de 7 jours). Chaque contrôle est une étape
+distincte : l'étape rouge désigne la panne, et le job échoue (code non nul).
+
+| Entrée | Rôle |
+|--------|------|
+| `app` | nom de l'app (affichage) |
+| `url` | URL publique, sans chemin : `https://pb.zazi.cool` |
+| `sha` | SHA attendu (7 caractères ou plus ; seuls les 7 premiers sont comparés) |
+| `timeout` | attente maximale de `/version`, en secondes (défaut 300, max 840) |
+
+À la main :
+
+```sh
+gh workflow run verify.yml -f app=pastebin -f url=https://pb.zazi.cool -f sha=<sha7>
+gh run watch
+```
+
+Depuis un autre workflow :
+
+```yaml
+jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
+    with:
+      app: pastebin
+      url: https://pb.zazi.cool
+      sha: ${{ needs.image.outputs.sha }}
+```
+
+Un SHA erroné donne un job rouge à l'étape « Wait for /version… » après le `timeout`.
 
 ## 7. Sauvegardes
 
@@ -159,3 +196,16 @@ kubectl -n undercover describe certificate undercover-tls      # certificat Let'
 kubectl -n cert-manager logs deploy/cert-manager
 ssh ubuntu@$VPS 'sudo journalctl -u k3s --since "10 min ago"'
 ```
+
+## PR de bump automatique
+
+Le workflow `.github/workflows/bump.yml` est appelé par chaque workflow d'app après le push
+de l'image. Réglages à faire une fois par Noah :
+
+1. Dépôt → Settings → Actions → General → « Workflow permissions » : cocher
+   **Allow GitHub Actions to create and approve pull requests**.
+2. Les pushs faits avec le `GITHUB_TOKEN` ne déclenchent pas de workflows : la PR de bump
+   n'aurait alors aucun check, et `ci / required` resterait en attente. Créer un PAT
+   fin (ou une GitHub App) avec `contents` et `pull requests` en écriture sur ce dépôt, et
+   l'enregistrer comme secret de dépôt **`BUMP_TOKEN`**. Sans ce secret, le workflow
+   retombe sur `GITHUB_TOKEN` (PR créée, mais sans checks).

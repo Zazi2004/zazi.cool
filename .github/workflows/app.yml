@@ -96,3 +96,14 @@ jobs:
           labels: org.opencontainers.image.source=https://github.com/Zazi2004/zazi.cool
           cache-from: type=gha,scope=${{ inputs.app }}
           cache-to: type=gha,mode=max,scope=${{ inputs.app }}
+
+  bump:
+    name: ${{ inputs.app }} / bump
+    needs: image
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/bump.yml
+    with:
+      app: ${{ inputs.app }}
+    secrets: inherit
