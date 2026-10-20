@@ -4,6 +4,7 @@ import { loadGame, saveGame } from "../game/storage";
 import { focusMain } from "./common";
 import { DistributionScreen } from "./DistributionScreen";
 import { GuessResultScreen, GuessScreen } from "./GuessScreens";
+import { Modal } from "./Modal";
 import { OverScreen } from "./OverScreen";
 import { RevealScreen } from "./RevealScreen";
 import { RoundScreen } from "./RoundScreen";
@@ -17,6 +18,7 @@ export interface ScreenProps {
 
 export function GamePage() {
   const [game, setGame] = useState<Game | null>(loadGame);
+  const [confirming, setConfirming] = useState(false);
 
   const update = (next: Game | null) => {
     saveGame(next);
@@ -30,7 +32,8 @@ export function GamePage() {
   }
 
   const abandon = () => {
-    if (confirm("Abandonner la partie en cours ?")) update(null);
+    setConfirming(false);
+    update(null);
   };
   const props: ScreenProps = { game, onChange: update };
 
@@ -38,9 +41,27 @@ export function GamePage() {
     <>
       <Screen {...props} onNewGame={() => update(null)} />
       {game.phase.kind !== "over" && (
-        <button type="button" class="button ghost small" onClick={abandon}>
+        <button type="button" class="button ghost small" onClick={() => setConfirming(true)}>
           Abandonner la partie
         </button>
+      )}
+      {confirming && (
+        <Modal title="Abandonner la partie ?" onClose={() => setConfirming(false)}>
+          <p>La partie en cours sera perdue, les mots et les rôles aussi.</p>
+          <div class="modal-actions">
+            <button
+              type="button"
+              class="button"
+              data-autofocus
+              onClick={() => setConfirming(false)}
+            >
+              Continuer la partie
+            </button>
+            <button type="button" class="button danger" onClick={abandon}>
+              Abandonner
+            </button>
+          </div>
+        </Modal>
       )}
     </>
   );

@@ -279,6 +279,12 @@ pas de style en ligne).
 - **Focus** : `:focus-visible` toujours visible ; un « lien d'évitement » mène au contenu ;
   au changement de page ou d'écran, le focus va sur `<main>` (`focusMain`), et sur le mot
   secret ou le verdict quand ils remplacent le bouton pressé (`useFocusOnMount`).
+- **Modale** : `ui/Modal.tsx` (`role="dialog"`, `aria-modal`, focus piégé et rendu à
+  l'ouverture/fermeture, Échap, clic sur le fond). Le bouton sûr porte `data-autofocus`.
+  Pas de `confirm()` natif. Les titres de section de la configuration (`legend`) sont des
+  pastilles opaques (`--pill`) qui chevauchent le bord de la carte.
+- **Fin de partie** : une partie terminée est oubliée à l'arrivée sur l'accueil
+  (`discardFinishedGame`), sinon « Nouvelle partie » rouvrait l'écran de fin.
 - **Vibrations** : **désactivées par défaut** (case « Vibrations » de l'accueil, mémorisée
   dans `localStorage`, masquée si le navigateur ne sait pas vibrer). Tout passe par
   `buzz()` (`ui/haptics.ts`), qui ne fait rien tant que l'option est coupée. **Pas d'effets
