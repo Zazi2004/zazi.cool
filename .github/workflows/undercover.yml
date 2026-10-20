@@ -61,6 +61,7 @@ jobs:
         with:
           context: apps/undercover
           load: true
+          build-args: VERSION=${{ steps.tag.outputs.sha }}
           tags: undercover:scan
           cache-from: type=gha,scope=undercover
           cache-to: type=gha,mode=max,scope=undercover
@@ -76,6 +77,7 @@ jobs:
         with:
           context: apps/undercover
           push: true
+          build-args: VERSION=${{ steps.tag.outputs.sha }}
           tags: ghcr.io/zazi2004/undercover:${{ steps.tag.outputs.sha }}
           labels: org.opencontainers.image.source=https://github.com/Zazi2004/zazi.cool
           cache-from: type=gha,scope=undercover

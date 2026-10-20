@@ -42,6 +42,8 @@ type Config struct {
 	IPHashSalt string
 	// Requests allowed per IP and per hour.
 	SuggestionLimit, ReportLimit, CheckLimit int
+	// Version is the git SHA of the running build, served by /version.
+	Version string
 	// Static holds the built front (index.html and assets).
 	Static fs.FS
 }
@@ -67,6 +69,7 @@ func NewHandler(st PairStore, cfg Config) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.healthz)
 	mux.HandleFunc("GET /readyz", s.readyz)
+	mux.HandleFunc("GET /version", s.version)
 	mux.HandleFunc("GET /api/pairs/random", s.randomPair)
 	mux.HandleFunc("POST /api/pairs/{id}/guess", s.guess)
 	mux.Handle("GET /api/pairs/check", limit(cfg.CheckLimit, s.checkPair))
@@ -85,6 +88,11 @@ func NewHandler(st PairStore, cfg Config) http.Handler {
 func (s *server) healthz(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprintln(w, "ok")
+}
+
+func (s *server) version(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	fmt.Fprintln(w, s.cfg.Version)
 }
 
 func (s *server) readyz(w http.ResponseWriter, r *http.Request) {

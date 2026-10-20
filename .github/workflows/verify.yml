@@ -1,0 +1,110 @@
+name: verify
+
+# Post-deployment check of one app, reusable (workflow_call) and manual (workflow_dispatch).
+# See infra/README.md, "Vérifier un déploiement".
+on:
+  workflow_call:
+    inputs:
+      app:
+        description: App name (used in logs only)
+        type: string
+        required: true
+      url:
+        description: Public base URL, e.g. https://pb.zazi.cool
+        type: string
+        required: true
+      sha:
+        description: Expected git SHA (7 characters or more)
+        type: string
+        required: true
+      timeout:
+        description: Seconds to wait for /version to return the expected SHA
+        type: number
+        default: 300
+  workflow_dispatch:
+    inputs:
+      app:
+        description: App name (used in logs only)
+        type: string
+        required: true
+      url:
+        description: Public base URL, e.g. https://pb.zazi.cool
+        type: string
+        required: true
+      sha:
+        description: Expected git SHA (7 characters or more)
+        type: string
+        required: true
+      timeout:
+        description: Seconds to wait for /version to return the expected SHA
+        type: number
+        default: 300
+
+permissions: {}
+
+jobs:
+  verify:
+    name: ${{ inputs.app }} / verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Inputs go through env, never interpolated into the scripts.
+      APP: ${{ inputs.app }}
+      URL: ${{ inputs.url }}
+      SHA: ${{ inputs.sha }}
+      TIMEOUT: ${{ inputs.timeout }}
+    steps:
+      - name: Validate inputs
+        run: |
+          set -euo pipefail
+          [[ "$APP" =~ ^[a-z0-9-]+$ ]] || { echo "::error::invalid app: $APP"; exit 1; }
+          [[ "$URL" =~ ^https://[a-z0-9.-]+$ ]] || { echo "::error::url must be https://<host> without path: $URL"; exit 1; }
+          [[ "$SHA" =~ ^[0-9a-f]{7,40}$ ]] || { echo "::error::sha must be 7-40 hex characters: $SHA"; exit 1; }
+          [[ "$TIMEOUT" =~ ^[0-9]+$ ]] && (( TIMEOUT >= 1 && TIMEOUT <= 840 )) || { echo "::error::timeout must be 1-840 seconds: $TIMEOUT"; exit 1; }
+          echo "WANT=${SHA:0:7}" >> "$GITHUB_ENV"
+          echo "HOST=${URL#https://}" >> "$GITHUB_ENV"
+
+      - name: Wait for /version to return the expected SHA
+        run: |
+          set -uo pipefail
+          deadline=$(( SECONDS + TIMEOUT ))
+          got=""
+          while :; do
+            got=$(curl -fsS --max-time 10 "$URL/version" 2>/dev/null | tr -d '[:space:]') || got=""
+            if [[ "${got:0:7}" == "$WANT" && -n "$got" ]]; then
+              echo "$APP serves version $got"
+              exit 0
+            fi
+            if (( SECONDS >= deadline )); then
+              echo "::error::$URL/version returned '${got:-<no answer>}' instead of $WANT after ${TIMEOUT}s"
+              exit 1
+            fi
+            sleep 5
+          done
+
+      - name: Check /healthz
+        run: curl -fsS --max-time 10 "$URL/healthz"
+
+      - name: Check /readyz
+        run: curl -fsS --max-time 10 "$URL/readyz"
+
+      - name: Check HTTP to HTTPS redirect
+        run: |
+          set -euo pipefail
+          read -r code location < <(curl -sS --max-time 10 -o /dev/null -w '%{http_code} %{redirect_url}\n' "http://$HOST/healthz")
+          echo "http://$HOST/healthz -> $code $location"
+          case "$code" in 301|302|307|308) ;; *) echo "::error::expected a redirect, got $code"; exit 1 ;; esac
+          [[ "$location" == https://"$HOST"/* ]] || { echo "::error::redirect does not target https://$HOST: $location"; exit 1; }
+
+      - name: Check TLS certificate
+        run: |
+          set -euo pipefail
+          # curl without -k already fails on an invalid, expired or mismatched certificate.
+          curl -fsS --max-time 10 -o /dev/null "$URL/healthz"
+          cert=$(echo | openssl s_client -connect "$HOST:443" -servername "$HOST" -verify_hostname "$HOST" -verify_return_error 2>/dev/null | openssl x509 -noout -enddate -issuer)
+          echo "$cert"
+          end=$(echo "$cert" | sed -n 's/^notAfter=//p')
+          end_s=$(date -d "$end" +%s)
+          days=$(( (end_s - $(date +%s)) / 86400 ))
+          echo "certificate expires in $days days"
+          (( days >= 7 )) || { echo "::error::certificate expires in $days days"; exit 1; }

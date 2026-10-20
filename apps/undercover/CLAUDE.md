@@ -218,6 +218,7 @@ Conséquences : **pas de temps réel** (ni WebSocket ni SSE), **pas de Redis**, 
 | `POST /api/pairs`                      | Propose une paire (201, 409 si doublon, 422 si invalide)         |
 | `POST /api/pairs/{id}/reports`         | Signale une paire (`reason: "extreme" \| "remove"`)              |
 | `GET  /healthz`, `GET /readyz`         | Santé (liveness / readiness, base joignable)                     |
+| `GET  /version`                        | SHA court de l'image (injecté au build, `dev` en local)          |
 
 Les messages sont définis dans `internal/api/types.go`, et leur miroir TypeScript dans
 `web/src/api/types.ts`. Pour les garder alignés, un test Go génère et compare

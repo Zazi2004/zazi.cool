@@ -36,7 +36,7 @@ dev: .env web/node_modules dist-placeholder
 	docker compose up -d --wait db
 	@echo "Front (hot reload): http://localhost:5173 — restart make dev after a Go change"
 	@trap 'kill 0' EXIT; set -a; . ./.env; set +a; \
-		(cd web && npm run dev) & go run ./cmd/undercover
+		(cd web && npm run dev) & go run -ldflags "-X main.version=dev" ./cmd/undercover
 
 ## test: Go tests (with PostgreSQL integration tests) and front tests
 test: .env web/node_modules dist-placeholder
@@ -56,9 +56,9 @@ fmt: web/node_modules
 	gofmt -w $(GO_DIRS)
 	cd web && npm run fmt
 
-## build: build the Docker image, tagged with the git SHA
+## build: build the Docker image, tagged with the git SHA (also reported by /version)
 build:
-	docker build -t $(IMAGE):$(TAG) .
+	docker build --build-arg VERSION=$(TAG) -t $(IMAGE):$(TAG) .
 
 ## migrate: apply migrations and seed pairs to DATABASE_URL
 migrate: .env dist-placeholder
