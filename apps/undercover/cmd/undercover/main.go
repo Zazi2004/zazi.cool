@@ -107,7 +107,9 @@ func serve(ctx context.Context, addr string, handler http.Handler) error {
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		// Longer than the idle timeouts of the proxy in front (Traefik keeps upstream
+		// connections 90 s), so the proxy never reuses a connection we just closed.
+		IdleTimeout: 120 * time.Second,
 	}
 
 	// ListenAndServe blocks, so it runs in its own goroutine; its result comes back
