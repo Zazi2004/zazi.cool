@@ -26,6 +26,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: read
     # At most one bump per app at a time; a newer run replaces a pending older one.
     concurrency:
       group: bump-${{ inputs.app }}
@@ -45,6 +46,11 @@ jobs:
           file="infra/apps/$APP/overlays/prod/kustomization.yaml"
           branch="chore/infra-deploy-$APP"
           title="chore(infra): deploy $APP $sha"
+
+          if [ -n "$(gh issue list --label "deploy-blocked:$APP" --state open --json number --jq '.[0].number // empty')" ]; then
+            echo "::warning::bumps of $APP are paused (open deploy-blocked:$APP issue), skipping"
+            exit 0
+          fi
 
           current="$(sed -n 's/^ *newTag: *//p' "$file")"
           if [ "$current" = "$sha" ]; then

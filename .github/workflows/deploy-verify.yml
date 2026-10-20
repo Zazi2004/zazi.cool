@@ -3,7 +3,9 @@ name: deploy-verify
 # Runs `verify` after a bump PR is merged: a push to main that changes `newTag` in
 # infra/apps/<app>/overlays/prod/kustomization.yaml. The app, the SHA and the URL come from
 # the diff and the app's Ingress. Each deployment is recorded in the `production`
-# environment (GitHub Deployments). See infra/README.md, "Vérifier un déploiement".
+# environment (GitHub Deployments). When `verify` fails, the `rollback` job opens a PR that
+# puts the previous tag back and blocks further bumps of that app until the issue it opens
+# is closed. See infra/README.md, "Vérifier un déploiement" and "Rollback automatique".
 on:
   push:
     branches: [main]
@@ -36,6 +38,8 @@ jobs:
           set -euo pipefail
           if [[ "$BEFORE" =~ ^0+$ ]]; then base="$(git rev-parse HEAD^)"; else base="$BEFORE"; fi
           entries='[]'
+          # A push whose subject starts with this prefix is a rollback: never roll it back.
+          if [[ "$(git log -1 --format=%s)" == "revert(infra): roll back "* ]]; then is_rollback=true; else is_rollback=false; fi
           for file in $(git diff --name-only "$base" HEAD -- 'infra/apps/*/overlays/prod/kustomization.yaml'); do
             app="$(echo "$file" | cut -d/ -f3)"
             old="$(git show "$base:$file" 2>/dev/null | sed -n 's/^ *newTag: *//p' | head -n1 || true)"
@@ -56,7 +60,8 @@ jobs:
               -f state=in_progress -f description="Waiting for $app $new" \
               -f log_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >/dev/null
             entries="$(jq -c --arg app "$app" --arg url "https://$host" --arg sha "$new" --arg id "$id" \
-              '. + [{app: $app, url: $url, sha: $sha, deployment: $id}]' <<<"$entries")"
+              --arg old "$old" --argjson rb "$is_rollback" \
+              '. + [{app: $app, url: $url, sha: $sha, deployment: $id, previous: $old, is_rollback: $rb}]' <<<"$entries")"
           done
           echo "deployments=$entries" >> "$GITHUB_OUTPUT"
 
@@ -105,3 +110,77 @@ jobs:
             -f state="$state" -f description="verify $RESULT for $APP $SHA" \
             -f environment_url="$URL" \
             -f log_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >/dev/null
+
+  # One automatic rollback per bump. The rollback PR is itself verified by this workflow when
+  # it is merged; if that verification fails too, nothing more is attempted (`is_rollback`).
+  rollback:
+    name: ${{ matrix.app }} / rollback
+    needs: [detect, verify]
+    if: always() && needs.verify.result == 'failure'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.detect.outputs.deployments) }}
+    concurrency:
+      group: rollback-${{ matrix.app }}
+      cancel-in-progress: false
+    env:
+      # Pushes and PRs made with GITHUB_TOKEN do not trigger workflows: without BUMP_TOKEN the
+      # rollback PR gets no `ci / required` check and cannot be merged.
+      GH_TOKEN: ${{ secrets.BUMP_TOKEN || secrets.GITHUB_TOKEN }}
+      APP: ${{ matrix.app }}
+      SHA: ${{ matrix.sha }}
+      PREVIOUS: ${{ matrix.previous }}
+      IS_ROLLBACK: ${{ matrix.is_rollback }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          token: ${{ secrets.BUMP_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Roll back to the previous tag
+        run: |
+          set -euo pipefail
+          label="deploy-blocked:$APP"
+          if [ "$IS_ROLLBACK" = true ]; then
+            echo "::error::$APP: verify failed on a rollback, manual action needed ($RUN_URL)"
+            gh issue list --label "$label" --state open --json number --jq '.[].number' |
+              while read -r n; do gh issue comment "$n" --body "Verify also failed after the rollback: $RUN_URL"; done
+            exit 1
+          fi
+          if [[ ! "$PREVIOUS" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "::error::$APP: no previous tag to roll back to (got '$PREVIOUS')"
+            exit 1
+          fi
+
+          file="infra/apps/$APP/overlays/prod/kustomization.yaml"
+          current="$(sed -n 's/^ *newTag: *//p' "$file" | head -n1)"
+          if [ "$current" != "$SHA" ]; then
+            echo "main now has newTag $current, not $SHA: a later change superseded this bump"
+            exit 0
+          fi
+
+          # Block further bumps first, so a bump cannot slip in while the PR is being opened.
+          gh label create "$label" --color B60205 --description "Bumps of $APP are paused until this issue is closed" --force
+          gh issue create --label "$label" \
+            --title "Deploy blocked: $APP $SHA failed verify" \
+            --body "verify failed for \`$APP\` $SHA ($RUN_URL). The CI opened a rollback PR to \`$PREVIOUS\`. New bumps of $APP are paused: fix the problem, then close this issue to resume them."
+
+          branch="revert/infra-deploy-$APP-$SHA"
+          title="revert(infra): roll back $APP to $PREVIOUS ($SHA failed verify)"
+          sed -i "s/^\( *newTag:\).*/\1 $PREVIOUS/" "$file"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$branch"
+          git add "$file"
+          git commit -m "$title"
+          git push origin "$branch"
+          url="$(gh pr create --head "$branch" --base main --title "$title" \
+            --body "Automatic rollback: verify failed for \`$APP\` $SHA ($RUN_URL). Puts \`newTag\` back to \`$PREVIOUS\`; Flux reapplies it and \`deploy-verify\` checks it after the merge.")"
+          gh pr merge "$url" --auto --squash || echo "::warning::auto-merge unavailable, merge $url by hand"
