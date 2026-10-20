@@ -1,6 +1,7 @@
 import { useState } from "preact/hooks";
 import type { Game } from "../game/engine";
 import { loadGame, saveGame } from "../game/storage";
+import { focusMain } from "./common";
 import { DistributionScreen } from "./DistributionScreen";
 import { GuessResultScreen, GuessScreen } from "./GuessScreens";
 import { OverScreen } from "./OverScreen";
@@ -21,6 +22,7 @@ export function GamePage() {
     saveGame(next);
     setGame(next);
     window.scrollTo(0, 0);
+    focusMain();
   };
 
   if (!game) {

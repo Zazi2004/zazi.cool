@@ -1,6 +1,7 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import type { Outcome, Player } from "../game/engine";
-import { Avatar, ErrorText, roleLabels } from "./common";
+import { Avatar, ErrorText, pulses, roleLabels } from "./common";
+import { buzz } from "./haptics";
 import type { ScreenProps } from "./GamePage";
 import { newGame } from "./newGame";
 import { ReportButtons } from "./ReportButtons";
@@ -20,6 +21,7 @@ function title(outcome: Outcome, players: Player[]): string {
 export function OverScreen({ game, onChange, onNewGame }: ScreenProps & { onNewGame: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => buzz(pulses.victory), []);
   if (game.phase.kind !== "over") return null;
   const { outcome } = game.phase;
 
@@ -67,7 +69,13 @@ export function OverScreen({ game, onChange, onNewGame }: ScreenProps & { onNewG
       </ul>
 
       {error && <ErrorText>{error}</ErrorText>}
-      <button type="button" class="button primary" disabled={loading} onClick={replay}>
+      <button
+        type="button"
+        class="button primary"
+        disabled={loading}
+        aria-busy={loading}
+        onClick={replay}
+      >
         {loading ? "Tirage des mots…" : "Rejouer avec les mêmes joueurs"}
       </button>
       <button type="button" class="button" onClick={onNewGame}>

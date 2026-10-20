@@ -9,6 +9,7 @@ const KEYS = {
   game: "undercover.v1.game",
   setup: "undercover.v1.setup",
   played: "undercover.v1.played",
+  haptics: "undercover.v1.haptics",
 } as const;
 
 /** How many played pairs are remembered to avoid repeats. */
@@ -83,4 +84,13 @@ export function addPlayed(id: number): void {
   const played = loadPlayed().filter((p) => p !== id);
   played.push(id);
   write(KEYS.played, played.slice(-MAX_PLAYED));
+}
+
+/** Vibration feedback is opt-in: off until the player turns it on. */
+export function loadHaptics(): boolean {
+  return read<unknown>(KEYS.haptics) === true;
+}
+
+export function saveHaptics(enabled: boolean): void {
+  write(KEYS.haptics, enabled ? true : null);
 }

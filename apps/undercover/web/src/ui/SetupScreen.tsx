@@ -147,7 +147,12 @@ export function SetupScreen({ onStart }: { onStart: (game: Game) => void }) {
         </ErrorText>
       )}
 
-      <button type="submit" class="button primary" disabled={problems.length > 0 || loading}>
+      <button
+        type="submit"
+        class="button primary"
+        disabled={problems.length > 0 || loading}
+        aria-busy={loading}
+      >
         {loading ? "Tirage des mots…" : "Distribuer les mots"}
       </button>
     </form>

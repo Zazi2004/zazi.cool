@@ -43,7 +43,12 @@ export function GuessScreen({ game, onChange }: ScreenProps) {
         onInput={(e) => setGuess(e.currentTarget.value)}
       />
       {error && <ErrorText>{error}</ErrorText>}
-      <button type="submit" class="button primary" disabled={guess.trim() === "" || loading}>
+      <button
+        type="submit"
+        class="button primary"
+        disabled={guess.trim() === "" || loading}
+        aria-busy={loading}
+      >
         {loading ? "Vérification…" : "Valider"}
       </button>
     </form>

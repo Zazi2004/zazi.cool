@@ -259,6 +259,34 @@ du téléphone ou changement d'appli). La révélation du rôle d'un joueur éli
 après un appui (suspense). Les animations n'utilisent que `transform` et `opacity` et sont
 coupées par `prefers-reduced-motion`.
 
+### Conventions visuelles
+
+Direction « aurore de nuit » : spécification dans `docs/specs/undercover-visuel.md`,
+captures finales dans `docs/specs/undercover-visuel/final/`. Tout est dans
+`web/src/styles.css`, sans bibliothèque d'animation ni ressource externe (CSP stricte,
+pas de style en ligne).
+
+- **Couleurs** : uniquement via les variables CSS (`--accent`, `--muted`…). Pour du texte
+  ou un contour en accent, utiliser **`--accent-ink`** (identique à `--accent` en sombre,
+  plus foncé en clair : l'ambre pâle n'atteint pas 3:1 sur fond clair). Contrastes AA
+  vérifiés pour le texte en sombre et en clair.
+- **Animations** : seulement `transform` et `opacity` (le flou du mot secret, 0,6 s, est
+  l'exception). Aucun effet qui suit le pointeur (retiré sur Pastebin, ONBO-14). Aucune
+  information portée par l'animation seule : `prefers-reduced-motion: reduce` coupe tout
+  (règle globale en bas du fichier : ne pas la contourner).
+- **Chargement** : un bouton qui attend le serveur est `disabled` + `aria-busy="true"`
+  (le style affiche un petit spinner) et change son libellé.
+- **Focus** : `:focus-visible` toujours visible ; un « lien d'évitement » mène au contenu ;
+  au changement de page ou d'écran, le focus va sur `<main>` (`focusMain`), et sur le mot
+  secret ou le verdict quand ils remplacent le bouton pressé (`useFocusOnMount`).
+- **Vibrations** : **désactivées par défaut** (case « Vibrations » de l'accueil, mémorisée
+  dans `localStorage`, masquée si le navigateur ne sait pas vibrer). Tout passe par
+  `buzz()` (`ui/haptics.ts`), qui ne fait rien tant que l'option est coupée. **Pas d'effets
+  sonores** : un jeu de soirée dans un salon bruyant, au téléphone partagé, n'en a pas
+  besoin ; à reconsidérer sur demande, toujours en opt-in.
+- **Poids** : CSS ≈ 12 Ko (3,5 Ko gzip), JS ≈ 14 Ko gzip au 2026-10-20 ; CLS mesuré à 0
+  sur l'accueil. Pas de police ni d'image web.
+
 ### Données (PostgreSQL)
 
 ```sql
