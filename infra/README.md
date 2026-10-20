@@ -8,6 +8,7 @@ PostgreSQL partagé et une application par namespace. Choix et principes : voir 
 infra/
 ├── cluster/   # bootstrap du VPS, accès kubectl, Traefik, cert-manager, ClusterIssuers
 ├── data/      # PostgreSQL, bases par application, sauvegardes
+├── flux/      # GitOps : Flux réconcilie infra/apps/*/overlays/prod (voir flux/README.md)
 └── apps/<nom>/{base,overlays/prod}/
 ```
 
@@ -82,6 +83,10 @@ nouvelle application : ajouter son mot de passe dans
 bout de 10 minutes ; sinon `kubectl -n data delete job create-databases`).
 
 ## 6. Déployer une application (ex. undercover)
+
+> **Pastebin est géré par Flux** dès que le runbook [`infra/flux/README.md`](flux/README.md)
+> est exécuté : plus de `kubectl apply -k` pour lui, merger la PR `newTag` suffit. Les
+> étapes ci-dessous valent pour les apps pas encore migrées.
 
 Première fois :
 
