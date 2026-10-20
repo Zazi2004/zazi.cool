@@ -7,4 +7,4 @@ resources:
   - ../../base
 images:
   - name: ghcr.io/zazi2004/undercover
-    newTag: de1ca51
+    newTag: d71bc22
