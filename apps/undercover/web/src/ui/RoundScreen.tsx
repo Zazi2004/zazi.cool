@@ -1,6 +1,6 @@
-import { useState } from "preact/hooks";
+import { useCallback, useState } from "preact/hooks";
 import { eliminate, skipElimination } from "../game/engine";
-import { SecretCard } from "./common";
+import { Avatar, SecretCard, useHideOnLeave } from "./common";
 import type { ScreenProps } from "./GamePage";
 
 /** What the round screen shows: the speaking order, the vote, or a word check. */
@@ -13,6 +13,10 @@ type View =
 
 export function RoundScreen({ game, onChange }: ScreenProps) {
   const [view, setView] = useState<View>({ kind: "order" });
+  const hideSecret = useCallback(() => {
+    setView((v) => (v.kind === "peekShow" ? { kind: "order" } : v));
+  }, []);
+  useHideOnLeave(hideSecret);
   if (game.phase.kind !== "round") return null;
 
   const { order } = game.phase;
@@ -28,7 +32,10 @@ export function RoundScreen({ game, onChange }: ScreenProps) {
           <p class="hint">Chacun donne un indice sur son mot, à l'oral, dans cet ordre.</p>
           <ol class="order card">
             {order.map((i) => (
-              <li key={i}>{game.players[i]!.name}</li>
+              <li key={i}>
+                <span>{game.players[i]!.name}</span>
+                {i === order[0] && <span class="tag">Commence</span>}
+              </li>
             ))}
           </ol>
           <button
@@ -61,7 +68,13 @@ export function RoundScreen({ game, onChange }: ScreenProps) {
                 class={selected === i ? "choice selected" : "choice"}
                 onClick={() => setView({ kind: "vote", selected: i })}
               >
-                {game.players[i]!.name}
+                <Avatar name={game.players[i]!.name} />
+                <span class="choice-name">{game.players[i]!.name}</span>
+                {selected === i && (
+                  <span class="choice-mark" aria-hidden="true">
+                    ✓
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -101,7 +114,8 @@ export function RoundScreen({ game, onChange }: ScreenProps) {
                 class="choice"
                 onClick={() => setView({ kind: "peekConfirm", player: i })}
               >
-                {game.players[i]!.name}
+                <Avatar name={game.players[i]!.name} />
+                <span class="choice-name">{game.players[i]!.name}</span>
               </button>
             ))}
           </div>
@@ -115,6 +129,7 @@ export function RoundScreen({ game, onChange }: ScreenProps) {
       const name = game.players[view.player]!.name;
       return (
         <section class="stack center">
+          <Avatar name={name} large />
           <h1>
             Seul·e <strong>{name}</strong> doit regarder
           </h1>

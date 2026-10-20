@@ -616,3 +616,293 @@ body::before {
     transition: none !important;
   }
 }
+
+/* ---- Game screens: secret card, vote, elimination, results (ONBO-29) ---- */
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.95rem;
+  background: var(--surface-strong);
+  border: 2px solid var(--border);
+  color: var(--text);
+}
+
+.avatar-large {
+  width: 72px;
+  height: 72px;
+  font-size: 1.9rem;
+  margin: 0 auto;
+}
+
+.avatar-civil {
+  border-color: var(--civil);
+  color: var(--civil);
+}
+
+.avatar-undercover {
+  border-color: var(--undercover);
+  color: var(--undercover);
+}
+
+.avatar-mrwhite {
+  border-color: var(--mrwhite);
+  color: var(--mrwhite);
+}
+
+/* Distribution progress: one dot per player. */
+.progress {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.progress span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.progress .done {
+  background: var(--accent);
+}
+
+.progress .current {
+  background: var(--text);
+  transform: scale(1.4);
+}
+
+/* The face-down card: the word is not in the page until it is tapped. */
+.secret-cover {
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 190px;
+  justify-content: center;
+  padding: 24px 16px;
+  border-radius: var(--radius);
+  border: 1px dashed var(--accent);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 14px,
+      color-mix(in srgb, var(--accent) 8%, transparent) 14px 16px
+    ),
+    linear-gradient(160deg, var(--surface-strong), var(--surface));
+  box-shadow: 0 8px 30px rgb(0 0 0 / 25%);
+  transition: transform 0.12s ease;
+}
+
+.secret-cover:active {
+  transform: scale(0.98);
+}
+
+.secret-cover-mark {
+  font-size: 3.4rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--accent);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+.secret-cover-hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* Revealed card: the stamp pops in just before the word clears up. */
+.secret::before {
+  transform: rotate(-3deg);
+  transform-origin: left center;
+  animation: stamp 0.35s ease-out both;
+}
+
+/* Speaking order. */
+.order {
+  list-style: none;
+  padding: 8px 16px;
+  counter-reset: turn;
+}
+
+.order li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  counter-increment: turn;
+  border-bottom: 1px solid var(--border);
+}
+
+.order li:last-child {
+  border-bottom: none;
+}
+
+.order li::before {
+  content: counter(turn);
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  background: var(--surface-strong);
+  color: var(--muted);
+}
+
+.order li:first-child::before {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.order .tag {
+  margin-left: auto;
+  color: var(--accent);
+}
+
+/* Vote and name pickers. */
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  text-align: left;
+}
+
+.choice-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.choice-mark {
+  color: var(--danger);
+  font-weight: 800;
+}
+
+.choice.selected .avatar {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* Elimination reveal. */
+.button.suspense {
+  min-height: 72px;
+  font-size: 1.15rem;
+  border-style: dashed;
+  border-color: var(--accent);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+.verdict {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.role.stamp {
+  display: inline-block;
+  align-self: center;
+  padding: 4px 20px;
+  border: 3px solid currentColor;
+  border-radius: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  transform: rotate(-3deg);
+  animation: stamp 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+h1.verdict-win {
+  color: var(--success);
+}
+
+h1.verdict-miss {
+  color: var(--danger);
+}
+
+/* Results. */
+.banner {
+  position: relative;
+  text-align: center;
+  padding: 28px 12px 20px;
+  border-radius: var(--radius);
+  --banner: var(--accent);
+  isolation: isolate;
+}
+
+.banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(18rem 10rem at 50% 0%, var(--banner), transparent 75%);
+  opacity: 0.3;
+  animation: pulse 4s ease-in-out infinite;
+}
+
+.banner h1 {
+  margin-top: 6px;
+  font-size: 1.9rem;
+  color: var(--banner);
+}
+
+.banner-civils {
+  --banner: var(--civil);
+}
+
+.banner-impostors {
+  --banner: var(--undercover);
+}
+
+.banner-mrwhite {
+  --banner: var(--mrwhite);
+}
+
+.players li {
+  justify-content: flex-start;
+}
+
+.players .tag {
+  margin-left: auto;
+}
+
+.player-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.player-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.player-word {
+  color: var(--muted);
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes stamp {
+  from {
+    opacity: 0;
+    transform: scale(1.7) rotate(-8deg);
+  }
+}

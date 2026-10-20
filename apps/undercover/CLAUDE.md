@@ -253,6 +253,12 @@ Interface en français, **mobile-first**, utilisable d'une main, mode sombre. Le
 proposés par les joueurs sont du contenu non fiable : affichage par `textContent`
 uniquement, CSP stricte.
 
+Écrans de jeu : le mot secret n'est **pas dans le DOM** tant que la carte n'est pas touchée,
+et il est **recaché dès que la page passe en arrière-plan** (`useHideOnLeave`, verrouillage
+du téléphone ou changement d'appli). La révélation du rôle d'un joueur éliminé se fait
+après un appui (suspense). Les animations n'utilisent que `transform` et `opacity` et sont
+coupées par `prefers-reduced-motion`.
+
 ### Données (PostgreSQL)
 
 ```sql
