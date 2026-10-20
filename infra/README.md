@@ -249,3 +249,28 @@ de l'image. Réglages à faire une fois par Noah :
    fin (ou une GitHub App) avec `contents` et `pull requests` en écriture sur ce dépôt, et
    l'enregistrer comme secret de dépôt **`BUMP_TOKEN`**. Sans ce secret, le workflow
    retombe sur `GITHUB_TOKEN` (PR créée, mais sans checks).
+
+### Auto-merge (étape 4)
+
+Décision : **auto-merge de la PR**, pas de commit direct de la CI. Le ruleset de `main`
+exige une PR et `ci / required` (voir `docs/workflow/securite-ci.md`) ; l'auto-merge
+respecte ces règles sans bypass, alors qu'un commit direct demanderait d'ajouter la CI à la
+liste de contournement.
+
+Après avoir ouvert ou mis à jour la PR, `bump.yml` vérifie le garde-fou puis exécute
+`gh pr merge --auto --squash` : GitHub fusionne dès que `ci / required` est vert. Garde-fou,
+sans quoi le job échoue et désactive l'auto-merge :
+
+- la PR ne touche que `infra/apps/<app>/overlays/prod/kustomization.yaml` ;
+- le diff se limite à la ligne `newTag` (une ligne retirée, une ajoutée, un SHA à 7 caractères).
+
+Le merge déclenche `deploy-verify` (donc Flux puis `verify`) sans autre action humaine.
+
+Réglages à faire par Noah, en plus des deux ci-dessus :
+
+1. Settings → General → Pull Requests : cocher **Allow auto-merge**.
+2. Ruleset de `main` appliqué (`docs/workflow/securite-ci.md`), avec `ci / required`
+   requis : sans check requis, l'auto-merge fusionnerait immédiatement.
+3. Le secret **`BUMP_TOKEN`** devient obligatoire : un merge fait avec le `GITHUB_TOKEN` ne
+   déclenche ni `deploy-verify` ni les checks. Sans lui, le workflow n'active pas l'auto-merge
+   et émet un avertissement.
