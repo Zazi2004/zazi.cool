@@ -1,0 +1,107 @@
+name: deploy-verify
+
+# Runs `verify` after a bump PR is merged: a push to main that changes `newTag` in
+# infra/apps/<app>/overlays/prod/kustomization.yaml. The app, the SHA and the URL come from
+# the diff and the app's Ingress. Each deployment is recorded in the `production`
+# environment (GitHub Deployments). See infra/README.md, "Vérifier un déploiement".
+on:
+  push:
+    branches: [main]
+    paths:
+      - infra/apps/*/overlays/prod/kustomization.yaml
+
+permissions: {}
+
+jobs:
+  detect:
+    name: deploy-verify / detect
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    outputs:
+      deployments: ${{ steps.detect.outputs.deployments }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BEFORE: ${{ github.event.before }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # One entry per app whose newTag changed (a bump or a revert of a bump), with the
+      # GitHub deployment created for it.
+      - id: detect
+        run: |
+          set -euo pipefail
+          if [[ "$BEFORE" =~ ^0+$ ]]; then base="$(git rev-parse HEAD^)"; else base="$BEFORE"; fi
+          entries='[]'
+          for file in $(git diff --name-only "$base" HEAD -- 'infra/apps/*/overlays/prod/kustomization.yaml'); do
+            app="$(echo "$file" | cut -d/ -f3)"
+            old="$(git show "$base:$file" 2>/dev/null | sed -n 's/^ *newTag: *//p' | head -n1 || true)"
+            new="$(sed -n 's/^ *newTag: *//p' "$file" | head -n1)"
+            if [ -z "$new" ] || [ "$old" = "$new" ]; then
+              echo "$app: newTag unchanged, skipping"
+              continue
+            fi
+            host="$(sed -n 's/^ *- host: *//p' "infra/apps/$app/base/ingress.yaml" | head -n1)"
+            if [ -z "$host" ]; then
+              echo "::error::no host found in infra/apps/$app/base/ingress.yaml"
+              exit 1
+            fi
+            id="$(jq -n --arg ref "$GITHUB_SHA" --arg desc "Deploy $app $new" \
+              '{ref: $ref, environment: "production", description: $desc, auto_merge: false, required_contexts: [], production_environment: true}' \
+              | gh api -X POST "repos/$GITHUB_REPOSITORY/deployments" --input - --jq .id)"
+            gh api -X POST "repos/$GITHUB_REPOSITORY/deployments/$id/statuses" \
+              -f state=in_progress -f description="Waiting for $app $new" \
+              -f log_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >/dev/null
+            entries="$(jq -c --arg app "$app" --arg url "https://$host" --arg sha "$new" --arg id "$id" \
+              '. + [{app: $app, url: $url, sha: $sha, deployment: $id}]' <<<"$entries")"
+          done
+          echo "deployments=$entries" >> "$GITHUB_OUTPUT"
+
+  verify:
+    name: ${{ matrix.app }} / verify
+    needs: detect
+    if: needs.detect.outputs.deployments != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.detect.outputs.deployments) }}
+    uses: ./.github/workflows/verify.yml
+    with:
+      app: ${{ matrix.app }}
+      url: ${{ matrix.url }}
+      sha: ${{ matrix.sha }}
+
+  record:
+    name: ${{ matrix.app }} / record
+    needs: [detect, verify]
+    if: always() && needs.detect.outputs.deployments != '[]'
+    runs-on: ubuntu-latest
+    permissions:
+      deployments: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.detect.outputs.deployments) }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      APP: ${{ matrix.app }}
+      SHA: ${{ matrix.sha }}
+      DEPLOYMENT: ${{ matrix.deployment }}
+      URL: ${{ matrix.url }}
+      RESULT: ${{ needs.verify.result }}
+    steps:
+      - name: Set the deployment status
+        run: |
+          set -euo pipefail
+          case "$RESULT" in
+            success) state=success ;;
+            cancelled) state=inactive ;;
+            *) state=failure ;;
+          esac
+          gh api -X POST "repos/$GITHUB_REPOSITORY/deployments/$DEPLOYMENT/statuses" \
+            -f state="$state" -f description="verify $RESULT for $APP $SHA" \
+            -f environment_url="$URL" \
+            -f log_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" >/dev/null
