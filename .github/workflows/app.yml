@@ -101,6 +101,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: read
     uses: ./.github/workflows/bump.yml
     with:
       app: ${{ inputs.app }}
