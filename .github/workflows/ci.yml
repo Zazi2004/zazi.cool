@@ -13,12 +13,16 @@ jobs:
     name: ci / changes
     runs-on: ubuntu-latest
     outputs:
+      home: ${{ steps.filter.outputs.home }}
+      linktree: ${{ steps.filter.outputs.linktree }}
       pastebin: ${{ steps.filter.outputs.pastebin }}
       undercover: ${{ steps.filter.outputs.undercover }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
+      # An app runs when its files or the shared app.yml changed, and only once it has a
+      # Dockerfile (home and linktree are still specs, with nothing deployable).
       - id: filter
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -26,8 +30,9 @@ jobs:
           else
             base="${{ github.event.before }}"
           fi
-          for app in pastebin undercover; do
-            if git diff --name-only "$base" "$GITHUB_SHA" | grep -qE "^(apps/$app/|\.github/workflows/$app\.yml)"; then
+          changed="$(git diff --name-only "$base" "$GITHUB_SHA")"
+          for app in home linktree pastebin undercover; do
+            if [ -f "apps/$app/Dockerfile" ] && echo "$changed" | grep -qE "^(apps/$app/|\.github/workflows/app\.yml)"; then
               echo "$app=true" >> "$GITHUB_OUTPUT"
             else
               echo "$app=false" >> "$GITHUB_OUTPUT"
@@ -60,23 +65,58 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
 
+  home:
+    name: home
+    needs: changes
+    if: needs.changes.outputs.home == 'true'
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+    uses: ./.github/workflows/app.yml
+    secrets: inherit
+    with:
+      app: home
+
+  linktree:
+    name: linktree
+    needs: changes
+    if: needs.changes.outputs.linktree == 'true'
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+    uses: ./.github/workflows/app.yml
+    secrets: inherit
+    with:
+      app: linktree
+
   pastebin:
     name: pastebin
     needs: changes
     if: needs.changes.outputs.pastebin == 'true'
     permissions:
-      contents: read
+      contents: write
       packages: write
-    uses: ./.github/workflows/pastebin.yml
+      pull-requests: write
+    uses: ./.github/workflows/app.yml
+    secrets: inherit
+    with:
+      app: pastebin
 
   undercover:
     name: undercover
     needs: changes
     if: needs.changes.outputs.undercover == 'true'
     permissions:
-      contents: read
+      contents: write
       packages: write
-    uses: ./.github/workflows/undercover.yml
+      pull-requests: write
+    uses: ./.github/workflows/app.yml
+    secrets: inherit
+    with:
+      app: undercover
+      node: true
 
   # The only status check required by the `main` ruleset. App workflows only run when
   # their paths changed, so this job is always executed and fails if any job failed or
@@ -84,7 +124,7 @@ jobs:
   required:
     name: ci / required
     if: always()
-    needs: [changes, secrets, scan, pastebin, undercover]
+    needs: [changes, secrets, scan, home, linktree, pastebin, undercover]
     runs-on: ubuntu-latest
     steps:
       - name: Verify upstream jobs
