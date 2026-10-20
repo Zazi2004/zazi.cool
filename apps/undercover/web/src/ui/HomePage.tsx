@@ -1,9 +1,10 @@
 import { useState } from "preact/hooks";
-import { loadGame, loadHaptics, saveHaptics } from "../game/storage";
+import { discardFinishedGame, loadGame, loadHaptics, saveHaptics } from "../game/storage";
 import { hapticsSupported } from "./haptics";
 import { Link } from "./router";
 
 export function HomePage() {
+  discardFinishedGame();
   const saved = loadGame();
   const inProgress = saved !== null && saved.phase.kind !== "over";
   const [haptics, setHaptics] = useState(loadHaptics);

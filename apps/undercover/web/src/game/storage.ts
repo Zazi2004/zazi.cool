@@ -44,6 +44,14 @@ export function saveGame(game: Game | null): void {
   write(KEYS.game, game);
 }
 
+/**
+ * Forgets a finished game. Without this, "New game" from the home page reopened the
+ * previous end screen, because the finished game was still the saved one.
+ */
+export function discardFinishedGame(): void {
+  if (loadGame()?.phase.kind === "over") saveGame(null);
+}
+
 export interface Setup {
   settings: Settings;
   names: string[];
