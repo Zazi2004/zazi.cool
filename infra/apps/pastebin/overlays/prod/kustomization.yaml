@@ -9,4 +9,4 @@ resources:
   - secret.enc.yaml
 images:
   - name: ghcr.io/zazi2004/pastebin
-    newTag: 941213f
+    newTag: d71bc22
