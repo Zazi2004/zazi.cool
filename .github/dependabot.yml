@@ -1,0 +1,46 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /apps/pastebin
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(pastebin)"
+
+  - package-ecosystem: gomod
+    directory: /apps/undercover
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(undercover)"
+
+  - package-ecosystem: npm
+    directory: /apps/undercover/web
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(undercover)"
+
+  - package-ecosystem: docker
+    directory: /apps/pastebin
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(pastebin)"
+
+  - package-ecosystem: docker
+    directory: /apps/undercover
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(undercover)"

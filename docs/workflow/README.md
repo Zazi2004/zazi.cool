@@ -10,6 +10,7 @@ ce workflow les **orchestre**, il ne les remplace pas.
 | [`modele-spec.md`](modele-spec.md) | Modèle de spec à copier pour chaque projet ou évolution |
 | [`cycle-de-vie.md`](cycle-de-vie.md) | Statuts des tickets et critères de passage, dont le déploiement |
 | [`organisation-multica.md`](organisation-multica.md) | Proposition de projets, agents et automatisations dans Multica |
+| [`securite-ci.md`](securite-ci.md) | Protection de `main`, check requis, Dependabot, scans |
 | [`../specs/pastebin.md`](../specs/pastebin.md) | Spec pilote, rédigée avec le modèle |
 
 > **Statut : validé par Noah le 2026-10-16.** L'organisation Multica décrite n'est pas
