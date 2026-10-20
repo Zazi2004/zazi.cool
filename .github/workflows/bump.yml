@@ -1,7 +1,9 @@
 name: bump
 
 # Called by the app workflows once the image is pushed: opens (or updates) the PR that sets
-# `newTag` in infra/apps/<app>/overlays/prod/kustomization.yaml. The PR is never merged here.
+# `newTag` in infra/apps/<app>/overlays/prod/kustomization.yaml, then enables auto-merge on it:
+# GitHub merges it once the required checks are green. Auto-merge is only enabled when the PR
+# touches nothing but that file (guard below). Needs BUMP_TOKEN, see infra/README.md.
 on:
   workflow_call:
     inputs:
@@ -12,8 +14,9 @@ on:
     secrets:
       BUMP_TOKEN:
         description: >-
-          Optional PAT or GitHub App token. Pushes made with GITHUB_TOKEN do not trigger
-          workflows, so the PR would have no checks; set this secret to get them.
+          PAT or GitHub App token. Pushes and merges made with GITHUB_TOKEN do not trigger
+          workflows, so the PR would have no checks and deploy-verify would not run after
+          the merge. Without it, the PR is opened but auto-merge is not enabled.
         required: false
 
 permissions:
@@ -62,10 +65,42 @@ jobs:
           # replaces the previous bump.
           git push --force origin "$branch"
 
-          body="Automatic bump of \`newTag\` to \`$sha\` (image \`ghcr.io/zazi2004/$APP:$sha\`), opened by the CI after the push to \`main\`. Merging it does not deploy: Noah applies it (see infra/README.md)."
+          body="Automatic bump of \`newTag\` to \`$sha\` (image \`ghcr.io/zazi2004/$APP:$sha\`), opened by the CI after the push to \`main\`. It is merged automatically once its checks are green (see infra/README.md)."
           existing="$(gh pr list --head "$branch" --base main --state open --json number --jq '.[0].number // empty')"
           if [ -n "$existing" ]; then
             gh pr edit "$existing" --title "$title" --body "$body"
+            pr="$existing"
           else
-            gh pr create --head "$branch" --base main --title "$title" --body "$body"
+            pr="$(gh pr create --head "$branch" --base main --title "$title" --body "$body" | grep -oE '[0-9]+$')"
           fi
+          echo "PR=$pr" >> "$GITHUB_ENV"
+
+      # Guard: only a bump of a prod kustomization may be merged without a human.
+      - name: Enable auto-merge
+        env:
+          HAS_BUMP_TOKEN: ${{ secrets.BUMP_TOKEN != '' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PR:-}" ]; then
+            echo "No PR was opened, nothing to merge"
+            exit 0
+          fi
+          if [ "$HAS_BUMP_TOKEN" != "true" ]; then
+            echo "::warning::BUMP_TOKEN is not set: auto-merge not enabled, the PR needs a manual merge"
+            exit 0
+          fi
+          allowed="infra/apps/$APP/overlays/prod/kustomization.yaml"
+          files="$(gh pr diff "$PR" --name-only)"
+          if [ "$files" != "$allowed" ]; then
+            gh pr merge "$PR" --disable-auto || true
+            echo "::error::PR #$PR must only touch $allowed, found:"
+            echo "$files"
+            exit 1
+          fi
+          # Only the newTag line may change: one line added, one removed.
+          if [ "$(gh pr diff "$PR" | grep -cE '^[+-][^+-]')" != "2" ] || ! gh pr diff "$PR" | grep -qE '^\+ *newTag: *[0-9a-f]{7}$'; then
+            gh pr merge "$PR" --disable-auto || true
+            echo "::error::PR #$PR changes more than the newTag line"
+            exit 1
+          fi
+          gh pr merge "$PR" --auto --squash

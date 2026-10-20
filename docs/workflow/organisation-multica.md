@@ -90,8 +90,8 @@ Par ordre d'utilité. Aucune n'est indispensable pour démarrer.
       push depuis GitHub Actions ; à confirmer avant l'étape 3.
 - [ ] **Clé age du cluster** : accepter une clé age dédiée stockée dans le cluster (second
       destinataire SOPS), ce qui assouplit la règle « clé age hors du VPS » ; requis par Flux.
-- [ ] **Bump automatique (étape 4)** : PR de bump en auto-merge ou commit direct de la CI
-      sur `main` (dépend de la protection de branche) ; clôture automatique ou non du
+- [x] **Bump automatique (étape 4)** : PR de bump en auto-merge (ONBO-24, voir
+      `infra/README.md`), pas de commit direct ; reste ouverte : clôture automatique ou non du
       ticket de trace.
 
 ### Mise en place
