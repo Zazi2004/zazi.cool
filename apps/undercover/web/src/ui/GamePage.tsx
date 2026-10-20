@@ -6,7 +6,6 @@ import { DistributionScreen } from "./DistributionScreen";
 import { GuessResultScreen, GuessScreen } from "./GuessScreens";
 import { Modal } from "./Modal";
 import { OverScreen } from "./OverScreen";
-import { RevealScreen } from "./RevealScreen";
 import { RoundScreen } from "./RoundScreen";
 import { SetupScreen } from "./SetupScreen";
 
@@ -75,8 +74,6 @@ function Screen(props: ScreenProps & { onNewGame: () => void }) {
       return <DistributionScreen key={`d${phase.next}`} {...props} />;
     case "round":
       return <RoundScreen key={`r${props.game.round}`} {...props} />;
-    case "reveal":
-      return <RevealScreen {...props} />;
     case "guess":
       return <GuessScreen {...props} />;
     case "guessResult":

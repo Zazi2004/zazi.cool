@@ -27,7 +27,10 @@ export function RulesPage() {
           À chaque tour, l'application tire un ordre de passage. Chacun donne, à l'oral, un indice
           sur son mot, sans le dire.
         </li>
-        <li>Tout le monde vote à l'oral pour éliminer un joueur, qui révèle son rôle.</li>
+        <li>
+          Tout le monde vote à l'oral pour éliminer un joueur. Les rôles ne sont révélés qu'à la fin
+          de la partie.
+        </li>
         <li>
           Un Mr. White éliminé peut tenter de deviner le mot des civils. S'il trouve, il gagne seul.
         </li>

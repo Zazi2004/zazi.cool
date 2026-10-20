@@ -141,8 +141,7 @@ describe("distribution", () => {
 describe("startRound", () => {
   it("orders every living player", () => {
     const game = gameWith(["civil", "civil", "civil", "undercover"]);
-    const eliminated = eliminate(game, 0);
-    const next = continueGame(eliminated, seeded(5));
+    const next = eliminate(game, 0, seeded(5));
     if (next.phase.kind !== "round") throw new Error("expected a round");
     expect([...next.phase.order].sort()).toEqual([1, 2, 3]);
   });
@@ -180,25 +179,23 @@ describe("startRound", () => {
 
 describe("elimination and victory", () => {
   it("lets civilians win when the last impostor leaves", () => {
-    const game = eliminate(gameWith(["civil", "civil", "undercover"]), 2);
-    expect(game.phase).toEqual({ kind: "reveal", eliminated: 2, outcome: { winner: "civils" } });
-    expect(continueGame(game, seeded(1)).phase).toEqual({
-      kind: "over",
-      outcome: { winner: "civils" },
-    });
+    const game = eliminate(gameWith(["civil", "civil", "undercover"]), 2, seeded(1));
+    expect(game.phase).toEqual({ kind: "over", outcome: { winner: "civils" } });
   });
 
   it("lets impostors win when a single civilian is left", () => {
-    const game = eliminate(gameWith(["civil", "civil", "undercover"]), 0);
-    expect(game.phase).toMatchObject({ kind: "reveal", outcome: { winner: "impostors" } });
+    const game = eliminate(gameWith(["civil", "civil", "undercover"]), 0, seeded(1));
+    expect(game.phase).toEqual({ kind: "over", outcome: { winner: "impostors" } });
   });
 
-  it("continues while the game is undecided", () => {
-    const game = eliminate(gameWith(["civil", "civil", "civil", "civil", "undercover"]), 0);
-    expect(game.phase).toEqual({ kind: "reveal", eliminated: 0, outcome: null });
-    const next = continueGame(game, seeded(1));
-    expect(next.phase.kind).toBe("round");
-    expect(next.round).toBe(2);
+  it("starts the next round directly while the game is undecided", () => {
+    const game = eliminate(
+      gameWith(["civil", "civil", "civil", "civil", "undercover"]),
+      0,
+      seeded(1),
+    );
+    expect(game.phase.kind).toBe("round");
+    expect(game.round).toBe(2);
   });
 
   it("starts a new round without elimination", () => {
@@ -208,11 +205,12 @@ describe("elimination and victory", () => {
   });
 
   it("refuses to eliminate a dead player", () => {
-    const game = continueGame(
-      eliminate(gameWith(["civil", "civil", "civil", "civil", "undercover"]), 0),
+    const game = eliminate(
+      gameWith(["civil", "civil", "civil", "civil", "undercover"]),
+      0,
       seeded(1),
     );
-    expect(() => eliminate(game, 0)).toThrow();
+    expect(() => eliminate(game, 0, seeded(1))).toThrow();
   });
 });
 
@@ -220,30 +218,30 @@ describe("Mr. White", () => {
   const roles: Player["role"][] = ["civil", "civil", "civil", "mrwhite", "mrwhite"];
 
   it("asks an eliminated Mr. White to guess", () => {
-    const game = eliminate(gameWith(roles), 3);
+    const game = eliminate(gameWith(roles), 3, seeded(1));
     expect(game.phase).toEqual({ kind: "guess", eliminated: 3 });
   });
 
   it("makes the first Mr. White who guesses right win alone", () => {
-    let game = recordGuess(eliminate(gameWith(roles), 3), "chat", "Chat", true);
+    let game = recordGuess(eliminate(gameWith(roles), 3, seeded(1)), "chat", "Chat", true);
     game = continueGame(game, seeded(1));
     expect(game.phase).toEqual({ kind: "over", outcome: { winner: "mrwhite", mrWhite: 3 } });
   });
 
   it("continues after a wrong guess", () => {
-    const game = recordGuess(eliminate(gameWith(roles), 3), "chien", "Chat", false);
+    const game = recordGuess(eliminate(gameWith(roles), 3, seeded(1)), "chien", "Chat", false);
     expect(continueGame(game, seeded(1)).phase.kind).toBe("round");
   });
 
   it("lets players accept a refused guess", () => {
-    let game = recordGuess(eliminate(gameWith(roles), 3), "chqt", "Chat", false);
+    let game = recordGuess(eliminate(gameWith(roles), 3, seeded(1)), "chqt", "Chat", false);
     game = continueGame(acceptGuess(game), seeded(1));
     expect(game.phase).toMatchObject({ kind: "over", outcome: { winner: "mrwhite" } });
   });
 
   it("lets civilians win when the last Mr. White guesses wrong", () => {
     const game = recordGuess(
-      eliminate(gameWith(["civil", "civil", "mrwhite"]), 2),
+      eliminate(gameWith(["civil", "civil", "mrwhite"]), 2, seeded(1)),
       "x",
       "Chat",
       false,

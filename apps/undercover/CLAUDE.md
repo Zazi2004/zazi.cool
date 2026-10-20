@@ -10,7 +10,7 @@ qui circule** entre les joueurs. Tous les joueurs reçoivent le même mot, sauf 
 plusieurs **undercovers** (mot proche mais différent) et éventuellement un ou plusieurs
 **Mr. White** (aucun mot). Les indices et le vote se font **à l'oral** ; l'application
 distribue les mots, indique l'ordre de passage, enregistre les éliminations, révèle les
-rôles et détermine la fin de partie.
+rôles en fin de partie et détermine la fin de partie.
 
 Le second pilier du projet est une **banque de paires de mots enrichie par les joueurs**,
 avec une catégorie « extrême » séparée pour que le jeu reste tout public par défaut.
@@ -27,7 +27,7 @@ avec une catégorie « extrême » séparée pour que le jeu reste tout public p
 | Rôle        | Mot reçu               | Connaît son rôle ?                           |
 |-------------|------------------------|----------------------------------------------|
 | Civil       | mot A                  | Non (voit seulement son mot)                 |
-| Undercover  | mot B, proche de A     | **Non** : il le découvre à son élimination   |
+| Undercover  | mot B, proche de A     | **Non** : il le découvre à la fin de la partie |
 | Mr. White   | aucun                  | Oui (« Tu es Mr. White »)                    |
 
 - Pour chaque partie, une paire est tirée au hasard ; **le mot attribué aux civils est
@@ -46,13 +46,12 @@ avec une catégorie « extrême » séparée pour que le jeu reste tout public p
    pas commencer ». Chacun donne un indice à l'oral.
 4. **Vote** à l'oral ; on désigne dans l'application le joueur éliminé et on confirme.
    Un bouton **« Personne n'est éliminé »** (égalité, indécision) passe directement au tour
-   suivant, sans révélation.
-5. **Révélation** : l'application affiche le **rôle** du joueur éliminé (civil, undercover
-   ou Mr. White), pas son mot.
-6. Si c'est un **Mr. White**, il saisit le mot qu'il pense être celui des civils (voir
-   ci-dessous).
-7. Vérification des conditions de victoire ; sinon, nouveau tour (retour à l'étape 3).
-8. **Fin de partie** : camp gagnant, rôle et mot de chaque joueur, les deux mots de la
+   suivant.
+5. **Pas de révélation de rôle** à l'élimination : le rôle du joueur éliminé n'est affiché
+   qu'à la fin de la partie. Seul un **Mr. White** éliminé passe par un écran : il saisit le
+   mot qu'il pense être celui des civils (voir ci-dessous).
+6. Vérification des conditions de victoire ; sinon, nouveau tour (retour à l'étape 3).
+7. **Fin de partie** : camp gagnant, rôle et mot de chaque joueur, les deux mots de la
    paire, bouton « Rejouer » (mêmes joueurs et réglages, nouvelle paire) et boutons de
    signalement de la paire (voir §3).
 
@@ -256,8 +255,7 @@ uniquement, CSP stricte.
 
 Écrans de jeu : le mot secret n'est **pas dans le DOM** tant que la carte n'est pas touchée,
 et il est **recaché dès que la page passe en arrière-plan** (`useHideOnLeave`, verrouillage
-du téléphone ou changement d'appli). La révélation du rôle d'un joueur éliminé se fait
-après un appui (suspense). Les animations n'utilisent que `transform` et `opacity` et sont
+du téléphone ou changement d'appli). Les animations n'utilisent que `transform` et `opacity` et sont
 coupées par `prefers-reduced-motion`.
 
 ### Conventions visuelles
@@ -391,6 +389,8 @@ apps/undercover/
 - [x] Stack : **Go** côté serveur, **TypeScript + Vite** côté front.
 - [x] Mode de jeu : **un seul téléphone qui circule** ; indices et vote à l'oral.
 - [x] Les undercovers **ne connaissent pas** leur rôle ; Mr. White sait qu'il n'a pas de mot.
+- [x] **Plus de révélation de rôle à l'élimination** (2026-10-20) : les rôles ne sont
+      montrés qu'en fin de partie.
 - [x] Réponse de Mr. White : **validation automatique tolérante**, correction possible par
       les joueurs.
 - [x] Suggestions **publiées immédiatement**, avec catégorie (tout public / extrême)

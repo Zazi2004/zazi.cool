@@ -82,7 +82,7 @@ export function RoundScreen({ game, onChange }: ScreenProps) {
             type="button"
             class="button danger"
             disabled={selected === null}
-            onClick={() => selected !== null && onChange(eliminate(game, selected))}
+            onClick={() => selected !== null && onChange(eliminate(game, selected, Math.random))}
           >
             {selected === null
               ? "Choisissez un joueur"

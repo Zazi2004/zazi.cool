@@ -104,7 +104,7 @@ export function focusMain(): void {
 
 /**
  * Focus target for content that appears in place of the control that was just pressed
- * (secret word, verdict): without it the focus would fall back to the page for keyboard
+ * (secret word): without it the focus would fall back to the page for keyboard
  * and screen-reader users.
  */
 export function useFocusOnMount<T extends HTMLElement>(vibrate?: Parameters<typeof buzz>[0]) {

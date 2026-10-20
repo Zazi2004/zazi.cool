@@ -54,8 +54,6 @@ export type Phase =
   | { kind: "distribution"; next: number }
   /** Players give a clue in `order` (player indexes), then vote orally. */
   | { kind: "round"; order: number[] }
-  /** The eliminated player's role is shown; `outcome` is set if the game is over. */
-  | { kind: "reveal"; eliminated: number; outcome: Outcome | null }
   /** An eliminated Mr. White types the word they think the civilians have. */
   | { kind: "guess"; eliminated: number }
   | { kind: "guessResult"; eliminated: number; guess: string; expected: string; correct: boolean }
@@ -204,8 +202,11 @@ export function skipElimination(game: Game, rng: Rng): Game {
   return startRound(game, rng);
 }
 
-/** Eliminates the voted player and reveals their role. */
-export function eliminate(game: Game, index: number): Game {
+/**
+ * Eliminates the voted player. An eliminated Mr. White guesses the word; otherwise the
+ * game ends or a new round starts right away (roles are only shown at the end).
+ */
+export function eliminate(game: Game, index: number, rng: Rng): Game {
   expectPhase(game, "round");
   const target = game.players[index];
   if (!target || !target.alive) {
@@ -216,7 +217,11 @@ export function eliminate(game: Game, index: number): Game {
   if (target.role === "mrwhite") {
     return { ...next, phase: { kind: "guess", eliminated: index } };
   }
-  return { ...next, phase: { kind: "reveal", eliminated: index, outcome: outcomeOf(players) } };
+  const outcome = outcomeOf(players);
+  if (outcome) {
+    return { ...next, phase: { kind: "over", outcome } };
+  }
+  return startRound(next, rng);
 }
 
 /** Records Mr. White's guess, as judged by the server. */
@@ -234,19 +239,12 @@ export function acceptGuess(game: Game): Game {
   return { ...game, phase: { ...phase, correct: true } };
 }
 
-/** Leaves a reveal or guess result: the game ends or a new round starts. */
+/** Leaves a guess result: the game ends or a new round starts. */
 export function continueGame(game: Game, rng: Rng): Game {
-  const { phase } = game;
-  let outcome: Outcome | null;
-  if (phase.kind === "reveal") {
-    outcome = phase.outcome;
-  } else if (phase.kind === "guessResult") {
-    outcome = phase.correct
-      ? { winner: "mrwhite", mrWhite: phase.eliminated }
-      : outcomeOf(game.players);
-  } else {
-    throw new Error(`Cannot continue from phase ${phase.kind}.`);
-  }
+  const phase = expectPhase(game, "guessResult");
+  const outcome = phase.correct
+    ? { winner: "mrwhite" as const, mrWhite: phase.eliminated }
+    : outcomeOf(game.players);
   if (outcome) {
     return { ...game, phase: { kind: "over", outcome } };
   }

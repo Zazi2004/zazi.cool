@@ -803,22 +803,6 @@ body::before {
   color: var(--danger);
 }
 
-/* Elimination reveal. */
-.button.suspense {
-  min-height: 72px;
-  font-size: 1.15rem;
-  border-style: dashed;
-  border-color: var(--accent);
-  animation: pulse 2.4s ease-in-out infinite;
-}
-
-.verdict {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px 0;
-}
-
 .role.stamp {
   display: inline-block;
   align-self: center;
@@ -935,10 +919,9 @@ h1.verdict-miss {
   transform: none;
 }
 
-/* Programmatic focus targets (new page, secret word, verdict): focused but not outlined. */
+/* Programmatic focus targets (new page, secret word): focused but not outlined. */
 main:focus,
-.secret:focus,
-.verdict:focus {
+.secret:focus {
   outline: none;
 }
 

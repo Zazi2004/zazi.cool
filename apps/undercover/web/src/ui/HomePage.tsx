@@ -43,10 +43,7 @@ export function HomePage() {
           />
           <span>
             Vibrations
-            <span class="hint">
-              {" "}
-              — une courte vibration au mot secret, à la révélation et à la fin.
-            </span>
+            <span class="hint"> — une courte vibration au mot secret et à la fin.</span>
           </span>
         </label>
       )}
