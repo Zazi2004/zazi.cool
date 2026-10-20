@@ -7,4 +7,4 @@ resources:
   - ../../base
 images:
   - name: ghcr.io/zazi2004/pastebin
-    newTag: 2206ed2
+    newTag: de1ca51
