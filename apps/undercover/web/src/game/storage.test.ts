@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defaultSettings, type Settings } from "./engine";
-import { loadSettings } from "./storage";
+import { loadHaptics, loadSettings } from "./storage";
 
 describe("loadSettings", () => {
   it("fills missing settings with the defaults", () => {
@@ -17,5 +17,11 @@ describe("loadSettings", () => {
     expect(loadSettings(legacy(true)).extreme).toBe("on");
     expect(loadSettings(legacy(false)).extreme).toBe("off");
     expect(loadSettings(legacy("nonsense")).extreme).toBe("off");
+  });
+});
+
+describe("loadHaptics", () => {
+  it("is off by default, including when storage is unavailable", () => {
+    expect(loadHaptics()).toBe(false);
   });
 });

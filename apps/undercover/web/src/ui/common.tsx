@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
-import { useEffect } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
+import { buzz, pulses } from "./haptics";
 import type { Player, Role } from "../game/engine";
 
 export const roleLabels: Record<Role, string> = {
@@ -54,9 +55,10 @@ export function Stepper({ label, value, min, max, onChange }: StepperProps) {
 
 /** The secret shown to a single player: their word, or their Mr. White role. */
 export function SecretCard({ player }: { player: Player }) {
+  const ref = useFocusOnMount<HTMLDivElement>(pulses.secret);
   if (player.word === null) {
     return (
-      <div class="secret">
+      <div class="secret" ref={ref} tabIndex={-1}>
         <p class="secret-label">Tu es</p>
         <p class="secret-word">Mr. White</p>
         <p class="hint">Tu n'as pas de mot : écoute les indices et fonds-toi dans la masse.</p>
@@ -64,7 +66,7 @@ export function SecretCard({ player }: { player: Player }) {
     );
   }
   return (
-    <div class="secret">
+    <div class="secret" ref={ref} tabIndex={-1}>
       <p class="secret-label">Ton mot</p>
       <p class="secret-word">{player.word}</p>
     </div>
@@ -94,3 +96,24 @@ export function useHideOnLeave(onHide: () => void) {
     return () => document.removeEventListener("visibilitychange", handler);
   }, [onHide]);
 }
+
+/** Moves the focus to the main content without scrolling. */
+export function focusMain(): void {
+  document.getElementById("main")?.focus({ preventScroll: true });
+}
+
+/**
+ * Focus target for content that appears in place of the control that was just pressed
+ * (secret word, verdict): without it the focus would fall back to the page for keyboard
+ * and screen-reader users.
+ */
+export function useFocusOnMount<T extends HTMLElement>(vibrate?: Parameters<typeof buzz>[0]) {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    ref.current?.focus({ preventScroll: true });
+    if (vibrate !== undefined) buzz(vibrate);
+  }, []);
+  return ref;
+}
+
+export { pulses };
