@@ -1,7 +1,7 @@
 import { useState } from "preact/hooks";
 import { checkGuess } from "../api/client";
 import { acceptGuess, continueGame, recordGuess } from "../game/engine";
-import { ErrorText } from "./common";
+import { Avatar, ErrorText } from "./common";
 import type { ScreenProps } from "./GamePage";
 
 /** An eliminated Mr. White types the word they think the civilians have. */
@@ -29,8 +29,9 @@ export function GuessScreen({ game, onChange }: ScreenProps) {
   return (
     <form class="stack center" onSubmit={submit}>
       <p class="eyebrow">Tour {game.round} · Élimination</p>
+      <Avatar name={player.name} tone="mrwhite" large />
       <h1>{player.name} était…</h1>
-      <p class="role role-mrwhite">Mr. White</p>
+      <p class="role stamp role-mrwhite">Mr. White</p>
       <p>Dernière chance : quel est le mot des civils ?</p>
       <input
         type="text"
@@ -56,7 +57,9 @@ export function GuessResultScreen({ game, onChange }: ScreenProps) {
 
   return (
     <section class="stack center">
-      <h1>{correct ? "Mr. White a trouvé !" : "Raté !"}</h1>
+      <h1 class={correct ? "verdict-win" : "verdict-miss"}>
+        {correct ? "Mr. White a trouvé !" : "Raté !"}
+      </h1>
       <dl class="card result">
         <dt>Réponse</dt>
         <dd>{guess}</dd>

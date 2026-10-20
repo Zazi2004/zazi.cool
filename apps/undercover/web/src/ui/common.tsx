@@ -1,4 +1,5 @@
 import type { ComponentChildren } from "preact";
+import { useEffect } from "preact/hooks";
 import type { Player, Role } from "../game/engine";
 
 export const roleLabels: Record<Role, string> = {
@@ -68,4 +69,28 @@ export function SecretCard({ player }: { player: Player }) {
       <p class="secret-word">{player.word}</p>
     </div>
   );
+}
+
+/** Round badge with the player's initial; the tone follows the role once it is public. */
+export function Avatar({ name, tone, large }: { name: string; tone?: Role; large?: boolean }) {
+  const classes = ["avatar", tone ? `avatar-${tone}` : "", large ? "avatar-large" : ""];
+  return (
+    <span class={classes.filter(Boolean).join(" ")} aria-hidden="true">
+      {[...name.trim()][0]?.toUpperCase() ?? "?"}
+    </span>
+  );
+}
+
+/**
+ * Calls `onHide` when the page goes to the background. A secret must never stay on screen
+ * after the phone is locked or the player switches app, so the caller re-hides it.
+ */
+export function useHideOnLeave(onHide: () => void) {
+  useEffect(() => {
+    const handler = () => {
+      if (document.hidden) onHide();
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, [onHide]);
 }

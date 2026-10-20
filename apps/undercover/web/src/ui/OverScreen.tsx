@@ -1,6 +1,6 @@
 import { useState } from "preact/hooks";
 import type { Outcome, Player } from "../game/engine";
-import { ErrorText, roleLabels } from "./common";
+import { Avatar, ErrorText, roleLabels } from "./common";
 import type { ScreenProps } from "./GamePage";
 import { newGame } from "./newGame";
 import { ReportButtons } from "./ReportButtons";
@@ -41,7 +41,10 @@ export function OverScreen({ game, onChange, onNewGame }: ScreenProps & { onNewG
 
   return (
     <section class="stack">
-      <h1 class="center">{title(outcome, game.players)}</h1>
+      <header class={`banner banner-${outcome.winner}`}>
+        <p class="eyebrow">Fin de partie</p>
+        <h1>{title(outcome, game.players)}</h1>
+      </header>
 
       <dl class="card result">
         <dt>Mot des civils</dt>
@@ -53,7 +56,11 @@ export function OverScreen({ game, onChange, onNewGame }: ScreenProps & { onNewG
       <ul class="card players">
         {game.players.map((p) => (
           <li key={p.name} class={p.alive ? "" : "eliminated"}>
-            <span class="player-name">{p.name}</span>
+            <Avatar name={p.name} tone={p.role} />
+            <span class="player-info">
+              <span class="player-name">{p.name}</span>
+              <span class="player-word">{p.word ?? "Pas de mot"}</span>
+            </span>
             <span class={`tag role-${p.role}`}>{roleLabels[p.role]}</span>
           </li>
         ))}
