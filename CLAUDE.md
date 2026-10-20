@@ -107,13 +107,15 @@ zazi/
 └── infra/                     # procédures : infra/README.md
     ├── cluster/               # bootstrap du VPS, tunnel kubectl, Traefik, ClusterIssuers
     ├── data/                  # PostgreSQL, bases par application, sauvegardes
+    ├── flux/                  # GitOps (Flux) : une Kustomization par app, runbook
     └── apps/<nom>/            # manifests Kustomize par application
         ├── base/
         └── overlays/prod/     # tag d'image + secret.enc.yaml (SOPS)
 ```
 
 Les secrets sont des fichiers `*.enc.yaml` chiffrés par SOPS (seules les valeurs le sont),
-appliqués avec `sops decrypt <fichier> | kubectl apply -f -` (Kustomize ne déchiffre pas).
+appliqués avec `sops decrypt <fichier> | kubectl apply -f -` (Kustomize ne déchiffre pas). Pour les apps gérées par Flux, le secret est dans les
+`resources` de l'overlay et Flux le déchiffre : ne jamais y lancer `kubectl apply -k`.
 
 Structure attendue de chaque application :
 
