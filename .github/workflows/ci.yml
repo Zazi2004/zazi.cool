@@ -64,6 +64,9 @@ jobs:
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
+        env:
+          # Scoped exceptions for Flux's generated RBAC (see the file for the reasons).
+          TRIVY_IGNOREFILE: .trivyignore.yaml
 
   home:
     name: home
