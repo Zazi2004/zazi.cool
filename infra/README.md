@@ -126,6 +126,42 @@ kubectl apply -f infra/apps/pastebin/base/namespace.yaml
 sops decrypt infra/apps/pastebin/overlays/prod/secret.enc.yaml | kubectl apply -f -
 ```
 
+## Vérifier un déploiement
+
+Le workflow réutilisable `.github/workflows/verify.yml` contrôle une app depuis l'extérieur.
+Il attend (polling toutes les 5 s, borné par `timeout`) que `GET /version` renvoie le SHA
+attendu, puis vérifie `/healthz`, `/readyz`, la redirection HTTP → HTTPS et la validité du
+certificat TLS (chaîne, nom, expiration dans plus de 7 jours). Chaque contrôle est une étape
+distincte : l'étape rouge désigne la panne, et le job échoue (code non nul).
+
+| Entrée | Rôle |
+|--------|------|
+| `app` | nom de l'app (affichage) |
+| `url` | URL publique, sans chemin : `https://pb.zazi.cool` |
+| `sha` | SHA attendu (7 caractères ou plus ; seuls les 7 premiers sont comparés) |
+| `timeout` | attente maximale de `/version`, en secondes (défaut 300, max 840) |
+
+À la main :
+
+```sh
+gh workflow run verify.yml -f app=pastebin -f url=https://pb.zazi.cool -f sha=<sha7>
+gh run watch
+```
+
+Depuis un autre workflow :
+
+```yaml
+jobs:
+  verify:
+    uses: ./.github/workflows/verify.yml
+    with:
+      app: pastebin
+      url: https://pb.zazi.cool
+      sha: ${{ needs.image.outputs.sha }}
+```
+
+Un SHA erroné donne un job rouge à l'étape « Wait for /version… » après le `timeout`.
+
 ## 7. Sauvegardes
 
 Prérequis : un bucket Object Storage OVHcloud (S3) et un utilisateur S3 avec ses clés.
