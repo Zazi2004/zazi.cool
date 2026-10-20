@@ -93,8 +93,9 @@ Voir la section suivante.
 **Objectif (décidé le 2026-10-16) : un déploiement 100 % automatisé à terme.** Un merge
 sur `main` avec une CI verte doit suffire à mettre la version en production, à la vérifier
 de l'extérieur et à revenir en arrière tout seul si la vérification échoue. On y va par
-étapes ; le flux manuel actuel est l'étape 1 et reste en vigueur tant que la suivante
-n'est pas en place.
+étapes ; l'**étape 3 (GitOps) est atteinte pour pastebin** : Flux déploie, et le job `verify`
+se lance tout seul après le merge du bump (`.github/workflows/deploy-verify.yml`). Les apps
+pas encore migrées vers Flux (undercover) restent à l'étape 2.
 
 ### Contraintes à respecter
 
@@ -135,7 +136,7 @@ seule. À valider avant l'étape 3.
 |-------|---------------|--------------|----------|----------|
 | **1. Manuel** (actuel) | PR `newTag` préparée par un agent ; `kubectl apply -k` par Noah via le tunnel | `curl` externe (`/healthz`, `/readyz`, TLS) par un agent ou Noah | Remettre l'ancien `newTag` et réappliquer, à la main | Agent prépare, Noah merge et applique |
 | **2. Outillé** | Idem, mais **la CI ouvre elle-même la PR `newTag`** après le push de l'image sur `main` | **Job CI `verify`** (déclenché à la main ou après le merge de la PR `newTag`) : attend que `GET /version` renvoie le SHA attendu, puis vérifie `/healthz`, `/readyz`, la redirection HTTP → HTTPS et le certificat | Manuel | Noah merge la PR de bump et applique |
-| **3. GitOps** | **Flux** réconcilie `infra/apps/<app>/overlays/prod` depuis `main` : **merger la PR `newTag` = déployer** | Job `verify` lancé automatiquement après le merge ; Flux signale aussi un rollout en échec (`wait`, `healthChecks`, `timeout`) | `git revert` de la PR `newTag` (Flux réapplique l'ancienne version) | Noah merge ; plus aucun `kubectl` pour une app |
+| **3. GitOps** (atteinte pour pastebin) | **Flux** réconcilie `infra/apps/<app>/overlays/prod` depuis `main` : **merger la PR `newTag` = déployer** | Job `verify` lancé automatiquement après le merge (workflow `deploy-verify`, qui déduit l'app, le SHA et l'URL du diff et enregistre le déploiement dans l'environnement GitHub `production`) ; Flux signale aussi un rollout en échec (`wait`, `healthChecks`, `timeout`) | `git revert` de la PR `newTag` (Flux réapplique l'ancienne version) | Noah merge ; plus aucun `kubectl` pour une app |
 | **4. Automatique** (cible) | La CI, une fois l'image poussée, **met à jour `newTag` sur `main`** (PR de bump en auto-merge quand ses checks sont verts) | Job `verify` automatique | **Automatique** : si `verify` échoue, la CI revert le bump ; Flux remet l'ancienne version ; la tâche Multica passe en `blocked` | Personne : le merge de la PR de fonctionnalité par Noah suffit |
 
 Prérequis par étape :
@@ -170,13 +171,30 @@ avec la trajectoire :
 |-------|-------------------|---------------------------|----------------------|
 | 1 | Un agent prépare la PR `chore(infra): deploy <app> <sha7> (<CLÉ>-<n>)` et liste les commandes | PR ouverte, image `ghcr.io/zazi2004/<app>:<sha7>` publiée (job CI de `main` vert) | PR mergée, `kubectl apply -k` et `rollout status` réussis par Noah, vérification externe et recette cochées en commentaire |
 | 2 | L'agent relie la PR de bump ouverte par la CI et vérifie son contenu | Idem | PR mergée, appliquée par Noah, **job `verify` vert** pour ce SHA, recette cochée |
-| 3 | Idem ; plus de commande à lancer | PR de bump liée, CI verte | PR mergée, **Flux a réconcilié** et **job `verify` vert** (`/version` = SHA attendu), recette cochée |
+| 3 | Idem ; plus de commande à lancer. Le ticket est créé à partir du gabarit ci-dessous | PR de bump liée, CI verte | PR mergée, **Flux a réconcilié** et **job `verify` vert** (run `deploy-verify` du merge, déploiement `production` en `success`), recette cochée |
 | 4 | Le ticket n'est plus créé à la main : un autopilot l'ouvre à partir du résultat de `verify`, comme **trace** du déploiement | — | Job `verify` vert pour ce SHA ; la recette manuelle de la spec n'est demandée qu'au **premier** déploiement d'une app |
 
 À toutes les étapes, si la vérification échoue : rollback (manuel aux étapes 1 à 3,
 automatique à l'étape 4), ticket → `blocked` avec le constat, et ticket `fix/…`.
 `done` reste posé par Noah aux étapes 1 à 3 ; à l'étape 4, la clôture automatique du
 ticket de trace quand `verify` est vert est à confirmer au moment de la mettre en place.
+
+#### Gabarit (étape 3)
+
+```markdown
+Titre : Déployer <app> <sha7>
+
+## À faire
+- Relier la PR de bump `chore(infra): deploy <app> <sha7>` (clé du ticket dans le titre).
+- Après le merge par Noah, lire le résultat du run `deploy-verify` (onglet Actions, ou
+  Deployments → `production`) : `verify` vert pour <sha7>. Aucune commande à lancer.
+- Cocher la recette de la spec (« Recette après déploiement »).
+
+## Critères d'acceptation
+- `/version` renvoie <sha7>, `/healthz`, `/readyz`, HTTPS et TLS vérifiés par `verify`.
+- Si `verify` est rouge : `git revert` de la PR de bump (Flux réapplique l'ancienne
+  version), ticket `blocked` avec le constat.
+```
 
 ### Ce qui reste interdit aux agents
 

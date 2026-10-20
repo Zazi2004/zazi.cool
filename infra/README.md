@@ -166,6 +166,17 @@ jobs:
       sha: ${{ needs.image.outputs.sha }}
 ```
 
+### Automatiquement après un merge
+
+Le workflow `.github/workflows/deploy-verify.yml` se lance sur chaque push sur `main` qui
+modifie `infra/apps/*/overlays/prod/kustomization.yaml`. Pour chaque app dont `newTag` a
+changé (bump ou `git revert` d'un bump), il déduit le SHA du diff et l'URL du premier
+`host` de `infra/apps/<app>/base/ingress.yaml`, crée un déploiement GitHub dans
+l'environnement `production`, appelle `verify`, puis passe le déploiement à `success` ou
+`failure`. Le résultat est visible dans Actions (`deploy-verify`) et dans Deployments.
+Il ne déploie rien : c'est Flux qui réconcilie ; `verify` attend `timeout` (300 s) que
+`/version` change.
+
 Un SHA erroné donne un job rouge à l'étape « Wait for /version… » après le `timeout`.
 
 ## 7. Sauvegardes
