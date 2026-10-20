@@ -179,6 +179,30 @@ Il ne déploie rien : c'est Flux qui réconcilie ; `verify` attend `timeout` (30
 
 Un SHA erroné donne un job rouge à l'étape « Wait for /version… » après le `timeout`.
 
+### Rollback automatique
+
+Si `verify` échoue, le job `rollback` de `deploy-verify` :
+
+1. ouvre l'issue `Deploy blocked: <app> <sha> failed verify` (label `deploy-blocked:<app>`) ;
+2. ouvre la PR `revert(infra): roll back <app> to <ancien sha> (<sha> failed verify)` qui
+   remet l'ancien `newTag`, et active son auto-merge ;
+3. après le merge, Flux réapplique l'ancienne version et `deploy-verify` la revérifie.
+
+Garde-fous : un seul rollback par bump (branche `revert/infra-deploy-<app>-<sha>`) ; si la
+vérification échoue aussi après le rollback, rien de plus n'est tenté et le job est rouge ;
+si `main` a déjà un autre `newTag`, le bump est considéré comme remplacé et rien n'est fait.
+Tant que l'issue `deploy-blocked:<app>` est ouverte, `bump.yml` n'ouvre plus de PR de bump
+pour cette app : **la fermer** une fois le problème corrigé.
+
+Prérequis : le secret `BUMP_TOKEN` (voir ci-dessous), sinon la PR de rollback n'a pas de
+checks et ne peut pas être mergée ; l'option « Allow auto-merge » du dépôt, sinon la PR est
+laissée à merger à la main.
+
+Test de bout en bout (en production, protégé par les `readinessProbe`) : merger une PR de bump
+dont `newTag` est un SHA sans image (par exemple `0000000`). Les nouveaux pods ne démarrent
+pas, l'ancienne version reste en service, `verify` échoue après 300 s, puis la PR de rollback
+apparaît ; vérifier qu'après son merge `/version` renvoie l'ancien SHA et que `verify` est vert.
+
 ## 7. Sauvegardes
 
 Prérequis : un bucket Object Storage OVHcloud (S3) et un utilisateur S3 avec ses clés.
