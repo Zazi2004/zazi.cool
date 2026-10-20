@@ -18,10 +18,6 @@ on:
 permissions:
   contents: read
 
-defaults:
-  run:
-    working-directory: apps/${{ inputs.app }}
-
 jobs:
   check:
     name: ${{ inputs.app }} / check
@@ -43,7 +39,9 @@ jobs:
 
       # Same targets as locally; `make test` starts the app's dependencies with Docker Compose.
       - run: make lint
+        working-directory: apps/${{ inputs.app }}
       - run: make test
+        working-directory: apps/${{ inputs.app }}
 
   image:
     name: ${{ inputs.app }} / image
