@@ -73,12 +73,13 @@ Le détail des statuts et des critères est dans [`cycle-de-vie.md`](cycle-de-vi
 
 ### CI (GitHub Actions)
 
-- **Un seul workflow** : `.github/workflows/undercover.yml`, déclenché sur les chemins
-  `apps/undercover/**` :
-  - sur PR et `main` : `make lint` puis `make test` (PostgreSQL via Docker Compose) ;
-  - sur `main` uniquement : build et push de `ghcr.io/zazi2004/undercover:<sha7>`.
-- Les autres apps n'ont **pas encore de workflow** : il faudra en créer un par app
-  (calqué sur celui d'Undercover) dans le premier ticket de chacune.
+- **Un workflow réutilisable** `.github/workflows/app.yml`, appelé par `ci.yml` pour chaque
+  app dont les chemins `apps/<app>/**` (ou `app.yml`) ont changé :
+  - sur PR et `main` : `make lint` puis `make test` ;
+  - sur `main` uniquement : scan Trivy, build et push de `ghcr.io/zazi2004/<app>:<sha7>`.
+- `home` et `linktree` sont déjà câblés dans `ci.yml` mais ne s'exécutent qu'une fois
+  `apps/<app>/Dockerfile` présent. Une nouvelle app = un job de plus dans `ci.yml` (et dans
+  `ci / required`), sans copie du workflow.
 
 ### Déploiement
 

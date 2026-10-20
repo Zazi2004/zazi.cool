@@ -98,7 +98,7 @@ règles durables sont reportées dans le `CLAUDE.md` de l'app. Workflow complet 
 zazi/
 ├── CLAUDE.md                  # ce fichier
 ├── .sops.yaml                 # règles de chiffrement SOPS (clé publique age)
-├── .github/workflows/<nom>.yml  # CI par application
+├── .github/workflows/ci.yml, app.yml  # CI : point d'entrée + workflow réutilisable par app
 ├── apps/
 │   ├── home/
 │   ├── pastebin/
