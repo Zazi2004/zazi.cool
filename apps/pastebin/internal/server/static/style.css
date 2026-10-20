@@ -144,7 +144,20 @@ textarea:focus {
 
 .options label { margin: 0; }
 select, button, .link { font: inherit; padding: .5rem .75rem; }
-.options select { display: block; margin-top: .25rem; }
+/* Custom chevron so its position can be tuned. Drawn with gradients because the CSP
+   (img-src 'self') forbids data: URIs. */
+.options select {
+  display: block;
+  margin-top: .25rem;
+  appearance: none;
+  padding-right: 2.25rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--fg) 50%),
+    linear-gradient(135deg, var(--fg) 50%, transparent 50%);
+  background-position: calc(100% - 1.15rem) center, calc(100% - .8rem) center;
+  background-size: .35rem .35rem, .35rem .35rem;
+  background-repeat: no-repeat;
+}
 
 select, .link {
   border: 1px solid var(--border);
