@@ -1,0 +1,95 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: ci / changes
+    runs-on: ubuntu-latest
+    outputs:
+      pastebin: ${{ steps.filter.outputs.pastebin }}
+      undercover: ${{ steps.filter.outputs.undercover }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - id: filter
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          else
+            base="${{ github.event.before }}"
+          fi
+          for app in pastebin undercover; do
+            if git diff --name-only "$base" "$GITHUB_SHA" | grep -qE "^(apps/$app/|\.github/workflows/$app\.yml)"; then
+              echo "$app=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "$app=false" >> "$GITHUB_OUTPUT"
+            fi
+          done
+
+  secrets:
+    name: ci / secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  scan:
+    name: ci / scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      # Vulnerabilities in dependencies (go.mod, package-lock.json) and misconfigurations
+      # (Dockerfiles, Kubernetes manifests).
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scanners: vuln,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  pastebin:
+    name: pastebin
+    needs: changes
+    if: needs.changes.outputs.pastebin == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/pastebin.yml
+
+  undercover:
+    name: undercover
+    needs: changes
+    if: needs.changes.outputs.undercover == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/undercover.yml
+
+  # The only status check required by the `main` ruleset. App workflows only run when
+  # their paths changed, so this job is always executed and fails if any job failed or
+  # was cancelled; `skipped` (unchanged app) is fine.
+  required:
+    name: ci / required
+    if: always()
+    needs: [changes, secrets, scan, pastebin, undercover]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify upstream jobs
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e 'all(.[]; .result == "success" or .result == "skipped")' > /dev/null
