@@ -20,16 +20,24 @@ partie ou le tour suivant. Une étape de révélation existait (`RevealScreen.ts
 décision « plus de révélation de rôle à l'élimination ». Cette spec **revient sur cette
 décision** à la demande de Noah.
 
+Précision de Noah (commentaire du 2026-10-21) : le rôle est annoncé **à l'élimination**, pas
+au début de partie. À la fin d'un tour, le groupe vote et élimine quelqu'un ; c'est à ce
+moment que son rôle est annoncé à tout le monde. **Le début de partie ne change pas** :
+civils et undercovers ne connaissent pas leur rôle (ils voient seulement leur mot), seuls
+les Mr. White savent qu'ils le sont.
+
 Conséquence de jeu à connaître : les undercovers ne connaissent pas leur rôle. Annoncer
 « Undercover » à l'élimination est donc le moment où le groupe (et l'intéressé) l'apprend ;
 c'est aussi un indice pour la suite (il reste un imposteur de moins).
 
 ## 2. Objectifs
 
-- **O1** — À chaque élimination, tout le groupe voit le rôle (civil, undercover ou
+- **O1** — À chaque élimination (vote de fin de tour), tout le groupe voit le rôle (civil, undercover ou
   Mr. White) du joueur éliminé avant que la partie continue.
 - **O2** — Le comportement de Mr. White reste identique (annonce, puis saisie du mot).
-- **O3** — Aucun mot n'est révélé avant la fin de la partie.
+- **O3** — Le début de partie reste inchangé : aucun rôle n'est annoncé aux civils ni aux
+  undercovers (seul le Mr. White se sait Mr. White).
+- **O4** — Aucun mot n'est révélé avant la fin de la partie.
 
 ## 3. Périmètre
 
@@ -38,6 +46,7 @@ c'est aussi un indice pour la suite (il reste un imposteur de moins).
 - Mise à jour du moteur, des tests, de la page « Règles » et du `CLAUDE.md` de l'app.
 
 ### Hors périmètre
+- Le début de partie : distribution des mots et écran de passage de téléphone inchangés.
 - Aucun changement d'API, de base de données ni de réglage (pas d'option pour
   désactiver l'annonce).
 - Révélation du **mot** de l'éliminé : réservée à la fin de partie.
@@ -56,6 +65,9 @@ c'est aussi un indice pour la suite (il reste un imposteur de moins).
   l'élimination qui termine la partie (D1).
 - **F3** — Un **Mr. White** éliminé garde le parcours actuel (annonce du rôle puis saisie
   du mot, `GuessScreen`).
+- **F3b** — Le début de partie est inchangé : l'écran de distribution ne mentionne jamais
+  « Civil » ni « Undercover » ; le rôle n'apparaît qu'à l'élimination (F1, F3) ou en fin de
+  partie.
 - **F4** — Le bouton « Personne n'est éliminé » enchaîne directement sur le tour suivant,
   sans annonce.
 - **F5** — L'écran d'annonce ne montre ni le mot de l'éliminé ni celui des civils.
@@ -100,6 +112,8 @@ Aucune.
 - **CA5** (F3) — Éliminer un Mr. White mène à `guess` sans passer par `reveal` ; les tests
   existants sur les réponses (correcte, fausse, « valider quand même ») passent sans
   modification.
+- **CA5b** (F3b) — Pendant la distribution, aucun écran ne contient le libellé « Civil » ou
+  « Undercover » ; seul un Mr. White voit son rôle (comportement actuel, test inchangé).
 - **CA6** (F4) — « Personne n'est éliminé » mène directement à `round`, aucune phase
   `reveal`.
 - **CA7** (F5) — Le DOM de l'écran `reveal` ne contient ni `player.word` ni le mot des
@@ -123,9 +137,10 @@ Aucune.
 
 ## 7. Décisions ouvertes
 
-- [ ] D1 — Annoncer aussi le rôle quand l'élimination **termine** la partie.
-      **Proposition :** oui, pour garder un déroulé uniforme (la fin de partie montre ensuite
-      tous les rôles). Alternative : aller directement à l'écran de fin. (bloque : T1)
+- [x] D1 — Annoncer aussi le rôle quand l'élimination **termine** la partie.
+      **Tranchée (déduite du commentaire du 2026-10-21 : « quand un joueur est éliminé »)** :
+      oui, annonce à chaque élimination, puis écran de fin. À corriger si Noah veut
+      l'inverse.
 - [ ] D2 — Faut-il annoncer le **mot** de l'éliminé en plus du rôle ?
       **Proposition :** non (F5) : cela dévoilerait le mot des civils avant la fin. (bloque : T1)
 
@@ -137,11 +152,13 @@ Aucune.
 | T2 | 1 | Undercover : mettre à jour la page Règles et `CLAUDE.md` | F7, CA10 | — | dev |
 | T3 | 2 | Déployer undercover en production | — | T1, T2 | déploiement |
 
+T1 couvre aussi un test garantissant que le début de partie n'annonce aucun rôle (CA5b).
 T1 et T2 touchent des fichiers différents ; si Noah préfère une seule PR, les fusionner.
 
 ## 9. Recette après déploiement
 
 - [ ] `curl -sI https://undercover.zazi.cool/healthz` → `200`
+- [ ] Début de partie : aucun rôle affiché, sauf pour un Mr. White.
 - [ ] Partie à 5 joueurs : éliminer un civil → « ⟨prénom⟩ était… Civil », « Continuer »
       lance le tour suivant.
 - [ ] Éliminer un undercover → « Undercover » annoncé.
