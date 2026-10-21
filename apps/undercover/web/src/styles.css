@@ -803,6 +803,13 @@ body::before {
   color: var(--danger);
 }
 
+/* Elimination reveal: the focus target around the role stamp. */
+.verdict {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+}
+
 .role.stamp {
   display: inline-block;
   align-self: center;
@@ -919,9 +926,10 @@ h1.verdict-miss {
   transform: none;
 }
 
-/* Programmatic focus targets (new page, secret word): focused but not outlined. */
+/* Programmatic focus targets (new page, secret word, verdict): focused but not outlined. */
 main:focus,
-.secret:focus {
+.secret:focus,
+.verdict:focus {
   outline: none;
 }
 

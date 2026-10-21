@@ -54,6 +54,8 @@ export type Phase =
   | { kind: "distribution"; next: number }
   /** Players give a clue in `order` (player indexes), then vote orally. */
   | { kind: "round"; order: number[] }
+  /** The role of an eliminated civil or undercover is announced to everyone. */
+  | { kind: "reveal"; eliminated: number }
   /** An eliminated Mr. White types the word they think the civilians have. */
   | { kind: "guess"; eliminated: number }
   | { kind: "guessResult"; eliminated: number; guess: string; expected: string; correct: boolean }
@@ -203,25 +205,18 @@ export function skipElimination(game: Game, rng: Rng): Game {
 }
 
 /**
- * Eliminates the voted player. An eliminated Mr. White guesses the word; otherwise the
- * game ends or a new round starts right away (roles are only shown at the end).
+ * Eliminates the voted player. An eliminated Mr. White guesses the word; any other role
+ * is announced first, even when this elimination ends the game.
  */
-export function eliminate(game: Game, index: number, rng: Rng): Game {
+export function eliminate(game: Game, index: number): Game {
   expectPhase(game, "round");
   const target = game.players[index];
   if (!target || !target.alive) {
     throw new Error(`Player ${index} cannot be eliminated.`);
   }
   const players = game.players.map((p, i) => (i === index ? { ...p, alive: false } : p));
-  const next = { ...game, players };
-  if (target.role === "mrwhite") {
-    return { ...next, phase: { kind: "guess", eliminated: index } };
-  }
-  const outcome = outcomeOf(players);
-  if (outcome) {
-    return { ...next, phase: { kind: "over", outcome } };
-  }
-  return startRound(next, rng);
+  const kind = target.role === "mrwhite" ? "guess" : "reveal";
+  return { ...game, players, phase: { kind, eliminated: index } };
 }
 
 /** Records Mr. White's guess, as judged by the server. */
@@ -239,12 +234,16 @@ export function acceptGuess(game: Game): Game {
   return { ...game, phase: { ...phase, correct: true } };
 }
 
-/** Leaves a guess result: the game ends or a new round starts. */
+/** Leaves a reveal or a guess result: the game ends or a new round starts. */
 export function continueGame(game: Game, rng: Rng): Game {
-  const phase = expectPhase(game, "guessResult");
-  const outcome = phase.correct
-    ? { winner: "mrwhite" as const, mrWhite: phase.eliminated }
-    : outcomeOf(game.players);
+  const { phase } = game;
+  if (phase.kind !== "reveal" && phase.kind !== "guessResult") {
+    throw new Error(`Expected phase reveal or guessResult, got ${phase.kind}.`);
+  }
+  const outcome =
+    phase.kind === "guessResult" && phase.correct
+      ? { winner: "mrwhite" as const, mrWhite: phase.eliminated }
+      : outcomeOf(game.players);
   if (outcome) {
     return { ...game, phase: { kind: "over", outcome } };
   }
