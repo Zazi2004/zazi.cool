@@ -55,13 +55,14 @@ jobs:
             exit 0
           fi
 
-          current="$(sed -n 's/^ *newTag: *//p' "$file")"
+          current="$(sed -n 's/^ *newTag: *//p' "$file" | tr -d "\"'")"
           if [ "$current" = "$sha" ]; then
             echo "newTag is already $sha, nothing to do"
             exit 0
           fi
 
-          sed -i "s/^\( *newTag:\).*/\1 $sha/" "$file"
+          # Always quoted: an all-digit SHA would be read as a number by YAML.
+          sed -i "s/^\( *newTag:\).*/\1 \"$sha\"/" "$file"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -C "$branch"
@@ -104,7 +105,7 @@ jobs:
             exit 1
           fi
           # Only the newTag line may change: one line added, one removed.
-          if [ "$(gh pr diff "$PR" | grep -cE '^[+-][^+-]')" != "2" ] || ! gh pr diff "$PR" | grep -qE '^\+ *newTag: *[0-9a-f]{7}$'; then
+          if [ "$(gh pr diff "$PR" | grep -cE '^[+-][^+-]')" != "2" ] || ! gh pr diff "$PR" | grep -qE '^\+ *newTag: *"?[0-9a-f]{7}"?$'; then
             gh pr merge "$PR" --disable-auto || true
             echo "::error::PR #$PR changes more than the newTag line"
             exit 1

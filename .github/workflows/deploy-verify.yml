@@ -42,8 +42,9 @@ jobs:
           if [[ "$(git log -1 --format=%s)" == "revert(infra): roll back "* ]]; then is_rollback=true; else is_rollback=false; fi
           for file in $(git diff --name-only "$base" HEAD -- 'infra/apps/*/overlays/prod/kustomization.yaml'); do
             app="$(echo "$file" | cut -d/ -f3)"
-            old="$(git show "$base:$file" 2>/dev/null | sed -n 's/^ *newTag: *//p' | head -n1 || true)"
-            new="$(sed -n 's/^ *newTag: *//p' "$file" | head -n1)"
+            # The tag may be quoted (an all-digit SHA must be): strip the quotes.
+            old="$(git show "$base:$file" 2>/dev/null | sed -n 's/^ *newTag: *//p' | head -n1 | tr -d "\"'" || true)"
+            new="$(sed -n 's/^ *newTag: *//p' "$file" | head -n1 | tr -d "\"'")"
             if [ -z "$new" ] || [ "$old" = "$new" ]; then
               echo "$app: newTag unchanged, skipping"
               continue
@@ -160,7 +161,7 @@ jobs:
           fi
 
           file="infra/apps/$APP/overlays/prod/kustomization.yaml"
-          current="$(sed -n 's/^ *newTag: *//p' "$file" | head -n1)"
+          current="$(sed -n 's/^ *newTag: *//p' "$file" | head -n1 | tr -d "\"'")"
           if [ "$current" != "$SHA" ]; then
             echo "main now has newTag $current, not $SHA: a later change superseded this bump"
             exit 0
@@ -174,7 +175,7 @@ jobs:
 
           branch="revert/infra-deploy-$APP-$SHA"
           title="revert(infra): roll back $APP to $PREVIOUS ($SHA failed verify)"
-          sed -i "s/^\( *newTag:\).*/\1 $PREVIOUS/" "$file"
+          sed -i "s/^\( *newTag:\).*/\1 \"$PREVIOUS\"/" "$file"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git switch -C "$branch"
