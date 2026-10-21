@@ -1,6 +1,8 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"strconv"
@@ -124,7 +126,22 @@ func (s *server) image(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) adminShell(w http.ResponseWriter, r *http.Request) {
-	if err := s.cfg.Renderer.Admin(w); err != nil {
+	// In development the CSP already allows inline styles (Vite injects them), and
+	// a nonce would make browsers ignore 'unsafe-inline': no nonce then.
+	nonce := ""
+	if s.cfg.DevURL == "" {
+		nonce = newNonce()
+		w.Header().Set("Content-Security-Policy", adminCSP(nonce))
+	}
+	if err := s.cfg.Renderer.Admin(w, nonce); err != nil {
 		s.pageError(w, r, err)
 	}
+}
+
+// newNonce returns 128 random bits, base64-encoded, for a CSP nonce.
+func newNonce() string {
+	b := make([]byte, 16)
+	// crypto/rand.Read never returns an error on supported platforms.
+	_, _ = rand.Read(b)
+	return base64.StdEncoding.EncodeToString(b)
 }

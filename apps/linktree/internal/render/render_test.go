@@ -153,11 +153,13 @@ func TestAdmin(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec := httptest.NewRecorder()
-	if err := r.Admin(rec); err != nil {
+	if err := r.Admin(rec, "n0nce"); err != nil {
 		t.Fatal(err)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, `src="/assets/admin-b2.js"`) || !strings.Contains(body, `content="noindex"`) {
-		t.Errorf("unexpected admin shell:\n%s", body)
+	for _, want := range []string{`src="/assets/admin-b2.js"`, `content="noindex"`, `<meta name="csp-nonce" content="n0nce">`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %s in admin shell:\n%s", want, body)
+		}
 	}
 }
