@@ -132,6 +132,29 @@ kubectl apply -f infra/apps/pastebin/base/namespace.yaml
 sops decrypt infra/apps/pastebin/overlays/prod/secret.enc.yaml | kubectl apply -f -
 ```
 
+### Première fois pour linktree (`link.zazi.cool`)
+
+Linktree est géré par Flux dès sa création : namespace, secret et Deployment sont appliqués
+par Flux au merge. Seule la base reste manuelle. Le secret doit être chiffré et commité
+**sur la branche de la PR, avant le merge** : sans lui, Flux ne peut pas construire
+l'overlay.
+
+```sh
+# 1. Ajouter la clé `linktree` (mot de passe aléatoire) dans le secret des bases
+sops edit infra/data/secrets/app-db-passwords.enc.yaml
+# 2. Créer la base et mettre à jour la sauvegarde : appliquer les secrets, infra/data (voir §5)
+#    puis infra/data/backup
+kubectl apply -k infra/data/backup
+# 3. Hash du mot de passe de l'admin (saisi sans écho)
+make -C apps/linktree hash-password
+# 4. Chiffrer le secret de l'app : même mot de passe dans DATABASE_URL, hash de l'étape 3
+cp infra/apps/linktree/overlays/prod/secret.example.yaml infra/apps/linktree/overlays/prod/secret.enc.yaml
+sops encrypt --in-place infra/apps/linktree/overlays/prod/secret.enc.yaml
+# 5. Commiter secret.enc.yaml sur la branche, merger : Flux déploie, puis vérifier
+flux get kustomization linktree
+gh workflow run verify.yml -f app=linktree -f url=https://link.zazi.cool -f sha=<newTag>
+```
+
 ## Vérifier un déploiement
 
 Le workflow réutilisable `.github/workflows/verify.yml` contrôle une app depuis l'extérieur.

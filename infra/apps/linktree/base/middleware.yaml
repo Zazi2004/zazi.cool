@@ -1,0 +1,24 @@
+# HTTP → HTTPS. Requests already in HTTPS pass through unchanged. cert-manager's
+# challenge Ingress has a more specific rule, so Traefik routes it first and Let's Encrypt
+# can validate over HTTP.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: redirect-https
+  namespace: linktree
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
+---
+# HSTS: browsers will only use HTTPS for the site and its subdomains for a year.
+# The app sets the other security headers (CSP, nosniff…) itself.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: security-headers
+  namespace: linktree
+spec:
+  headers:
+    stsSeconds: 31536000
+    stsIncludeSubdomains: true
