@@ -28,8 +28,9 @@ export function RulesPage() {
           sur son mot, sans le dire.
         </li>
         <li>
-          Tout le monde vote à l'oral pour éliminer un joueur. Les rôles ne sont révélés qu'à la fin
-          de la partie.
+          Tout le monde vote à l'oral pour éliminer un joueur. Son rôle (civil, undercover ou Mr.
+          White) est alors annoncé à tout le groupe ; son mot reste caché jusqu'à la fin de la
+          partie.
         </li>
         <li>
           Un Mr. White éliminé peut tenter de deviner le mot des civils. S'il trouve, il gagne seul.

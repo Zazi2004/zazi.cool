@@ -9,8 +9,8 @@ Jeu d'ambiance inspiré d'**Undercover**, joué autour d'une table avec **un seu
 qui circule** entre les joueurs. Tous les joueurs reçoivent le même mot, sauf un ou
 plusieurs **undercovers** (mot proche mais différent) et éventuellement un ou plusieurs
 **Mr. White** (aucun mot). Les indices et le vote se font **à l'oral** ; l'application
-distribue les mots, indique l'ordre de passage, enregistre les éliminations, révèle les
-rôles en fin de partie et détermine la fin de partie.
+distribue les mots, indique l'ordre de passage, enregistre les éliminations, annonce le
+rôle de chaque joueur éliminé, révèle les mots en fin de partie et détermine la fin de partie.
 
 Le second pilier du projet est une **banque de paires de mots enrichie par les joueurs**,
 avec une catégorie « extrême » séparée pour que le jeu reste tout public par défaut.
@@ -24,11 +24,11 @@ avec une catégorie « extrême » séparée pour que le jeu reste tout public p
 
 ### Rôles
 
-| Rôle        | Mot reçu               | Connaît son rôle ?                           |
-|-------------|------------------------|----------------------------------------------|
-| Civil       | mot A                  | Non (voit seulement son mot)                 |
-| Undercover  | mot B, proche de A     | **Non** : il le découvre à la fin de la partie |
-| Mr. White   | aucun                  | Oui (« Tu es Mr. White »)                    |
+| Rôle       | Mot reçu           | Connaît son rôle ?                                             |
+|------------|--------------------|----------------------------------------------------------------|
+| Civil      | mot A              | Non (voit seulement son mot)                                   |
+| Undercover | mot B, proche de A | **Non** : il le découvre à son élimination ou en fin de partie |
+| Mr. White  | aucun              | Oui (« Tu es Mr. White »)                                      |
 
 - Pour chaque partie, une paire est tirée au hasard ; **le mot attribué aux civils est
   tiré au sort** entre les deux mots de la paire (sinon on finit par reconnaître le « mot
@@ -47,9 +47,13 @@ avec une catégorie « extrême » séparée pour que le jeu reste tout public p
 4. **Vote** à l'oral ; on désigne dans l'application le joueur éliminé et on confirme.
    Un bouton **« Personne n'est éliminé »** (égalité, indécision) passe directement au tour
    suivant.
-5. **Pas de révélation de rôle** à l'élimination : le rôle du joueur éliminé n'est affiché
-   qu'à la fin de la partie. Seul un **Mr. White** éliminé passe par un écran : il saisit le
-   mot qu'il pense être celui des civils (voir ci-dessous).
+5. **Annonce du rôle** à chaque élimination : un écran « ⟨prénom⟩ était… » annonce à tout
+   le groupe le rôle du joueur éliminé (Civil, Undercover ou Mr. White), y compris quand
+   cette élimination termine la partie. Son **mot** reste caché jusqu'à la fin de la partie.
+   Un civil ou un undercover éliminé : bouton « Continuer » ; un **Mr. White** éliminé saisit
+   ensuite le mot qu'il pense être celui des civils (voir ci-dessous). « Personne n'est
+   éliminé » n'annonce rien. Le début de partie ne change pas : seul un Mr. White connaît son
+   rôle. Spec : [`docs/specs/undercover-annonce-role.md`](../../docs/specs/undercover-annonce-role.md).
 6. Vérification des conditions de victoire ; sinon, nouveau tour (retour à l'étape 3).
 7. **Fin de partie** : camp gagnant, rôle et mot de chaque joueur, les deux mots de la
    paire, bouton « Rejouer » (mêmes joueurs et réglages, nouvelle paire) et boutons de
@@ -389,8 +393,10 @@ apps/undercover/
 - [x] Stack : **Go** côté serveur, **TypeScript + Vite** côté front.
 - [x] Mode de jeu : **un seul téléphone qui circule** ; indices et vote à l'oral.
 - [x] Les undercovers **ne connaissent pas** leur rôle ; Mr. White sait qu'il n'a pas de mot.
-- [x] **Plus de révélation de rôle à l'élimination** (2026-10-20) : les rôles ne sont
-      montrés qu'en fin de partie.
+- [x] **Annonce du rôle à chaque élimination** (2026-10-21, remplace la décision du
+      2026-10-20 « plus de révélation de rôle à l'élimination ») : le rôle de l'éliminé est
+      annoncé à tout le groupe, son mot reste caché jusqu'à la fin de la partie. Spec :
+      [`docs/specs/undercover-annonce-role.md`](../../docs/specs/undercover-annonce-role.md).
 - [x] Réponse de Mr. White : **validation automatique tolérante**, correction possible par
       les joueurs.
 - [x] Suggestions **publiées immédiatement**, avec catégorie (tout public / extrême)
