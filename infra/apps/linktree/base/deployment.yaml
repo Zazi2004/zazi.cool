@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linktree
+  namespace: linktree
+spec:
+  # The server is stateless, but its rate limiting is in memory: one replica.
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: linktree
+  template:
+    metadata:
+      labels:
+        app: linktree
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532 # nonroot user of the distroless image
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: linktree
+          # The tag is set by the overlay (git SHA built by the CI).
+          image: ghcr.io/zazi2004/linktree
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            - name: PUBLIC_BASE_URL
+              value: https://link.zazi.cool
+            # Behind Traefik, which appends the client IP to X-Forwarded-For
+            # (externalTrafficPolicy: Local keeps the real one).
+            - name: TRUST_PROXY
+              value: "true"
+          envFrom:
+            # DATABASE_URL and ADMIN_PASSWORD_HASH (overlays/prod/secret.enc.yaml).
+            - secretRef:
+                name: linktree-env
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 20
+          # Spec NF5: the limits leave room for decoding uploaded images.
+          resources:
+            requests:
+              cpu: 20m
+              memory: 48Mi
+            limits:
+              cpu: 500m
+              memory: 192Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

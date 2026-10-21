@@ -22,7 +22,7 @@ jobs:
         with:
           fetch-depth: 0
       # An app runs when its files or the shared app.yml changed, and only once it has a
-      # Dockerfile (home and linktree are still specs, with nothing deployable).
+      # Dockerfile (home is still a spec, with nothing deployable).
       - id: filter
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then

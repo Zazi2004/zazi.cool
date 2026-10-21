@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: linktree
+  namespace: linktree
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # <namespace>-<name>@kubernetescrd refers to the Traefik Middlewares of middleware.yaml.
+    traefik.ingress.kubernetes.io/router.middlewares: linktree-redirect-https@kubernetescrd,linktree-security-headers@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - link.zazi.cool
+      secretName: linktree-tls
+  rules:
+    - host: link.zazi.cool
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: linktree
+                port:
+                  name: http
