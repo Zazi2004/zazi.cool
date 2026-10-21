@@ -11,6 +11,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -460,6 +461,17 @@ func TestAdminShellAndStatic(t *testing.T) {
 		if !strings.Contains(rec.Body.String(), "/assets/admin.js") || rec.Header().Get("X-Robots-Tag") == "" {
 			t.Errorf("GET %s: not the admin shell", path)
 		}
+	}
+
+	// The admin shell carries a fresh CSP nonce, the same in the header and the page.
+	first := s.do("GET", "/admin", nil)
+	csp := first.Header().Get("Content-Security-Policy")
+	nonce := strings.TrimPrefix(regexp.MustCompile(`'nonce-[^']+`).FindString(csp), "'nonce-")
+	if nonce == "" || !strings.Contains(first.Body.String(), `<meta name="csp-nonce" content="`+nonce+`">`) {
+		t.Errorf("admin CSP %q and page nonce do not match", csp)
+	}
+	if strings.Contains(s.do("GET", "/admin", nil).Header().Get("Content-Security-Policy"), nonce) {
+		t.Error("the nonce must change on every response")
 	}
 
 	rec := s.do("GET", "/shapes/star-1.svg", nil)

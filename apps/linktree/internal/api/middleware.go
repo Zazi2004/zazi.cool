@@ -16,6 +16,14 @@ const productionCSP = "default-src 'self'; script-src 'self'; style-src 'self'; 
 	"img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; object-src 'none'; " +
 	"frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 
+// adminCSP is the CSP of the admin shell: the production one, plus a nonce that
+// lets the dialogs (Radix, through react-remove-scroll) inject their scroll-lock
+// <style> tag. A nonce changes on every response, so it cannot be guessed by
+// injected content, unlike 'unsafe-inline'.
+func adminCSP(nonce string) string {
+	return strings.Replace(productionCSP, "style-src 'self'", "style-src 'self' 'nonce-"+nonce+"'", 1)
+}
+
 // shapeCSP applies when a shape SVG is opened directly: coolshapes files use
 // inline style attributes, and nothing else is needed.
 const shapeCSP = "default-src 'none'; style-src 'unsafe-inline'"

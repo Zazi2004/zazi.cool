@@ -30,7 +30,10 @@ type Shell struct {
 	// html/template escapes it, so a "</script>" inside a title cannot end the tag.
 	Data     any
 	Fallback *Fallback
-	Entry    Entry // set by the Renderer
+	// Nonce, when set, is exposed in <meta name="csp-nonce"> for the scripts that
+	// must inject <style> tags allowed by the CSP (the admin dialogs).
+	Nonce string
+	Entry Entry // set by the Renderer
 }
 
 // Fallback is the plain HTML version of a page, shown when JavaScript is off.
@@ -69,9 +72,10 @@ func (r *Renderer) Public(w http.ResponseWriter, status int, s Shell) error {
 	return r.write(w, status, publicEntry, s)
 }
 
-// Admin writes the shell of the admin single-page app.
-func (r *Renderer) Admin(w http.ResponseWriter) error {
-	return r.write(w, http.StatusOK, adminEntry, Shell{Title: "Administration — link.zazi.cool", NoIndex: true})
+// Admin writes the shell of the admin single-page app. nonce is the CSP nonce of
+// the response ("" when the CSP does not use one).
+func (r *Renderer) Admin(w http.ResponseWriter, nonce string) error {
+	return r.write(w, http.StatusOK, adminEntry, Shell{Title: "Administration — link.zazi.cool", NoIndex: true, Nonce: nonce})
 }
 
 func (r *Renderer) write(w http.ResponseWriter, status int, entry string, s Shell) error {
