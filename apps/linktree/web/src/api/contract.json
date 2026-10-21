@@ -1,0 +1,236 @@
+{
+  "accents": [
+    "violet",
+    "bleu",
+    "cyan",
+    "vert",
+    "ambre",
+    "orange",
+    "rose",
+    "neutre"
+  ],
+  "createPageRequest": {
+    "title": "Musique",
+    "slug": "musique"
+  },
+  "document": {
+    "id": "0199e6a8-0000-7000-8000-000000000001",
+    "slug": "musique",
+    "title": "Musique",
+    "description": "Mes sons",
+    "avatar": {
+      "kind": "image",
+      "id": "0199e6a8-0000-7000-8000-000000000001",
+      "url": "/images/0199e6a8-0000-7000-8000-000000000001",
+      "width": 512,
+      "height": 384
+    },
+    "theme": "nuit",
+    "accent": "violet",
+    "published": true,
+    "listed": true,
+    "version": 2,
+    "items": [
+      {
+        "id": "0199e6a8-0000-7000-8000-000000000001",
+        "kind": "link",
+        "title": "Spotify",
+        "subtitle": "",
+        "url": "https://open.spotify.com/track/1",
+        "visual": {
+          "kind": "image",
+          "id": "0199e6a8-0000-7000-8000-000000000001",
+          "url": "/images/0199e6a8-0000-7000-8000-000000000001",
+          "width": 512,
+          "height": 384
+        },
+        "openByDefault": false,
+        "published": true,
+        "links": []
+      },
+      {
+        "id": "0199e6a8-0000-7000-8000-000000000001",
+        "kind": "group",
+        "title": "Titre 1",
+        "subtitle": "Artiste",
+        "url": "",
+        "visual": {
+          "kind": "shape",
+          "shape": "star-1"
+        },
+        "openByDefault": true,
+        "published": true,
+        "links": [
+          {
+            "id": "0199e6a8-0000-7000-8000-000000000001",
+            "kind": "link",
+            "title": "Spotify",
+            "subtitle": "",
+            "url": "https://open.spotify.com/track/1",
+            "visual": {
+              "kind": "image",
+              "id": "0199e6a8-0000-7000-8000-000000000001",
+              "url": "/images/0199e6a8-0000-7000-8000-000000000001",
+              "width": 512,
+              "height": 384
+            },
+            "openByDefault": false,
+            "published": true,
+            "links": []
+          }
+        ]
+      }
+    ]
+  },
+  "errorResponse": {
+    "error": {
+      "code": "validation",
+      "message": "Certains champs sont invalides.",
+      "fields": {
+        "slug": "Ce slug est déjà utilisé."
+      }
+    }
+  },
+  "imageResponse": {
+    "visual": {
+      "kind": "image",
+      "id": "0199e6a8-0000-7000-8000-000000000001",
+      "url": "/images/0199e6a8-0000-7000-8000-000000000001",
+      "width": 512,
+      "height": 384
+    }
+  },
+  "imageVisual": {
+    "kind": "image",
+    "id": "0199e6a8-0000-7000-8000-000000000001",
+    "url": "/images/0199e6a8-0000-7000-8000-000000000001",
+    "width": 512,
+    "height": 384
+  },
+  "indexView": {
+    "view": "index",
+    "pages": [
+      {
+        "slug": "musique",
+        "title": "Musique",
+        "description": "Mes sons",
+        "avatar": {
+          "kind": "image",
+          "id": "0199e6a8-0000-7000-8000-000000000001",
+          "url": "/images/0199e6a8-0000-7000-8000-000000000001",
+          "width": 512,
+          "height": 384
+        }
+      }
+    ]
+  },
+  "loginRequest": {
+    "password": "secret"
+  },
+  "notFoundView": {
+    "view": "notFound"
+  },
+  "pageView": {
+    "view": "page",
+    "page": {
+      "id": "0199e6a8-0000-7000-8000-000000000001",
+      "slug": "musique",
+      "title": "Musique",
+      "description": "Mes sons",
+      "avatar": {
+        "kind": "image",
+        "id": "0199e6a8-0000-7000-8000-000000000001",
+        "url": "/images/0199e6a8-0000-7000-8000-000000000001",
+        "width": 512,
+        "height": 384
+      },
+      "theme": "nuit",
+      "accent": "violet",
+      "items": [
+        {
+          "kind": "link",
+          "id": "0199e6a8-0000-7000-8000-000000000001",
+          "title": "Spotify",
+          "url": "https://open.spotify.com/track/1",
+          "visual": {
+            "kind": "image",
+            "id": "0199e6a8-0000-7000-8000-000000000001",
+            "url": "/images/0199e6a8-0000-7000-8000-000000000001",
+            "width": 512,
+            "height": 384
+          }
+        },
+        {
+          "kind": "group",
+          "id": "0199e6a8-0000-7000-8000-000000000001",
+          "title": "Titre 1",
+          "subtitle": "Artiste",
+          "visual": {
+            "kind": "shape",
+            "shape": "star-1"
+          },
+          "openByDefault": true,
+          "links": [
+            {
+              "kind": "link",
+              "id": "0199e6a8-0000-7000-8000-000000000001",
+              "title": "Spotify",
+              "url": "https://open.spotify.com/track/1",
+              "visual": {
+                "kind": "image",
+                "id": "0199e6a8-0000-7000-8000-000000000001",
+                "url": "/images/0199e6a8-0000-7000-8000-000000000001",
+                "width": 512,
+                "height": 384
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "pagesResponse": {
+    "pages": [
+      {
+        "id": "0199e6a8-0000-7000-8000-000000000001",
+        "slug": "musique",
+        "title": "Musique",
+        "description": "Mes sons",
+        "avatar": {
+          "kind": "shape",
+          "shape": "star-1"
+        },
+        "published": true,
+        "listed": true,
+        "linkCount": 3
+      }
+    ]
+  },
+  "reorderRequest": {
+    "ids": [
+      "0199e6a8-0000-7000-8000-000000000001"
+    ]
+  },
+  "saveResponse": {
+    "version": 3
+  },
+  "sessionResponse": {
+    "authenticated": true
+  },
+  "shapeVisual": {
+    "kind": "shape",
+    "shape": "star-1"
+  },
+  "slugCheckResponse": {
+    "slug": "musique",
+    "available": false,
+    "error": "Ce slug est déjà utilisé."
+  },
+  "themes": [
+    "zazi",
+    "nuit",
+    "papier",
+    "neon",
+    "pop"
+  ]
+}

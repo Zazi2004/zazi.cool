@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fr"{{with .Theme}} data-theme="{{.}}"{{end}}{{with .Accent}} data-accent="{{.}}"{{end}}>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>{{.Title}}</title>
+    {{- with .Description}}
+    <meta name="description" content="{{.}}">
+    {{- end}}
+    {{- if .NoIndex}}
+    <meta name="robots" content="noindex">
+    {{- end}}
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    {{- with .URL}}
+    <link rel="canonical" href="{{.}}">
+    <meta property="og:url" content="{{.}}">
+    {{- end}}
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="zazi.cool">
+    <meta property="og:title" content="{{.Title}}">
+    {{- with .Description}}
+    <meta property="og:description" content="{{.}}">
+    {{- end}}
+    {{- with .Image}}
+    <meta property="og:image" content="{{.}}">
+    <meta name="twitter:card" content="summary">
+    {{- end}}
+    {{- range .Entry.Styles}}
+    <link rel="stylesheet" href="{{.}}">
+    {{- end}}
+    {{- range .Entry.Preloads}}
+    <link rel="modulepreload" href="{{.}}">
+    {{- end}}
+    {{- range .Entry.Scripts}}
+    <script type="module" src="{{.}}"></script>
+    {{- end}}
+  </head>
+  <body>
+    <div id="root"></div>
+    {{- with .Fallback}}
+    <noscript>
+      <main class="fallback">
+        <h1>{{.Heading}}</h1>
+        {{- with .Text}}
+        <p>{{.}}</p>
+        {{- end}}
+        <ul>
+          {{- range .Items}}
+          <li>
+            {{- if .Links}}
+            <details>
+              <summary>{{.Title}}</summary>
+              <ul>
+                {{- range .Links}}
+                <li><a href="{{.URL}}">{{.Title}}</a></li>
+                {{- end}}
+              </ul>
+            </details>
+            {{- else}}
+            <a href="{{.URL}}">{{.Title}}</a>
+            {{- end}}
+          </li>
+          {{- end}}
+        </ul>
+      </main>
+    </noscript>
+    {{- end}}
+    {{- if .Data}}
+    <script type="application/json" id="page-data">{{.Data}}</script>
+    {{- end}}
+  </body>
+</html>

@@ -1,0 +1,165 @@
+/* The look of each theme beyond its colors: shared by the public pages and the
+   admin preview. Components carry hook classes (lt-page, lt-card, lt-link,
+   lt-title…); Tailwind handles the layout. */
+
+.lt-page {
+  color: var(--lt-text);
+  font-family: var(--lt-font-body);
+}
+
+.lt-title {
+  font-family: var(--lt-font-heading);
+}
+
+/* Static background: the theme gradient, then a grain texture (SVG noise). The
+   animated background, when there is one, is drawn between the two. */
+.lt-backdrop {
+  background: var(--lt-bg);
+}
+
+.lt-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: var(--lt-grain);
+  mix-blend-mode: overlay;
+}
+
+.lt-card {
+  background: var(--lt-surface);
+  border: 1px solid var(--lt-border);
+  border-radius: var(--lt-radius);
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.lt-link:hover,
+.lt-link:focus-visible {
+  background: var(--lt-surface-strong);
+}
+
+.lt-focus:focus-visible {
+  outline: 2px solid var(--lt-accent);
+  outline-offset: 3px;
+}
+
+/* --- zazi: soft shadows --- */
+[data-theme="zazi"] .lt-card {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 8px 24px -12px rgb(0 0 0 / 0.12);
+  backdrop-filter: blur(12px);
+}
+
+/* --- nuit: frosted glass --- */
+[data-theme="nuit"] .lt-card {
+  backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+/* --- papier: paper cards, italic titles and sticker shadows --- */
+[data-theme="papier"] .lt-card {
+  box-shadow:
+    0 1px 0 rgb(28 25 23 / 0.06),
+    0 10px 20px -14px rgb(28 25 23 / 0.35);
+}
+[data-theme="papier"] .lt-title {
+  font-weight: 650;
+  font-style: italic;
+}
+[data-theme="papier"] .lt-sticker {
+  filter: drop-shadow(0 6px 6px rgb(28 25 23 / 0.22));
+}
+
+/* --- neon: glowing borders --- */
+[data-theme="neon"] .lt-card {
+  box-shadow:
+    0 0 0 1px var(--lt-accent-soft),
+    0 0 24px -6px var(--lt-accent-soft);
+}
+[data-theme="neon"] .lt-link:hover,
+[data-theme="neon"] .lt-link:focus-visible {
+  border-color: var(--lt-accent);
+  box-shadow: 0 0 28px -4px var(--lt-accent-soft);
+}
+[data-theme="neon"] .lt-title {
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* --- pop: chunky borders and hard shadows --- */
+[data-theme="pop"] .lt-card {
+  border-width: 2.5px;
+  box-shadow: 4px 4px 0 var(--lt-border);
+}
+[data-theme="pop"] .lt-link:hover {
+  box-shadow: 6px 6px 0 var(--lt-border);
+}
+[data-theme="pop"] .lt-title {
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+/* neon: a light sweeping over the title (the ShinyText idea of React Bits). */
+.lt-shiny {
+  background: linear-gradient(100deg, var(--lt-text) 40%, var(--lt-accent) 50%, var(--lt-text) 60%)
+    0 0 / 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: lt-shine 4s linear infinite;
+}
+@keyframes lt-shine {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+/* Accordion: Radix exposes the content height, animated with a slight overshoot. */
+.lt-accordion-content {
+  overflow: hidden;
+}
+.lt-accordion-content[data-state="open"] {
+  animation: lt-accordion-down 0.38s cubic-bezier(0.34, 1.36, 0.64, 1);
+}
+.lt-accordion-content[data-state="closed"] {
+  animation: lt-accordion-up 0.24s ease-in;
+}
+@keyframes lt-accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+@keyframes lt-accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+.lt-accordion-content[data-state="open"] .lt-reveal {
+  animation: lt-reveal 0.35s both ease-out;
+  animation-delay: calc(var(--lt-i, 0) * 40ms + 60ms);
+}
+@keyframes lt-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lt-shiny,
+  .lt-accordion-content[data-state],
+  .lt-accordion-content[data-state="open"] .lt-reveal {
+    animation-duration: 1ms;
+    animation-delay: 0ms;
+  }
+}

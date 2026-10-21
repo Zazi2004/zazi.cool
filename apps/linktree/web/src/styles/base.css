@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+/* Tailwind utilities backed by the theme variables (src/themes): bg-lt-surface,
+   text-lt-muted, rounded-lt, font-lt-heading… "inline" keeps the var() references,
+   so the values follow the data-theme / data-accent of the nearest ancestor. */
+@theme inline {
+  --color-lt-text: var(--lt-text);
+  --color-lt-muted: var(--lt-muted);
+  --color-lt-surface: var(--lt-surface);
+  --color-lt-surface-strong: var(--lt-surface-strong);
+  --color-lt-border: var(--lt-border);
+  --color-lt-accent: var(--lt-accent);
+  --color-lt-accent-text: var(--lt-accent-text);
+  --color-lt-accent-soft: var(--lt-accent-soft);
+  --radius-lt: var(--lt-radius);
+  --font-lt-body: var(--lt-font-body);
+  --font-lt-heading: var(--lt-font-heading);
+}

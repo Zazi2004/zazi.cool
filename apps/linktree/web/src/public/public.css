@@ -1,0 +1,44 @@
+@import "../styles/base.css";
+@import "../themes/themes.css";
+
+/* Before JavaScript runs, <html> already carries data-theme and data-accent: the
+   page gets its colors at once (no flash). */
+html[data-theme] {
+  background: var(--lt-bg-base);
+  color: var(--lt-text);
+  font-family: var(--lt-font-body);
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Version without JavaScript (<noscript>, rendered by Go). */
+.fallback {
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 3rem 1.25rem;
+  line-height: 1.5;
+}
+.fallback ul {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+.fallback a {
+  display: block;
+  padding: 0.9rem 1rem;
+  border-radius: var(--lt-radius);
+  background: var(--lt-surface);
+  border: 1px solid var(--lt-border);
+  color: inherit;
+  text-decoration: none;
+}
+.fallback summary {
+  cursor: pointer;
+  padding: 0.9rem 1rem;
+  font-weight: 600;
+}
