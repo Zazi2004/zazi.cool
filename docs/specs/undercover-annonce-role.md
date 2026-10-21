@@ -141,8 +141,9 @@ Aucune.
       **Tranchée (déduite du commentaire du 2026-10-21 : « quand un joueur est éliminé »)** :
       oui, annonce à chaque élimination, puis écran de fin. À corriger si Noah veut
       l'inverse.
-- [ ] D2 — Faut-il annoncer le **mot** de l'éliminé en plus du rôle ?
-      **Proposition :** non (F5) : cela dévoilerait le mot des civils avant la fin. (bloque : T1)
+- [x] D2 — Faut-il annoncer le **mot** de l'éliminé en plus du rôle ?
+      **Tranchée (Noah, 2026-10-21) :** non (F5), seulement le rôle : annoncer le mot
+      dévoilerait celui des civils avant la fin.
 
 ## 8. Découpage en tickets
 
