@@ -10,6 +10,9 @@
     {{- if .NoIndex}}
     <meta name="robots" content="noindex">
     {{- end}}
+    {{- with .Nonce}}
+    <meta name="csp-nonce" content="{{.}}">
+    {{- end}}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml">
     {{- with .URL}}
     <link rel="canonical" href="{{.}}">
