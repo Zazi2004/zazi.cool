@@ -296,6 +296,56 @@ pas de style en ligne).
 - **Poids** : CSS ≈ 12 Ko (3,5 Ko gzip), JS ≈ 14 Ko gzip au 2026-10-20 ; CLS mesuré à 0
   sur l'accueil. Pas de police ni d'image web.
 
+### Erreurs réseau
+
+Toutes les requêtes passent par `request()` (`web/src/api/client.ts`). Une connexion gardée
+ouverte pendant une longue pause (téléphone en veille, Mr. White qui réfléchit) peut avoir été
+fermée entre-temps, et un redéploiement renvoie brièvement des 502/503/504 : le navigateur ne
+rejoue pas seul un `POST`, d'où ce qui suit.
+
+| Requête                          | Rejouée automatiquement ? | Pourquoi |
+|----------------------------------|---------------------------|----------|
+| `GET /api/pairs/random`          | Oui                       | Lecture : la rejouer ne change rien (démarrage de partie et « Rejouer » passent par `newGame`) |
+| `POST /api/pairs/{id}/guess`     | Oui                       | `POST` qui est une pure comparaison, sans écriture |
+| `GET /api/pairs/check`           | Oui                       | Lecture |
+| `POST /api/pairs`                | **Non**                   | Publie une paire : si la réponse est perdue, un second envoi créerait un doublon (409) |
+| `POST /api/pairs/{id}/reports`   | **Non**                   | Écriture ; l'utilisateur relance lui-même (bouton) |
+
+- Règle : option `idempotent: true` **uniquement** pour une requête sans effet de bord.
+  Un essai de plus après 300 ms (2 tentatives au total), sur erreur réseau ou statut
+  502/503/504, annulable par `AbortSignal`. Les autres statuts (dont **429**) ne sont jamais
+  rejoués : réessayer immédiatement aggraverait la limitation.
+- Un corps non JSON (page HTML d'erreur de l'ingress) donne une `ApiError` avec le statut
+  (« Erreur 502 »), jamais une `SyntaxError` ; un succès non JSON donne « Réponse inattendue
+  du serveur. ». Réseau coupé après les essais : « Impossible de joindre le serveur.
+  Vérifiez la connexion. »
+- Côté UI, l'erreur reste affichée sur l'écran concerné et l'action peut être relancée (le
+  bouton redevient actif) ; l'état de la partie est dans `localStorage`, rien n'est perdu.
+- Non-régression : `web/src/api/network.regression.test.ts` rejoue coupure réseau, 502,
+  corps HTML et 429 sur chaque parcours (démarrage / « Rejouer », devinette Mr. White,
+  vérification et proposition de paire, signalement). Toute nouvelle requête doit y être
+  ajoutée.
+
+#### Recette manuelle après déploiement (à valider par Noah)
+
+Sur téléphone, en production :
+
+1. Lancer une partie, mettre le téléphone en veille **2 à 5 min**, puis le rouvrir et faire
+   chacune des actions suivantes (une veille par action) : passer à l'élimination suivante,
+   saisir la devinette d'un Mr. White éliminé, « Rejouer » en fin de partie, signaler une
+   paire, proposer une paire (page « Proposer »).
+2. Idem avec le navigateur en arrière-plan pendant 5 min, sur Wi-Fi puis en 4G.
+3. Pendant une partie en cours (écran de devinette ouvert), lancer un redéploiement
+   (`kubectl -n undercover rollout restart deploy/undercover`) puis valider la devinette :
+   elle doit aboutir, ou afficher un message clair avec la possibilité de réessayer, sans
+   « Erreur inattendue ».
+4. Couper le réseau (mode avion) et lancer une partie : message « Impossible de joindre le
+   serveur », puis rétablir le réseau et relancer : la partie démarre.
+5. Dans les logs (`kubectl -n undercover logs deploy/undercover`), aucun 5xx lié à ces
+   actions hors de la fenêtre du redéploiement.
+
+Critère de réussite : aucune erreur de connexion sur ces parcours, hors coupure réseau réelle.
+
 ### Données (PostgreSQL)
 
 ```sql
