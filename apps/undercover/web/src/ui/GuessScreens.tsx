@@ -1,27 +1,27 @@
 import { useState } from "preact/hooks";
-import { checkGuess } from "../api/client";
+import { checkGuess, toUiError, type UiError } from "../api/client";
 import { acceptGuess, continueGame, recordGuess } from "../game/engine";
-import { Avatar, ErrorText } from "./common";
+import { Avatar, RetryableError } from "./common";
 import type { ScreenProps } from "./GamePage";
 
 /** An eliminated Mr. White types the word they think the civilians have. */
 export function GuessScreen({ game, onChange }: ScreenProps) {
   const [guess, setGuess] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiError | null>(null);
   if (game.phase.kind !== "guess") return null;
   const player = game.players[game.phase.eliminated]!;
 
-  const submit = async (e: Event) => {
-    e.preventDefault();
-    if (guess.trim() === "") return;
+  const submit = async (e?: Event) => {
+    e?.preventDefault();
+    if (guess.trim() === "" || loading) return;
     setLoading(true);
     setError(null);
     try {
       const res = await checkGuess(game.pair.id, { civilSide: game.pair.civilSide, guess });
       onChange(recordGuess(game, guess.trim(), res.expected, res.correct));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur inattendue.");
+      setError(toUiError(err));
       setLoading(false);
     }
   };
@@ -42,7 +42,7 @@ export function GuessScreen({ game, onChange }: ScreenProps) {
         autocomplete="off"
         onInput={(e) => setGuess(e.currentTarget.value)}
       />
-      {error && <ErrorText>{error}</ErrorText>}
+      {error && <RetryableError error={error} busy={loading} onRetry={submit} />}
       <button
         type="submit"
         class="button primary"

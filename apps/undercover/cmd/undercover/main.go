@@ -34,6 +34,11 @@ var version = "dev"
 // shutdownTimeout bounds how long in-flight requests may take to finish on SIGTERM.
 const shutdownTimeout = 10 * time.Second
 
+// drainDelay is how long the server keeps accepting connections after SIGTERM. Traefik
+// learns that the pod is gone asynchronously (EndpointSlice update): without this delay
+// it can still route requests to a closed listener, which the user sees as a 502.
+const drainDelay = 5 * time.Second
+
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	if err := run(os.Args[1:]); err != nil {
@@ -126,7 +131,8 @@ func serve(ctx context.Context, addr string, handler http.Handler) error {
 	case <-ctx.Done():
 	}
 
-	slog.Info("shutting down")
+	slog.Info("shutting down", "drain_delay", drainDelay.String())
+	time.Sleep(drainDelay)
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
@@ -170,9 +176,9 @@ func loadConfig() (config, error) {
 		value *int
 		def   string
 	}{
-		{"RATE_LIMIT_SUGGESTIONS", &cfg.suggestionLimit, "20"},
-		{"RATE_LIMIT_REPORTS", &cfg.reportLimit, "30"},
-		{"RATE_LIMIT_CHECKS", &cfg.checkLimit, "300"},
+		{"RATE_LIMIT_SUGGESTIONS", &cfg.suggestionLimit, "60"},
+		{"RATE_LIMIT_REPORTS", &cfg.reportLimit, "90"},
+		{"RATE_LIMIT_CHECKS", &cfg.checkLimit, "1200"},
 	}
 	for _, l := range limits {
 		n, err := strconv.Atoi(getenv(l.name, l.def))
