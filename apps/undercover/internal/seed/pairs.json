@@ -99,5 +99,20 @@
   { "a": "Prison", "b": "Colonie de vacances", "extreme": true },
   { "a": "Impôts", "b": "Racket", "extreme": true },
   { "a": "Tinder", "b": "Agence matrimoniale", "extreme": true },
-  { "a": "Divorce", "b": "Rupture", "extreme": true }
+  { "a": "Divorce", "b": "Rupture", "extreme": true },
+  { "a": "Génocide", "b": "Massacre", "extreme": true },
+  { "a": "Esclave", "b": "Stagiaire", "extreme": true },
+  { "a": "Viol", "b": "Harcèlement", "extreme": true },
+  { "a": "Pédophile", "b": "Pervers", "extreme": true },
+  { "a": "Bite", "b": "Banane", "extreme": true },
+  { "a": "Prépuce", "b": "Capuchon", "extreme": true },
+  { "a": "Kamikaze", "b": "Cascadeur", "extreme": true },
+  { "a": "Torture", "b": "Massage", "extreme": true },
+  { "a": "Cimetière", "b": "Parc d'attractions", "extreme": true },
+  { "a": "Euthanasie", "b": "Suicide", "extreme": true },
+  { "a": "Kamasutra", "b": "Yoga", "extreme": true },
+  { "a": "Orgie", "b": "Banquet", "extreme": true },
+  { "a": "Cocaïne", "b": "Sucre glace", "extreme": true },
+  { "a": "Dictateur", "b": "Directeur", "extreme": true },
+  { "a": "Mort", "b": "Sommeil", "extreme": true }
 ]
