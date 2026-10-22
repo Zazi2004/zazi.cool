@@ -1,111 +1,84 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiError, checkGuess, checkPair, createPair, drawPair, type DrawOptions } from "./client";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  ApiError,
+  type DrawOptions,
+  NetworkError,
+  REQUEST_TIMEOUT_MS,
+  checkGuess,
+  drawPair,
+  reportPair,
+  toUiError,
+} from "./client";
 
 const draw: DrawOptions = { extreme: "off", suggestionsOnly: false, exclude: [] };
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
-const html = (status: number) => new Response("<html>Bad Gateway</html>", { status });
 
-const fetchMock = vi.fn();
-
-beforeEach(() => {
-  vi.useFakeTimers();
-  vi.stubGlobal("fetch", fetchMock);
-});
+function respond(status: number, body: unknown = {}) {
+  return new Response(JSON.stringify(body), { status });
+}
 
 afterEach(() => {
-  vi.useRealTimers();
   vi.unstubAllGlobals();
-  fetchMock.mockReset();
+  vi.useRealTimers();
 });
 
-describe("request retries", () => {
-  it("retries a GET once after a network error", async () => {
-    fetchMock
-      .mockRejectedValueOnce(new TypeError("network"))
-      .mockResolvedValueOnce(json({ id: 1 }));
-    const p = drawPair(draw);
-    await vi.runAllTimersAsync();
-    await expect(p).resolves.toEqual({ id: 1 });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-
-  it.each([502, 503, 504])("retries a GET once after a %i", async (status) => {
-    fetchMock.mockResolvedValueOnce(html(status)).mockResolvedValueOnce(json({ status: "ok" }));
-    const p = checkPair("a", "b");
-    await vi.runAllTimersAsync();
-    await expect(p).resolves.toEqual({ status: "ok" });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-
-  it("retries checkGuess after a network error", async () => {
-    fetchMock
-      .mockRejectedValueOnce(new TypeError("network"))
-      .mockResolvedValueOnce(json({ correct: true }));
-    const p = checkGuess(1, { civilSide: "a", guess: "x" });
-    await vi.runAllTimersAsync();
-    await expect(p).resolves.toEqual({ correct: true });
-  });
-
-  it("gives up after two attempts", async () => {
-    fetchMock.mockRejectedValue(new TypeError("network"));
-    const p = drawPair(draw);
-    const assertion = expect(p).rejects.toThrow("Impossible de joindre le serveur");
-    await vi.runAllTimersAsync();
-    await assertion;
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-  });
-
-  it("does not retry non-idempotent requests", async () => {
-    fetchMock.mockRejectedValue(new TypeError("network"));
-    await expect(createPair({ wordA: "a", wordB: "b" } as never)).resolves.toMatchObject({
-      ok: false,
-    });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-
-    fetchMock.mockReset().mockImplementation(() => html(502));
-    await expect(createPair({ wordA: "a", wordB: "b" } as never)).resolves.toMatchObject({
-      ok: false,
-    });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not retry other statuses", async () => {
-    fetchMock.mockResolvedValue(json({ error: "nope" }, 404));
-    await expect(drawPair(draw)).rejects.toMatchObject({ status: 404, message: "nope" });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("stops retrying when aborted during the delay", async () => {
-    fetchMock.mockRejectedValue(new TypeError("network"));
-    const controller = new AbortController();
-    const p = checkPair("a", "b", controller.signal);
-    const assertion = expect(p).rejects.toMatchObject({ name: "AbortError" });
-    await vi.advanceTimersByTimeAsync(10);
-    controller.abort(new DOMException("aborted", "AbortError"));
-    await assertion;
-    await vi.runAllTimersAsync();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("request non-JSON bodies", () => {
-  it("turns an HTML error page into an ApiError with the status", async () => {
-    fetchMock.mockResolvedValue(html(500));
+describe("network errors", () => {
+  it("reports an unreachable server", async () => {
+    vi.stubGlobal("navigator", { onLine: true });
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
     const err = await drawPair(draw).catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(ApiError);
-    expect(err).toMatchObject({ status: 500, message: "Erreur 500" });
+    expect(err).toBeInstanceOf(NetworkError);
+    expect(toUiError(err)).toEqual({
+      message: "Impossible de joindre le serveur. Vérifiez la connexion.",
+      retryable: true,
+    });
   });
 
-  it("reports a non-JSON success as a plain error", async () => {
-    fetchMock.mockResolvedValue(new Response("<html></html>", { status: 200 }));
-    await expect(drawPair(draw)).rejects.toThrow("Réponse inattendue du serveur.");
+  it("reports offline distinctly", async () => {
+    vi.stubGlobal("navigator", { onLine: false });
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    const err = await reportPair(1, "remove").catch((e: unknown) => e);
+    expect(toUiError(err)).toEqual({
+      message: "Vous êtes hors ligne. Vérifiez votre connexion.",
+      retryable: true,
+    });
   });
 
-  it("surfaces the final 502 as an ApiError once retries are spent", async () => {
-    fetchMock.mockImplementation(() => html(502));
-    const p = drawPair(draw).catch((e: unknown) => e);
-    await vi.runAllTimersAsync();
-    expect(await p).toMatchObject({ status: 502 });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+  it("reports a timeout and does not retry it", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("navigator", { onLine: true });
+    const fetchMock = vi.fn(
+      (_path: string, init: RequestInit) =>
+        new Promise<Response>((_, reject) => {
+          init.signal?.addEventListener("abort", () => reject(new DOMException("", "AbortError")));
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const result = checkGuess(1, { civilSide: "a", guess: "chat" }).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
+    const err = await result;
+    expect(err).toBeInstanceOf(NetworkError);
+    expect((err as NetworkError).kind).toBe("timeout");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("HTTP errors", () => {
+  it("reports 5xx as retryable", () => {
+    const ui = toUiError(new ApiError(503, undefined));
+    expect(ui.retryable).toBe(true);
+    expect(ui.message).toContain("503");
+  });
+
+  it("reports 429 as too many requests, retryable", () => {
+    expect(toUiError(new ApiError(429, { error: "rate limited" }))).toEqual({
+      message: "Trop de requêtes. Patientez quelques secondes puis réessayez.",
+      retryable: true,
+    });
+  });
+
+  it("keeps the server message for other 4xx and does not offer a retry", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(respond(404, { error: "Aucune paire" })));
+    const err = await drawPair(draw).catch((e: unknown) => e);
+    expect(toUiError(err)).toEqual({ message: "Aucune paire", retryable: false });
   });
 });

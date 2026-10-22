@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import type { Outcome, Player } from "../game/engine";
-import { Avatar, ErrorText, pulses, roleLabels } from "./common";
+import { toUiError, type UiError } from "../api/client";
+import { Avatar, RetryableError, pulses, roleLabels } from "./common";
 import { buzz } from "./haptics";
 import type { ScreenProps } from "./GamePage";
 import { newGame } from "./newGame";
@@ -20,12 +21,13 @@ function title(outcome: Outcome, players: Player[]): string {
 
 export function OverScreen({ game, onChange, onNewGame }: ScreenProps & { onNewGame: () => void }) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiError | null>(null);
   useEffect(() => buzz(pulses.victory), []);
   if (game.phase.kind !== "over") return null;
   const { outcome } = game.phase;
 
   const replay = async () => {
+    if (loading) return;
     setLoading(true);
     setError(null);
     try {
@@ -36,7 +38,7 @@ export function OverScreen({ game, onChange, onNewGame }: ScreenProps & { onNewG
         ),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur inattendue.");
+      setError(toUiError(err));
       setLoading(false);
     }
   };
@@ -68,7 +70,7 @@ export function OverScreen({ game, onChange, onNewGame }: ScreenProps & { onNewG
         ))}
       </ul>
 
-      {error && <ErrorText>{error}</ErrorText>}
+      {error && <RetryableError error={error} busy={loading} onRetry={replay} />}
       <button
         type="button"
         class="button primary"

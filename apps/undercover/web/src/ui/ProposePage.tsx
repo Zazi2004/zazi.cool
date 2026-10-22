@@ -1,7 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
-import { checkPair, createPair } from "../api/client";
+import { checkPair, createPair, toUiError, type UiError } from "../api/client";
 import type { CheckResponse, PairView } from "../api/types";
-import { ErrorText } from "./common";
+import { ErrorText, RetryableError } from "./common";
 import { ReportButtons } from "./ReportButtons";
 
 type Category = "normal" | "extreme";
@@ -17,7 +17,8 @@ export function ProposePage() {
   const [check, setCheck] = useState<CheckResponse | null>(null);
   const [confirmSimilar, setConfirmSimilar] = useState(false);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<(UiError & { source: "check" | "create" }) | null>(null);
+  const [checkNonce, setCheckNonce] = useState(0); // bumped by "Réessayer" to redo the check
   const [success, setSuccess] = useState<PairView | null>(null);
 
   // Live redundancy check, debounced; a newer keystroke cancels the pending request.
@@ -32,14 +33,14 @@ export function ProposePage() {
         .then(setCheck)
         .catch((err: unknown) => {
           if (err instanceof DOMException && err.name === "AbortError") return;
-          setError(err instanceof Error ? err.message : "Erreur inattendue.");
+          setError({ ...toUiError(err), source: "check" });
         });
     }, CHECK_DELAY_MS);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [wordA, wordB]);
+  }, [wordA, wordB, checkNonce]);
 
   const blocked =
     check?.status === "duplicate" ||
@@ -48,8 +49,8 @@ export function ProposePage() {
   const canSubmit =
     wordA.trim() !== "" && wordB.trim() !== "" && category !== null && !blocked && !sending;
 
-  const submit = async (e: Event) => {
-    e.preventDefault();
+  const submit = async (e?: Event) => {
+    e?.preventDefault();
     if (!canSubmit) return;
     setSending(true);
     setError(null);
@@ -69,7 +70,7 @@ export function ProposePage() {
     } else if ("check" in result) {
       setCheck(result.check);
     } else {
-      setError(result.error);
+      setError({ message: result.error, retryable: result.retryable, source: "create" });
     }
   };
 
@@ -155,7 +156,13 @@ export function ProposePage() {
       {check && (
         <CheckResult check={check} confirmed={confirmSimilar} onConfirm={setConfirmSimilar} />
       )}
-      {error && <ErrorText>{error}</ErrorText>}
+      {error && (
+        <RetryableError
+          error={error}
+          busy={sending}
+          onRetry={() => (error.source === "check" ? setCheckNonce(checkNonce + 1) : submit())}
+        />
+      )}
 
       <button type="submit" class="button primary" disabled={!canSubmit}>
         {sending ? "Envoi…" : "Ajouter la paire"}

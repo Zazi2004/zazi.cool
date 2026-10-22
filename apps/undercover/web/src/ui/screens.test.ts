@@ -14,7 +14,7 @@ import {
   startRound,
   wordSeen,
 } from "../game/engine";
-import { SecretCard } from "./common";
+import { RetryableError, SecretCard } from "./common";
 import { DistributionScreen } from "./DistributionScreen";
 import { RevealScreen } from "./RevealScreen";
 
@@ -116,5 +116,25 @@ describe("RevealScreen", () => {
       expect(screen).not.toContain("chat");
       expect(screen).not.toContain("tigre");
     }
+  });
+});
+
+describe("RetryableError", () => {
+  const onRetry = () => {};
+
+  it("offers a retry on a network error", () => {
+    const screen = markup(
+      RetryableError({ error: { message: "Vous êtes hors ligne.", retryable: true }, onRetry }),
+    );
+    expect(screen).toContain("Vous êtes hors ligne.");
+    expect(screen).toContain("Réessayer");
+  });
+
+  it("offers no retry when repeating cannot help", () => {
+    const screen = markup(
+      RetryableError({ error: { message: "Aucune paire", retryable: false }, onRetry }),
+    );
+    expect(screen).toContain("Aucune paire");
+    expect(screen).not.toContain("Réessayer");
   });
 });
