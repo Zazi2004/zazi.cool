@@ -21,6 +21,54 @@ export class ApiError extends Error {
   }
 }
 
+export type NetworkErrorKind = "offline" | "timeout" | "unreachable";
+
+/** The request never got an answer: no connection, too slow, or dropped on the way. */
+export class NetworkError extends Error {
+  constructor(
+    readonly kind: NetworkErrorKind,
+    options?: ErrorOptions,
+  ) {
+    super(networkMessages[kind], options);
+  }
+}
+
+const networkMessages: Record<NetworkErrorKind, string> = {
+  offline: "Vous êtes hors ligne. Vérifiez votre connexion.",
+  timeout: "Le serveur met trop de temps à répondre.",
+  unreachable: "Impossible de joindre le serveur. Vérifiez la connexion.",
+};
+
+/** How long a request may take before it is given up as a timeout. */
+export const REQUEST_TIMEOUT_MS = 15_000;
+
+/** An error shaped for the screens: a French message and whether trying again can help. */
+export interface UiError {
+  message: string;
+  retryable: boolean;
+}
+
+/** Turns anything thrown by this client into a message and a retry hint. */
+export function toUiError(err: unknown): UiError {
+  if (err instanceof NetworkError) return { message: err.message, retryable: true };
+  if (err instanceof ApiError) {
+    if (err.status === 429) {
+      return {
+        message: "Trop de requêtes. Patientez quelques secondes puis réessayez.",
+        retryable: true,
+      };
+    }
+    if (err.status >= 500) {
+      return {
+        message: `Le serveur a rencontré un problème (erreur ${err.status}).`,
+        retryable: true,
+      };
+    }
+    return { message: err.message, retryable: false };
+  }
+  return { message: err instanceof Error ? err.message : "Erreur inattendue.", retryable: false };
+}
+
 function errorMessage(body: unknown): string | undefined {
   if (body && typeof body === "object" && "error" in body) {
     const { error } = body as ErrorResponse;
@@ -41,24 +89,44 @@ interface RequestOptions {
 }
 
 async function request<T>(method: string, path: string, body?: unknown, opts: RequestOptions = {}) {
-  const send = () =>
-    fetch(path, {
-      method,
-      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-      signal: opts.signal,
-    });
+  const send = async () => {
+    const controller = new AbortController();
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, REQUEST_TIMEOUT_MS);
+    const onAbort = () => controller.abort();
+    opts.signal?.addEventListener("abort", onAbort);
+    try {
+      return await fetch(path, {
+        method,
+        headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (timedOut) throw new NetworkError("timeout", { cause: err });
+      throw err;
+    } finally {
+      clearTimeout(timer);
+      opts.signal?.removeEventListener("abort", onAbort);
+    }
+  };
   let res: Response;
   try {
     try {
       res = await send();
     } catch (err) {
-      if (!opts.retryOnNetworkError || opts.signal?.aborted) throw err;
+      if (!opts.retryOnNetworkError || opts.signal?.aborted || err instanceof NetworkError)
+        throw err;
       res = await send();
     }
   } catch (err) {
+    if (err instanceof NetworkError) throw err;
     if (err instanceof DOMException && err.name === "AbortError") throw err;
-    throw new Error("Impossible de joindre le serveur. Vérifiez la connexion.", { cause: err });
+    const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+    throw new NetworkError(offline ? "offline" : "unreachable", { cause: err });
   }
 
   const text = await res.text();
@@ -99,7 +167,7 @@ export function checkPair(a: string, b: string, signal?: AbortSignal) {
 export type CreateResult =
   | { ok: true; response: CreatePairResponse }
   | { ok: false; check: CheckResponse }
-  | { ok: false; error: string };
+  | { ok: false; error: string; retryable: boolean };
 
 /** Submits a pair. A refusal (duplicate, similar, invalid) is a result, not an error. */
 export async function createPair(req: CreatePairRequest): Promise<CreateResult> {
@@ -110,7 +178,10 @@ export async function createPair(req: CreatePairRequest): Promise<CreateResult> 
     if (err instanceof ApiError && isCheckResponse(err.body)) {
       return { ok: false, check: err.body };
     }
-    if (err instanceof Error) return { ok: false, error: err.message };
+    if (err instanceof Error) {
+      const { message, retryable } = toUiError(err);
+      return { ok: false, error: message, retryable };
+    }
     throw err;
   }
 }

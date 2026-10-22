@@ -1,5 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { useEffect, useRef } from "preact/hooks";
+import type { UiError } from "../api/client";
 import { buzz, pulses } from "./haptics";
 import type { Player, Role } from "../game/engine";
 
@@ -14,6 +15,32 @@ export function ErrorText({ children }: { children: ComponentChildren }) {
     <p class="error" role="alert">
       {children}
     </p>
+  );
+}
+
+/** An error message, with a "Réessayer" button when trying again can help. */
+export function RetryableError({
+  error,
+  onRetry,
+  busy = false,
+  children,
+}: {
+  error: UiError;
+  onRetry: () => void;
+  busy?: boolean;
+  children?: ComponentChildren;
+}) {
+  return (
+    <div class="stack">
+      <ErrorText>
+        {error.message} {children}
+      </ErrorText>
+      {error.retryable && (
+        <button type="button" class="button small" disabled={busy} onClick={onRetry}>
+          Réessayer
+        </button>
+      )}
+    </div>
   );
 }
 

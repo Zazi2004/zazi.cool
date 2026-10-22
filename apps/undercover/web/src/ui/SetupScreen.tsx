@@ -11,7 +11,8 @@ import {
   validateSettings,
 } from "../game/engine";
 import { loadSetup } from "../game/storage";
-import { ErrorText, Stepper } from "./common";
+import { toUiError, type UiError } from "../api/client";
+import { ErrorText, RetryableError, Stepper } from "./common";
 import { newGame } from "./newGame";
 import { Link } from "./router";
 
@@ -31,7 +32,7 @@ export function SetupScreen({ onStart }: { onStart: (game: Game) => void }) {
   const [settings, setSettings] = useState<Settings>(initial.settings);
   const [names, setNames] = useState(() => resize(initial.names, initial.settings.playerCount));
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<UiError | null>(null);
 
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => {
     const next = { ...settings, [key]: value };
@@ -42,15 +43,15 @@ export function SetupScreen({ onStart }: { onStart: (game: Game) => void }) {
   const problems = [...validateSettings(settings), ...validateNames(names)];
   const impostorMax = settings.playerCount; // the validation explains the real limit
 
-  const start = async (e: Event) => {
-    e.preventDefault();
-    if (problems.length > 0) return;
+  const start = async (e?: Event) => {
+    e?.preventDefault();
+    if (problems.length > 0 || loading) return;
     setLoading(true);
     setError(null);
     try {
       onStart(await newGame(settings, names));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur inattendue.");
+      setError(toUiError(err));
       setLoading(false);
     }
   };
@@ -142,9 +143,9 @@ export function SetupScreen({ onStart }: { onStart: (game: Game) => void }) {
         <ErrorText key={p}>{p}</ErrorText>
       ))}
       {error && (
-        <ErrorText>
-          {error} <Link href="/proposer">Proposer une paire</Link>
-        </ErrorText>
+        <RetryableError error={error} busy={loading} onRetry={start}>
+          {!error.retryable && <Link href="/proposer">Proposer une paire</Link>}
+        </RetryableError>
       )}
 
       <button

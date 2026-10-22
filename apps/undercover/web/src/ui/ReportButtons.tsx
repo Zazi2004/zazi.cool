@@ -1,7 +1,7 @@
 import { useState } from "preact/hooks";
-import { reportPair } from "../api/client";
+import { reportPair, toUiError, type UiError } from "../api/client";
 import type { ReportReason } from "../api/types";
-import { ErrorText } from "./common";
+import { RetryableError } from "./common";
 
 interface Props {
   pairId: number;
@@ -13,16 +13,17 @@ interface Props {
 export function ReportButtons({ pairId, extreme }: Props) {
   const [done, setDone] = useState<ReportReason | null>(null);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ error: UiError; reason: ReportReason } | null>(null);
 
   const report = async (reason: ReportReason) => {
+    if (sending) return;
     setSending(true);
     setError(null);
     try {
       await reportPair(pairId, reason);
       setDone(reason);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur inattendue.");
+      setError({ error: toUiError(err), reason });
     } finally {
       setSending(false);
     }
@@ -56,7 +57,9 @@ export function ReportButtons({ pairId, extreme }: Props) {
       >
         À supprimer
       </button>
-      {error && <ErrorText>{error}</ErrorText>}
+      {error && (
+        <RetryableError error={error.error} busy={sending} onRetry={() => report(error.reason)} />
+      )}
     </div>
   );
 }
