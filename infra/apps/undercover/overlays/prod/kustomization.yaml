@@ -8,4 +8,4 @@ resources:
   - secret.enc.yaml
 images:
   - name: ghcr.io/zazi2004/undercover
-    newTag: "bf5f402"
+    newTag: "fe64da4"
