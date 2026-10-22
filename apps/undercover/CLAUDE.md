@@ -239,9 +239,9 @@ réplique suffit), limites configurables par variables d'environnement :
 
 | Endpoint                         | Limite par défaut | Variable                     |
 |----------------------------------|-------------------|------------------------------|
-| `POST /api/pairs`                | 20 / heure        | `RATE_LIMIT_SUGGESTIONS`     |
-| `POST /api/pairs/{id}/reports`   | 30 / heure        | `RATE_LIMIT_REPORTS`         |
-| `GET /api/pairs/check`           | 300 / heure       | `RATE_LIMIT_CHECKS`          |
+| `POST /api/pairs`                | 60 / heure        | `RATE_LIMIT_SUGGESTIONS`     |
+| `POST /api/pairs/{id}/reports`   | 90 / heure        | `RATE_LIMIT_REPORTS`         |
+| `GET /api/pairs/check`           | 1200 / heure       | `RATE_LIMIT_CHECKS`          |
 
 Dépassement → `429 Too Many Requests`. L'IP réelle est lue dans `X-Forwarded-For` posé
 par Traefik (seulement derrière le proxy de confiance).

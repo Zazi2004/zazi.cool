@@ -46,12 +46,26 @@ func logRequests(next http.Handler) http.Handler {
 		if r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
 			return
 		}
-		slog.Info("request",
+		attrs := []any{
 			"method", r.Method,
 			"path", r.URL.Path,
 			"status", rec.status,
 			"duration_ms", time.Since(start).Milliseconds(),
-		)
+		}
+		// The context is cancelled when the client (or the proxy) gave up before the
+		// answer was written: the user saw a connection error, whatever the status.
+		aborted := r.Context().Err() != nil
+		if aborted {
+			attrs = append(attrs, "client_aborted", true)
+		}
+		switch {
+		case rec.status >= 500:
+			slog.Error("request", attrs...)
+		case aborted || rec.status == http.StatusTooManyRequests:
+			slog.Warn("request", attrs...)
+		default:
+			slog.Info("request", attrs...)
+		}
 	})
 }
 
