@@ -168,7 +168,7 @@ boutons. **Un seul signalement suffit**, avec effet immédiat :
 
 ### Base de départ
 
-- **115 paires** : **75 tout public et 40 extrêmes** (100 au lancement, 15 extrêmes ajoutées en ONBO-50), en français, dans le fichier versionné
+- **155 paires** : **75 tout public et 80 extrêmes** (100 au lancement, 55 extrêmes ajoutées en ONBO-50), en français, dans le fichier versionné
   `internal/seed/pairs.json`. Il est embarqué dans le binaire et inséré **à chaque démarrage,
   de façon idempotente** (`ON CONFLICT DO NOTHING`) : ajouter une paire au fichier suffit à
   l'ajouter en base, et une paire masquée par signalement n'est jamais réinsérée. Une SQL
