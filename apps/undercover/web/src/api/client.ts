@@ -122,12 +122,13 @@ async function request<T>(method: string, path: string, body?: unknown, opts: Re
     const onAbort = () => controller.abort();
     opts.signal?.addEventListener("abort", onAbort);
     try {
-      return await fetch(path, {
+      const res = await fetch(path, {
         method,
         headers: body === undefined ? undefined : { "Content-Type": "application/json" },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: controller.signal,
       });
+      return { res, text: await res.text() };
     } catch (err) {
       if (timedOut) throw new NetworkError("timeout", { cause: err });
       throw err;
@@ -136,18 +137,27 @@ async function request<T>(method: string, path: string, body?: unknown, opts: Re
       opts.signal?.removeEventListener("abort", onAbort);
     }
   };
+  const attempts = opts.idempotent ? 2 : 1;
   let res: Response;
+  let text: string;
   try {
-    try {
-      res = await send();
-    } catch (err) {
-      if (!opts.retryOnNetworkError || opts.signal?.aborted || err instanceof NetworkError)
-        throw err;
-      res = await send();
+    for (let attempt = 1; ; attempt++) {
+      try {
+        ({ res, text } = await send());
+      } catch (err) {
+        if (attempt >= attempts || opts.signal?.aborted || err instanceof NetworkError) throw err;
+        await sleep(RETRY_DELAY_MS, opts.signal);
+        continue;
+      }
+      if (attempt < attempts && RETRY_STATUSES.has(res.status)) {
+        await sleep(RETRY_DELAY_MS, opts.signal);
+        continue;
+      }
+      break;
     }
   } catch (err) {
     if (err instanceof NetworkError) throw err;
-    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    if (isAbortError(err)) throw err;
     const offline = typeof navigator !== "undefined" && navigator.onLine === false;
     throw new NetworkError(offline ? "offline" : "unreachable", { cause: err });
   }
