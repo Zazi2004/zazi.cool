@@ -68,6 +68,14 @@ jobs:
           # Scoped exceptions for Flux's generated RBAC (see the file for the reasons).
           TRIVY_IGNOREFILE: .trivyignore.yaml
 
+  # Tests of the shell scripts used by the workflows (.github/scripts).
+  scripts:
+    name: ci / scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: .github/scripts/flux-suspended_test.sh
+
   home:
     name: home
     needs: changes
@@ -131,7 +139,7 @@ jobs:
   required:
     name: ci / required
     if: always()
-    needs: [changes, secrets, scan, home, linktree, pastebin, undercover]
+    needs: [changes, secrets, scan, scripts, home, linktree, pastebin, undercover]
     runs-on: ubuntu-latest
     steps:
       - name: Verify upstream jobs

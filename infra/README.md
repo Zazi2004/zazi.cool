@@ -158,8 +158,10 @@ gh workflow run verify.yml -f app=linktree -f url=https://link.zazi.cool -f sha=
 ### Première fois pour home (`zazi.cool`, `www.zazi.cool`)
 
 Comme linktree, home est géré par Flux, mais ses manifests arrivent avant sa première
-image : la Kustomization Flux `home` est **suspendue** (`suspend: true`), l'overlay n'a pas
-encore de `newTag` et `secret.enc.yaml` ne contient que des valeurs d'exemple chiffrées.
+image : la Kustomization Flux `home` est **suspendue** (`suspend: true`) et
+`secret.enc.yaml` ne contient que des valeurs d'exemple chiffrées. Tant qu'elle est
+suspendue, `bump.yml` n'ouvre pas de PR de bump pour home et `deploy-verify` ne la vérifie
+pas (avertissement dans le run) : le `newTag` de l'overlay ne déploie rien.
 Au premier déploiement (T9 de `docs/specs/home.md`) :
 
 ```sh
@@ -224,6 +226,10 @@ changé (bump ou `git revert` d'un bump), il déduit le SHA du diff et l'URL du 
 `host` de `infra/apps/<app>/base/ingress.yaml`, crée un déploiement GitHub dans
 l'environnement `production`, appelle `verify`, puis passe le déploiement à `success` ou
 `failure`. Le résultat est visible dans Actions (`deploy-verify`) et dans Deployments.
+Une app dont la Kustomization Flux est suspendue (`suspend: true` dans
+`infra/flux/clusters/prod/apps.yaml`) est ignorée avec un avertissement : Flux ne déploie
+rien, `verify` et le rollback échoueraient forcément. Le premier déploiement, qui retire
+`suspend` et fixe `newTag` dans la même PR, est vérifié normalement.
 Il ne déploie rien : c'est Flux qui réconcilie ; `verify` attend `timeout` (300 s) que
 `/version` change.
 
@@ -308,7 +314,9 @@ ssh ubuntu@$VPS 'sudo journalctl -u k3s --since "10 min ago"'
 ## PR de bump automatique
 
 Le workflow `.github/workflows/bump.yml` est appelé par chaque workflow d'app après le push
-de l'image. Réglages à faire une fois par Noah :
+de l'image. Il n'ouvre pas de PR pour une app dont la Kustomization Flux est suspendue
+(script `.github/scripts/flux-suspended.sh`, testé par le job `ci / scripts`). Réglages à
+faire une fois par Noah :
 
 1. Dépôt → Settings → Actions → General → « Workflow permissions » : cocher
    **Allow GitHub Actions to create and approve pull requests**.
