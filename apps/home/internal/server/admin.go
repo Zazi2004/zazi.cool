@@ -2,16 +2,19 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"errors"
 	"html/template"
 	"log/slog"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"zazi.cool/home/internal/auth"
+	"zazi.cool/home/internal/content"
 	"zazi.cool/home/internal/ratelimit"
 )
 
@@ -27,6 +30,16 @@ var adminFS embed.FS
 
 var adminTemplates = template.Must(template.ParseFS(adminFS, "templates/admin.html"))
 
+// ContentStore reads and saves the homepage content; *content.Store satisfies it.
+type ContentStore interface {
+	ContentLoader
+	Save(ctx context.Context, version int, e content.Edit) error
+}
+
+// formMemory is the memory the multipart parser may keep in RAM; the body itself
+// is bounded by limitBody (NF8).
+const formMemory = 1 << 20
+
 // loginPage is the data of the "login" template.
 type loginPage struct {
 	Error string
@@ -36,6 +49,7 @@ type loginPage struct {
 func (s *server) adminRoutes(mux *http.ServeMux) {
 	login := ratelimit.New(s.cfg.LoginLimit, time.Hour)
 	mux.Handle("GET /admin", adminPage(http.HandlerFunc(s.admin)))
+	mux.Handle("POST /admin", adminPage(s.sameOrigin(http.HandlerFunc(s.save))))
 	mux.Handle("POST /admin/login", adminPage(s.sameOrigin(s.rateLimited(login, s.login))))
 	mux.Handle("POST /admin/logout", adminPage(s.sameOrigin(http.HandlerFunc(s.logout))))
 }
@@ -51,7 +65,129 @@ func (s *server) admin(w http.ResponseWriter, r *http.Request) {
 		s.render(w, r, http.StatusOK, "login", loginPage{})
 		return
 	}
-	s.render(w, r, http.StatusOK, "dashboard", nil)
+	c, err := s.cfg.Content.Load(r.Context())
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	p := newEditPage(c)
+	if r.URL.Query().Get("saved") == "1" {
+		p.Notice = "Modifications enregistrées"
+	}
+	s.render(w, r, http.StatusOK, "dashboard", p)
+}
+
+// save validates the edit form and stores it (F11 to F13). The version the form
+// carries is the one it was built from.
+func (s *server) save(w http.ResponseWriter, r *http.Request) {
+	ok, err := s.cfg.Auth.Authenticated(r)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	if !ok {
+		s.render(w, r, http.StatusUnauthorized, "login", loginPage{})
+		return
+	}
+	// A browser sends multipart/form-data; other clients may send urlencoded
+	// forms, which ParseMultipartForm reports as ErrNotMultipart after parsing them.
+	if err := r.ParseMultipartForm(formMemory); err != nil && !errors.Is(err, http.ErrNotMultipart) {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			http.Error(w, "Requête trop volumineuse.", http.StatusRequestEntityTooLarge)
+			return
+		}
+		http.Error(w, "Formulaire invalide.", http.StatusBadRequest)
+		return
+	}
+	version, err := strconv.Atoi(r.PostForm.Get("version"))
+	if err != nil {
+		http.Error(w, "Formulaire invalide.", http.StatusBadRequest)
+		return
+	}
+	current, err := s.cfg.Content.Load(r.Context())
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	edit, errs := content.Edit{
+		Title:        r.PostForm.Get("title"),
+		Body:         r.PostForm.Get("body"),
+		BannerChoice: r.PostForm.Get("banner"),
+		BannerAlt:    r.PostForm.Get("banner_alt"),
+		Background:   r.PostForm.Get("background"),
+	}.Validate(current.Upload != nil)
+
+	p := newEditPage(current)
+	p.fill(edit, version)
+	p.Errors = errs
+	if len(errs) > 0 {
+		s.render(w, r, http.StatusUnprocessableEntity, "dashboard", p)
+		return
+	}
+	err = s.cfg.Content.Save(r.Context(), version, edit)
+	if errors.Is(err, content.ErrConflict) {
+		p.Conflict = true
+		s.render(w, r, http.StatusConflict, "dashboard", p)
+		return
+	}
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/admin?saved=1", http.StatusSeeOther)
+}
+
+// backgroundLabels names the backgrounds of content.Backgrounds in the form.
+var backgroundLabels = map[string]string{
+	"aurore":   "Aurore",
+	"fils":     "Fils lumineux",
+	"grain":    "Dégradé mouvant",
+	"statique": "Dégradé statique (sans animation)",
+}
+
+// BackgroundOptions lists the backgrounds with their labels, for the template.
+func (editPage) BackgroundOptions() []backgroundOption {
+	options := make([]backgroundOption, 0, len(content.Backgrounds))
+	for _, id := range content.Backgrounds {
+		options = append(options, backgroundOption{ID: id, Label: backgroundLabels[id]})
+	}
+	return options
+}
+
+type backgroundOption struct{ ID, Label string }
+
+// editPage is the data of the "dashboard" template: the edit form.
+type editPage struct {
+	Title        string
+	Body         string
+	BannerChoice string
+	BannerAlt    string
+	Background   string
+	Version      int
+	HasUpload    bool
+	Errors       map[string]string
+	Notice       string
+	Conflict     bool
+}
+
+func newEditPage(c content.Content) editPage {
+	return editPage{
+		Title:        c.Title,
+		Body:         c.Body,
+		BannerChoice: c.BannerChoice,
+		BannerAlt:    c.BannerAlt,
+		Background:   c.Background,
+		Version:      c.Version,
+		HasUpload:    c.Upload != nil,
+	}
+}
+
+// fill replaces the stored values by what the user submitted, so that a rejected
+// form comes back with its input.
+func (p *editPage) fill(e content.Edit, version int) {
+	p.Title, p.Body, p.BannerChoice, p.BannerAlt, p.Background = e.Title, e.Body, e.BannerChoice, e.BannerAlt, e.Background
+	p.Version = version
 }
 
 func (s *server) login(w http.ResponseWriter, r *http.Request) {

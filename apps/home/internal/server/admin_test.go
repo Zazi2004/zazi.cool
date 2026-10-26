@@ -1,7 +1,9 @@
 package server
 
 import (
+	"bytes"
 	"context"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -12,6 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"zazi.cool/home/internal/auth"
+	"zazi.cool/home/internal/content"
 	"zazi.cool/home/internal/dbtest"
 	"zazi.cool/home/internal/migrate"
 	"zazi.cool/home/migrations"
@@ -41,6 +44,7 @@ func adminHandler(t *testing.T, db *pgxpool.Pool, password string) http.Handler 
 	}
 	return newHandler(t, Config{
 		DB:            db,
+		Content:       content.NewStore(db),
 		Auth:          auth.NewManager(string(hash), db, true),
 		PublicBaseURL: testBaseURL,
 		LoginLimit:    10,
@@ -270,5 +274,199 @@ func TestLoginBodyLimit(t *testing.T) {
 	rec := postForm(h, "/admin/login", loginForm(strings.Repeat("a", maxLoginBody)))
 	if rec.Code != http.StatusRequestEntityTooLarge {
 		t.Errorf("status = %d, want 413", rec.Code)
+	}
+}
+
+// editForm is a valid edit form at the given version.
+func editForm(version string) url.Values {
+	return url.Values{
+		"version":    {version},
+		"title":      {"Nouveau titre"},
+		"body":       {"Un paragraphe.\r\nSur deux lignes."},
+		"banner":     {"none"},
+		"banner_alt": {""},
+		"background": {"grain"},
+	}
+}
+
+func storedTitle(t *testing.T, db *pgxpool.Pool) (title string, version int) {
+	t.Helper()
+	err := db.QueryRow(context.Background(), `SELECT title, version FROM content`).Scan(&title, &version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return title, version
+}
+
+// CA7: a saved title redirects to /admin with the message and shows on /.
+func TestSaveContent(t *testing.T) {
+	db := migrated(t)
+	h := adminHandler(t, db, testPassword)
+	c := sessionCookie(t, h)
+
+	rec := getAdmin(h, c)
+	if !strings.Contains(rec.Body.String(), `name="version" value="1"`) {
+		t.Fatalf("the form should carry the version: %s", rec.Body)
+	}
+
+	rec = postForm(h, "/admin", editForm("1"), c)
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/admin?saved=1" {
+		t.Fatalf("save: status %d, Location %q; want 303 to /admin?saved=1", rec.Code, rec.Header().Get("Location"))
+	}
+	if !strings.Contains(getAdminSaved(h, c), "Modifications enregistrées") {
+		t.Error("the confirmation message is missing")
+	}
+	if title, version := storedTitle(t, db); title != "Nouveau titre" || version != 2 {
+		t.Errorf("stored title %q, version %d; want the new title at version 2", title, version)
+	}
+	if home := get(t, h, "/"); !strings.Contains(home.Body.String(), "Nouveau titre") {
+		t.Error("the home page should show the new title at once")
+	}
+	var body, bg string
+	if err := db.QueryRow(context.Background(), `SELECT body, background FROM content`).Scan(&body, &bg); err != nil {
+		t.Fatal(err)
+	}
+	if body != "Un paragraphe.\nSur deux lignes." || bg != "grain" {
+		t.Errorf("stored body %q, background %q", body, bg)
+	}
+}
+
+func getAdminSaved(h http.Handler, c *http.Cookie) string {
+	req := httptest.NewRequest("GET", "/admin?saved=1", nil)
+	req.AddCookie(c)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec.Body.String()
+}
+
+func TestSaveContentNeedsSession(t *testing.T) {
+	db := migrated(t)
+	h := adminHandler(t, db, testPassword)
+	rec := postForm(h, "/admin", editForm("1"))
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", rec.Code)
+	}
+	if title, _ := storedTitle(t, db); title == "Nouveau titre" {
+		t.Error("nothing should be saved without a session")
+	}
+}
+
+// CA8: the second of two forms opened at the same version gets 409 with its input.
+func TestSaveContentConflict(t *testing.T) {
+	db := migrated(t)
+	h := adminHandler(t, db, testPassword)
+	c := sessionCookie(t, h)
+
+	if rec := postForm(h, "/admin", editForm("1"), c); rec.Code != http.StatusSeeOther {
+		t.Fatalf("first save: status %d", rec.Code)
+	}
+	second := editForm("1")
+	second.Set("title", "Titre du second appareil")
+	rec := postForm(h, "/admin", second, c)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("second save: status = %d, want 409", rec.Code)
+	}
+	for _, want := range []string{"Le contenu a été modifié ailleurs, rechargez la page", "Titre du second appareil"} {
+		if !strings.Contains(rec.Body.String(), want) {
+			t.Errorf("409 page should contain %q", want)
+		}
+	}
+	if title, version := storedTitle(t, db); title != "Nouveau titre" || version != 2 {
+		t.Errorf("stored title %q, version %d; the first save should remain", title, version)
+	}
+}
+
+// CA9: every invalid field is reported at once, with 422, and nothing is saved.
+func TestSaveContentValidation(t *testing.T) {
+	db := migrated(t)
+	h := adminHandler(t, db, testPassword)
+	c := sessionCookie(t, h)
+
+	cases := map[string]struct {
+		field, value string
+	}{
+		"empty title":      {"title", ""},
+		"title of 81":      {"title", strings.Repeat("é", 81)},
+		"body of 601":      {"body", strings.Repeat("a", 601)},
+		"control in title": {"title", "a\x07b"},
+		"control in body":  {"body", "a\tb"},
+		"unknown banner":   {"banner", "aube"},
+		"upload no image":  {"banner", "upload"},
+		"unknown fond":     {"background", "disco"},
+		"alt of 151":       {"banner_alt", strings.Repeat("a", 151)},
+	}
+	for name, tc := range cases {
+		form := editForm("1")
+		form.Set(tc.field, tc.value)
+		rec := postForm(h, "/admin", form, c)
+		if rec.Code != http.StatusUnprocessableEntity {
+			t.Errorf("%s: status = %d, want 422", name, rec.Code)
+		}
+		if !strings.Contains(rec.Body.String(), `role="alert"`) {
+			t.Errorf("%s: no error message", name)
+		}
+	}
+	if title, version := storedTitle(t, db); title == "Nouveau titre" || version != 1 {
+		t.Errorf("stored title %q, version %d; nothing should be saved", title, version)
+	}
+
+	// Several errors come back together.
+	form := editForm("1")
+	form.Set("title", "")
+	form.Set("background", "disco")
+	rec := postForm(h, "/admin", form, c)
+	if n := strings.Count(rec.Body.String(), `role="alert"`); n != 2 {
+		t.Errorf("%d error messages, want 2", n)
+	}
+	if !strings.Contains(rec.Body.String(), "Un paragraphe.") {
+		t.Error("the input should be kept")
+	}
+}
+
+// Surrounding spaces are removed, lengths count characters and a browser's CRLF
+// counts as one line break.
+func TestSaveContentTrimsAndCounts(t *testing.T) {
+	db := migrated(t)
+	h := adminHandler(t, db, testPassword)
+	c := sessionCookie(t, h)
+
+	form := editForm("1")
+	form.Set("title", "  "+strings.Repeat("é", 80)+" \n")
+	form.Set("body", strings.Repeat("a\r\n", 300))
+	if rec := postForm(h, "/admin", form, c); rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303: %s", rec.Code, rec.Body)
+	}
+	if title, _ := storedTitle(t, db); title != strings.Repeat("é", 80) {
+		t.Errorf("stored title %q", title)
+	}
+}
+
+// A browser sends the form as multipart/form-data (F10).
+func TestSaveContentMultipart(t *testing.T) {
+	db := migrated(t)
+	h := adminHandler(t, db, testPassword)
+	c := sessionCookie(t, h)
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	for k, v := range editForm("1") {
+		if err := mw.WriteField(k, v[0]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := mw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest("POST", "/admin", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.Header.Set("Origin", testBaseURL)
+	req.AddCookie(c)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303: %s", rec.Code, rec.Body)
+	}
+	if title, _ := storedTitle(t, db); title != "Nouveau titre" {
+		t.Errorf("stored title %q", title)
 	}
 }

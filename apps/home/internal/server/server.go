@@ -21,7 +21,7 @@ type Pinger interface {
 // Config holds what the HTTP layer needs.
 type Config struct {
 	DB      Pinger
-	Content ContentLoader
+	Content ContentStore
 	// Version is the git SHA of the running build, served by /version.
 	Version string
 	// Auth checks the admin password and sessions.

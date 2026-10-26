@@ -15,7 +15,8 @@ logique applicative).
 
 **Statut : en développement, application dynamique.** Le squelette (T1), la page
 publique (T3 : `/`, 404, fichiers statiques, Open Graph) et l'authentification de l'admin
-(T4 : connexion et déconnexion de `/admin`) sont en place. Démarrage local :
+(T4 : connexion et déconnexion de `/admin`) et le formulaire d'édition (T5 : titre,
+paragraphe, texte alternatif, fond ; la bannière téléversée arrive en T6) sont en place. Démarrage local :
 [`README.md`](README.md).
 
 ## Architecture
@@ -82,11 +83,13 @@ publique (T3 : `/`, 404, fichiers statiques, Open Graph) et l'authentification d
 - **Sessions** : jeton de 256 bits, seule son empreinte SHA-256 en base ; chaque session
   garde l'empreinte de `ADMIN_PASSWORD_HASH` (F19). Cookie `__Host-session` en HTTPS,
   `session` en HTTP local. Purge des sessions expirées toutes les heures (`cmd/home`).
+- **Édition** (`POST /admin`) : les règles de F13 sont dans `content.Edit.Validate` (sans
+  I/O, toutes les erreurs d'un coup, 422) ; `Store.Save` est un seul `UPDATE … WHERE
+  version = $n` (verrou optimiste, `ErrConflict` → 409). Le message de succès passe par
+  `/admin?saved=1`. Le formulaire est en `multipart/form-data` et garde la `version` lue.
 - Base locale sur le port **5436**.
 
 ## Décisions ouvertes
 
-Voir la spec, §7 :
-
-- [ ] **D7** — Fonds proposés (`aurore`, `fils`, `grain`, `statique`) et couleurs.
-- [ ] **D8** — Illustrations par défaut de la bannière.
+Aucune : D7 (fonds `aurore`, `fils`, `grain`, `statique`) et D8 (6 illustrations
+abstraites) ont été tranchées par Noah le 2026-10-26 (spec, §7).

@@ -46,3 +46,25 @@ func (s *Store) Load(ctx context.Context) (Content, error) {
 	}
 	return c, nil
 }
+
+// ErrConflict means the content was saved by someone else since it was read (F12).
+var ErrConflict = errors.New("content changed since it was read")
+
+// Save stores e if the content is still at version, and raises the version. One
+// UPDATE is atomic, and its WHERE clause is the optimistic lock: when another
+// save got in first, no row matches and ErrConflict is returned.
+func (s *Store) Save(ctx context.Context, version int, e Edit) error {
+	tag, err := s.db.Exec(ctx, `
+		UPDATE content
+		SET title = $1, body = $2, banner_choice = $3, banner_alt = $4, background = $5,
+		    version = version + 1, updated_at = now()
+		WHERE id = 1 AND version = $6`,
+		e.Title, e.Body, e.BannerChoice, e.BannerAlt, e.Background, version)
+	if err != nil {
+		return fmt.Errorf("save content: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrConflict
+	}
+	return nil
+}
