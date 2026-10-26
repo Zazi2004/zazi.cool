@@ -39,7 +39,7 @@ func adminHandler(t *testing.T, db *pgxpool.Pool, password string) http.Handler 
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewHandler(Config{
+	return newHandler(t, Config{
 		DB:            db,
 		Auth:          auth.NewManager(string(hash), db, true),
 		PublicBaseURL: testBaseURL,

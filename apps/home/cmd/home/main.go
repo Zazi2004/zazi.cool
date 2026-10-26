@@ -23,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"zazi.cool/home/internal/auth"
+	"zazi.cool/home/internal/content"
 	"zazi.cool/home/internal/migrate"
 	"zazi.cool/home/internal/server"
 	"zazi.cool/home/migrations"
@@ -70,14 +71,19 @@ func run(args []string) error {
 	sessions := auth.NewManager(cfg.passwordHash, pool, strings.HasPrefix(cfg.publicBaseURL, "https://"))
 	go cleanUp(ctx, sessions)
 
-	handler := server.NewHandler(server.Config{
-		DB:            pool,
-		Version:       version,
-		Auth:          sessions,
-		PublicBaseURL: cfg.publicBaseURL,
-		TrustProxy:    cfg.trustProxy,
-		LoginLimit:    cfg.loginLimit,
+	handler, err := server.NewHandler(server.Config{
+		DB:             pool,
+		Content:        content.NewStore(pool),
+		Version:        version,
+		Auth:           sessions,
+		PublicBaseURL:  cfg.publicBaseURL,
+		TrustProxy:     cfg.trustProxy,
+		LoginLimit:     cfg.loginLimit,
+		MaxUploadBytes: int64(cfg.maxUploadMB) << 20,
 	})
+	if err != nil {
+		return err
+	}
 	return serve(ctx, ":"+cfg.port, handler)
 }
 
