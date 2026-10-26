@@ -48,6 +48,12 @@ spec:
                 secretKeyRef:
                   name: app-db-passwords
                   key: linktree
+            # Not HOME_*: HOME is the shell's home directory.
+            - name: HOME_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-db-passwords
+                  key: home
           resources:
             requests: { cpu: 10m, memory: 16Mi }
             limits: { memory: 64Mi }
