@@ -89,6 +89,7 @@ jobs:
     secrets: inherit
     with:
       app: home
+      node: true
 
   linktree:
     name: linktree

@@ -24,6 +24,9 @@
 </ul>
 </section>
 </main>
+{{- with .Script}}
+<script type="module" src="{{.}}"></script>
+{{- end}}
 </body>
 </html>
 {{end}}

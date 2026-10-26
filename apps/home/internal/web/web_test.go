@@ -1,6 +1,7 @@
 package web
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -49,6 +50,31 @@ func TestTemplates(t *testing.T) {
 	for _, name := range []string{"home.html", "notfound.html"} {
 		if tmpl.Lookup(name) == nil {
 			t.Errorf("template %s is not defined", name)
+		}
+	}
+}
+
+// The bootstrap script comes from the Vite build (web/dist): `make test` builds it first.
+func TestLoadAssetsServesTheFront(t *testing.T) {
+	a, err := LoadAssets()
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := a.Script()
+	if script == "" {
+		t.Fatal("no bootstrap script: run `npm run build` in web/ (or `make test`)")
+	}
+	f, ok := a.Asset(strings.TrimPrefix(script, "/assets/"))
+	if !ok {
+		t.Fatalf("%s is not served", script)
+	}
+	if f.ContentType != "text/javascript; charset=utf-8" {
+		t.Errorf("Content-Type = %q", f.ContentType)
+	}
+	// The script loads the modules by relative URL: each must be served under its own name.
+	for _, module := range regexp.MustCompile(`import\("\./([^"]+\.js)"\)`).FindAllStringSubmatch(string(f.Data), -1) {
+		if _, ok := a.Asset(module[1]); !ok {
+			t.Errorf("module %s, loaded by the bootstrap script, is not served", module[1])
 		}
 	}
 }

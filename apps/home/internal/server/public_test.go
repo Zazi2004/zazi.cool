@@ -215,6 +215,39 @@ func TestHomeUnknownBackgroundIsStatic(t *testing.T) {
 	}
 }
 
+// CA23 (F22, F23): an animated background loads the bootstrap script (a file of the
+// site, never an inline script, NF5); the static one loads no script at all.
+func TestHomeBootstrapScript(t *testing.T) {
+	inline := regexp.MustCompile(`<script(?:\s[^>]*)?>`)
+	external := regexp.MustCompile(`<script type="module" src="(/assets/boot-[^"]+\.js)"></script>`)
+	for _, bg := range []string{"aurore", "fils", "grain"} {
+		c := defaultContent()
+		c.Background = bg
+		h := publicHandler(t, c)
+		body := get(t, h, "/").Body.String()
+		if !strings.Contains(body, `data-background="`+bg+`"`) {
+			t.Errorf("%s: no data-background", bg)
+		}
+		m := external.FindStringSubmatch(body)
+		if m == nil {
+			t.Fatalf("%s: no bootstrap script (run `npm run build` in web/, or `make test`) in:\n%s", bg, body)
+		}
+		if n := len(inline.FindAllString(body, -1)); n != 1 {
+			t.Errorf("%s: %d script tags, want only the bootstrap script", bg, n)
+		}
+		rec := get(t, h, m[1])
+		if rec.Code != http.StatusOK || rec.Header().Get("Content-Type") != "text/javascript; charset=utf-8" {
+			t.Errorf("GET %s: status %d, Content-Type %q", m[1], rec.Code, rec.Header().Get("Content-Type"))
+		}
+	}
+
+	c := defaultContent()
+	c.Background = "statique"
+	if body := get(t, publicHandler(t, c), "/").Body.String(); strings.Contains(body, "<script") {
+		t.Errorf("the static background loads a script:\n%s", body)
+	}
+}
+
 func TestHomeDatabaseError(t *testing.T) {
 	h := newHandler(t, Config{DB: fakeDB{}, Content: fakeContent{err: errors.New("down")}})
 	if rec := get(t, h, "/"); rec.Code != http.StatusInternalServerError {

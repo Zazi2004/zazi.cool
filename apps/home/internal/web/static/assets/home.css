@@ -40,7 +40,7 @@
     --bg-0: #0c0c10;
     --bg-1: #1f1b2c;
     --text: #fafafa;
-    --muted: #a1a1aa;
+    --muted: #bcbcc4;
     --card: rgb(255 255 255 / 0.06);
     --card-hover: rgb(255 255 255 / 0.12);
     --border: rgb(255 255 255 / 0.09);
@@ -77,13 +77,26 @@ body {
 }
 
 /* Static background: the theme gradient, then the grain. The animated background
-   (T8) is drawn inside .backdrop, between the two. */
+   (web/, F22–F24) is a canvas added inside .backdrop, between the two. */
 .backdrop {
   position: fixed;
   inset: 0;
   z-index: -1;
   background: radial-gradient(120% 80% at 50% 0%, var(--bg-1) 0%, var(--bg-0) 70%);
   pointer-events: none;
+}
+
+/* Added by the bootstrap script. Its opacity (per background and mode, in
+   web/src/backgrounds.json) is set in JavaScript once it runs: the fade-in is this
+   transition. */
+.backdrop canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 1.2s ease-out;
 }
 
 .backdrop::after {
