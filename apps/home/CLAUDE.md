@@ -15,8 +15,9 @@ logique applicative).
 
 **Statut : en développement, application dynamique.** Le squelette (T1), la page
 publique (T3 : `/`, 404, fichiers statiques, Open Graph) et l'authentification de l'admin
-(T4 : connexion et déconnexion de `/admin`) et le formulaire d'édition (T5 : titre,
-paragraphe, texte alternatif, fond ; la bannière téléversée arrive en T6) sont en place. Démarrage local :
+(T4 : connexion et déconnexion de `/admin`), le formulaire d'édition (T5 : titre,
+paragraphe, texte alternatif, fond) et la bannière téléversée (T6 : `/images/{id}`,
+purge) sont en place. Démarrage local :
 [`README.md`](README.md).
 
 ## Architecture
@@ -27,7 +28,8 @@ paragraphe, texte alternatif, fond ; la bannière téléversée arrive en T6) so
   I/O et sa lecture en base ; liste des services), `internal/web` (gabarits, CSS, police
   et images embarqués, noms avec empreinte), `internal/migrate` (exécuteur de
   migrations), `internal/auth` (hash du mot de passe, sessions en base),
-  `internal/ratelimit` (limitation par IP en mémoire), `internal/dbtest` (base PostgreSQL
+  `internal/ratelimit` (limitation par IP en mémoire), `internal/images` (vérification,
+  redimensionnement et ré-encodage des bannières), `internal/dbtest` (base PostgreSQL
   de test dans un schéma temporaire).
 - **Rendu serveur** (`html/template` + CSS), pas de React (D1). Seul le fond animé sera
   en TypeScript + Vite sans framework, dans `web/`, embarqué dans le binaire (T8).
@@ -49,8 +51,8 @@ paragraphe, texte alternatif, fond ; la bannière téléversée arrive en T6) so
 
 - **Code recopié du linktree** : l'exécuteur de migrations, `cmd/hashpw`, le hash du
   mot de passe, les sessions (`internal/auth/session.go`, sans interface de stockage),
-  la limitation (`internal/ratelimit`) et `clientIP` viennent de `apps/linktree/` ; le
-  traitement d'image le sera aussi (T6). L'origine est notée en tête des fichiers.
+  la limitation (`internal/ratelimit`), `clientIP` et le traitement d'image
+  (`internal/images`, simplifié : 1600 px de large, 4000 px en entrée) viennent de `apps/linktree/`. L'origine est notée en tête des fichiers.
   Chaque app garde son module Go : **un correctif de sécurité dans l'une doit être reporté dans l'autre.**
 - **Le contenu est une seule ligne** (`content.id = 1`) ; `banner_choice = 'upload'`
   exige `upload_image_id` (contrainte en base). Les illustrations par défaut ne sont pas
@@ -87,6 +89,15 @@ paragraphe, texte alternatif, fond ; la bannière téléversée arrive en T6) so
   I/O, toutes les erreurs d'un coup, 422) ; `Store.Save` est un seul `UPDATE … WHERE
   version = $n` (verrou optimiste, `ErrConflict` → 409). Le message de succès passe par
   `/admin?saved=1`. Le formulaire est en `multipart/form-data` et garde la `version` lue.
+- **Bannière téléversée** (F14–F16) : `images.Process` lit les dimensions avant de
+  décoder (4000 × 4000 au plus → 422), redimensionne à 1600 px et ré-encode (plus aucune
+  métadonnée). Le fichier est mesuré à part (`MAX_UPLOAD_MB` → 413), car la limite du
+  corps laisse 64 Kio de marge ; le parseur multipart garde tout en mémoire (pas de
+  disque inscriptible). `Store.Save` insère l'image et met à jour `content` dans **une
+  transaction**. Un fichier envoyé exige le choix `upload` (422 sinon). Passer à « Aucune »
+  garde `upload_image_id` : « Mon image » revient sans nouvel envoi. `/images/{id}` est
+  `immutable` (un envoi = un nouvel identifiant, jamais de réécriture) ; la purge horaire
+  (`cmd/home`) supprime les images de plus de 24 h que `content` ne référence pas.
 - Base locale sur le port **5436**.
 
 ## Décisions ouvertes

@@ -140,22 +140,32 @@ func TestStoreLoadWithoutRow(t *testing.T) {
 
 func TestEditValidate(t *testing.T) {
 	valid := Edit{Title: " Titre ", Body: "a\r\nb", BannerChoice: "none", Background: "aurore"}
-	got, errs := valid.Validate(false)
+	got, errs := valid.Validate(false, false)
 	if len(errs) != 0 || got.Title != "Titre" || got.Body != "a\nb" {
 		t.Errorf("valid edit: %+v, errors %v", got, errs)
 	}
-	if _, errs := (Edit{Title: "t", BannerChoice: "upload", Background: "aurore"}).Validate(true); len(errs) != 0 {
+	if _, errs := (Edit{Title: "t", BannerChoice: "upload", Background: "aurore"}).Validate(true, false); len(errs) != 0 {
 		t.Errorf("upload with an image: %v", errs)
 	}
-	_, errs = (Edit{Title: "t", BannerChoice: "upload", Background: "aurore"}).Validate(false)
+	_, errs = (Edit{Title: "t", BannerChoice: "upload", Background: "aurore"}).Validate(false, false)
 	if errs["banner"] == "" {
 		t.Error("upload without an image should be refused")
 	}
+	if _, errs := (Edit{Title: "t", BannerChoice: "upload", Background: "aurore"}).Validate(false, true); len(errs) != 0 {
+		t.Errorf("upload with a file: %v", errs)
+	}
+	// A file with another choice is refused (F13).
+	for _, choice := range []string{"none", "aube"} {
+		_, errs := (Edit{Title: "t", BannerChoice: choice, Background: "aurore"}).Validate(true, true)
+		if errs["banner"] == "" {
+			t.Errorf("file with choice %q should be refused", choice)
+		}
+	}
 	// 80 multi-byte characters are fine, 81 are not: lengths count characters.
-	if _, errs := (Edit{Title: strings.Repeat("é", 80), BannerChoice: "none", Background: "aurore"}).Validate(false); len(errs) != 0 {
+	if _, errs := (Edit{Title: strings.Repeat("é", 80), BannerChoice: "none", Background: "aurore"}).Validate(false, false); len(errs) != 0 {
 		t.Errorf("80 characters: %v", errs)
 	}
-	if _, errs := (Edit{Title: "bad\xff", BannerChoice: "none", Background: "aurore"}).Validate(false); errs["title"] == "" {
+	if _, errs := (Edit{Title: "bad\xff", BannerChoice: "none", Background: "aurore"}).Validate(false, false); errs["title"] == "" {
 		t.Error("invalid UTF-8 should be refused")
 	}
 }

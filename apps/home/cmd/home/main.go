@@ -35,7 +35,7 @@ var version = "dev"
 // shutdownTimeout bounds how long in-flight requests may take to finish on SIGTERM.
 const shutdownTimeout = 10 * time.Second
 
-// cleanupEvery is the period of the purge of expired sessions.
+// cleanupEvery is the period of the purge of expired sessions and orphan images.
 const cleanupEvery = time.Hour
 
 func main() {
@@ -69,11 +69,12 @@ func run(args []string) error {
 	}
 
 	sessions := auth.NewManager(cfg.passwordHash, pool, strings.HasPrefix(cfg.publicBaseURL, "https://"))
-	go cleanUp(ctx, sessions)
+	store := content.NewStore(pool)
+	go cleanUp(ctx, sessions, store)
 
 	handler, err := server.NewHandler(server.Config{
 		DB:             pool,
-		Content:        content.NewStore(pool),
+		Content:        store,
 		Version:        version,
 		Auth:           sessions,
 		PublicBaseURL:  cfg.publicBaseURL,
@@ -87,16 +88,26 @@ func run(args []string) error {
 	return serve(ctx, ":"+cfg.port, handler)
 }
 
-// cleanUp deletes the expired sessions now and then every cleanupEvery, until ctx
-// ends. The deletion is idempotent: running it twice is harmless.
-func cleanUp(ctx context.Context, sessions *auth.Manager) {
+// orphanImageAge is how long an image no longer used by the page is kept (F16).
+const orphanImageAge = 24 * time.Hour
+
+// cleanUp deletes the expired sessions and the orphan images now and then every
+// cleanupEvery, until ctx ends. Both deletions are idempotent: running them twice
+// is harmless.
+func cleanUp(ctx context.Context, sessions *auth.Manager, store *content.Store) {
 	ticker := time.NewTicker(cleanupEvery)
 	defer ticker.Stop()
 	for {
-		if n, err := sessions.DeleteExpired(ctx, time.Now()); err != nil {
+		now := time.Now()
+		if n, err := sessions.DeleteExpired(ctx, now); err != nil {
 			slog.Error("clean up sessions", "error", err)
 		} else if n > 0 {
 			slog.Info("expired sessions deleted", "count", n)
+		}
+		if n, err := store.DeleteOrphanImages(ctx, now.Add(-orphanImageAge)); err != nil {
+			slog.Error("clean up images", "error", err)
+		} else if n > 0 {
+			slog.Info("orphan images deleted", "count", n)
 		}
 
 		// select waits for whichever comes first: the next tick or the shutdown.
