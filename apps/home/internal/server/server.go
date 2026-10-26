@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	"zazi.cool/home/internal/auth"
 )
 
 // Pinger is the part of the database that /readyz needs; *pgxpool.Pool satisfies it.
@@ -19,6 +21,15 @@ type Config struct {
 	DB Pinger
 	// Version is the git SHA of the running build, served by /version.
 	Version string
+	// Auth checks the admin password and sessions.
+	Auth *auth.Manager
+	// PublicBaseURL is the origin of the site, without trailing slash: admin POSTs
+	// with another Origin are refused.
+	PublicBaseURL string
+	// TrustProxy reads the client IP from X-Forwarded-For (behind Traefik only).
+	TrustProxy bool
+	// LoginLimit is the number of login attempts allowed per IP and per hour.
+	LoginLimit int
 }
 
 const readyTimeout = 2 * time.Second
@@ -34,6 +45,7 @@ func NewHandler(cfg Config) http.Handler {
 	mux.HandleFunc("GET /healthz", s.healthz)
 	mux.HandleFunc("GET /readyz", s.readyz)
 	mux.HandleFunc("GET /version", s.version)
+	s.adminRoutes(mux)
 	return logRequests(mux)
 }
 
