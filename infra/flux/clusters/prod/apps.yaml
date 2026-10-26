@@ -64,16 +64,12 @@ spec:
     secretRef:
       name: sops-age
 ---
-# Suspended until the first deployment (docs/specs/home.md, T9): secret.enc.yaml only holds
-# placeholders. T9 sets the real secret and newTag, and removes `suspend`. While suspended,
-# bump.yml and deploy-verify skip home (.github/scripts/flux-suspended.sh).
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: home
   namespace: flux-system
 spec:
-  suspend: true
   interval: 10m
   retryInterval: 2m
   timeout: 5m
