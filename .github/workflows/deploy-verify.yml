@@ -2,7 +2,8 @@ name: deploy-verify
 
 # Runs `verify` after a bump PR is merged: a push to main that changes `newTag` in
 # infra/apps/<app>/overlays/prod/kustomization.yaml. The app, the SHA and the URL come from
-# the diff and the app's Ingress. Each deployment is recorded in the `production`
+# the diff and the app's Ingress; an app whose Flux Kustomization is suspended is skipped
+# (nothing is deployed). Each deployment is recorded in the `production`
 # environment (GitHub Deployments). When `verify` fails, the `rollback` job opens a PR that
 # puts the previous tag back and blocks further bumps of that app until the issue it opens
 # is closed. See infra/README.md, "Vérifier un déploiement" and "Rollback automatique".
@@ -48,6 +49,15 @@ jobs:
             if [ -z "$new" ] || [ "$old" = "$new" ]; then
               echo "$app: newTag unchanged, skipping"
               continue
+            fi
+            # Not reconciled by Flux: verify could only fail, and a rollback would follow.
+            rc=0
+            .github/scripts/flux-suspended.sh "$app" || rc=$?
+            if [ "$rc" = 0 ]; then
+              echo "::warning::$app: Flux Kustomization suspended (infra/flux/clusters/prod/apps.yaml), nothing is deployed: skipping verify and rollback"
+              continue
+            elif [ "$rc" != 1 ]; then
+              exit 1
             fi
             host="$(sed -n 's/^ *- host: *//p' "infra/apps/$app/base/ingress.yaml" | head -n1)"
             if [ -z "$host" ]; then

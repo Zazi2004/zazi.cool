@@ -55,6 +55,16 @@ jobs:
             exit 0
           fi
 
+          # A suspended Flux Kustomization deploys nothing: a bump would only make verify fail.
+          rc=0
+          .github/scripts/flux-suspended.sh "$APP" || rc=$?
+          if [ "$rc" = 0 ]; then
+            echo "::warning::the Flux Kustomization of $APP is suspended (infra/flux/clusters/prod/apps.yaml), skipping: its first deployment sets newTag by hand"
+            exit 0
+          elif [ "$rc" != 1 ]; then
+            exit 1
+          fi
+
           current="$(sed -n 's/^ *newTag: *//p' "$file" | tr -d "\"'")"
           if [ "$current" = "$sha" ]; then
             echo "newTag is already $sha, nothing to do"
