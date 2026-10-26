@@ -23,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"zazi.cool/home/internal/auth"
+	"zazi.cool/home/internal/content"
 	"zazi.cool/home/internal/migrate"
 	"zazi.cool/home/internal/server"
 	"zazi.cool/home/migrations"
@@ -64,10 +65,16 @@ func run(args []string) error {
 		return nil
 	}
 
-	handler := server.NewHandler(server.Config{
-		DB:      pool,
-		Version: version,
+	handler, err := server.NewHandler(server.Config{
+		DB:             pool,
+		Content:        content.NewStore(pool),
+		Version:        version,
+		PublicBaseURL:  cfg.publicBaseURL,
+		MaxUploadBytes: int64(cfg.maxUploadMB) << 20,
 	})
+	if err != nil {
+		return err
+	}
 	return serve(ctx, ":"+cfg.port, handler)
 }
 
