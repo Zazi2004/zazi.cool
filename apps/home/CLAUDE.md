@@ -17,7 +17,7 @@ logique applicative).
 publique (T3 : `/`, 404, fichiers statiques, Open Graph) et l'authentification de l'admin
 (T4 : connexion et déconnexion de `/admin`), le formulaire d'édition (T5 : titre,
 paragraphe, texte alternatif, fond) et la bannière téléversée (T6 : `/images/{id}`,
-purge) sont en place. Démarrage local :
+purge) et les illustrations par défaut (T7 : galerie, vignettes) sont en place. Démarrage local :
 [`README.md`](README.md).
 
 ## Architecture
@@ -98,6 +98,18 @@ purge) sont en place. Démarrage local :
   garde `upload_image_id` : « Mon image » revient sans nouvel envoi. `/images/{id}` est
   `immutable` (un envoi = un nouvel identifiant, jamais de réécriture) ; la purge horaire
   (`cmd/home`) supprime les images de plus de 24 h que `content` ne référence pas.
+- **Illustrations par défaut** (F16b, F16c) : la galerie est `content.Gallery` (identifiant
+  stable, nom, texte alternatif) ; un identifiant est stocké dans `banner_choice` et dans
+  un nom de fichier : **ne jamais en renommer un**, en ajouter un autre. Sources :
+  `web/banners/<id>.svg` ; `make export-banners` les exporte en JPEG 1600 × 533
+  (250 Kio au plus) dans `internal/web/static/assets/banners/`, servis sous
+  `/assets/banners/<id>.<empreinte>.jpg` (cache d'un an) ; `TestGalleryPictures` garde
+  la galerie et les fichiers alignés. Le texte alternatif saisi prime ; vide, celui de
+  l'illustration est utilisé (une image téléversée sans texte reste décorative). Un
+  identifiant absent de la galerie (illustration retirée du code) : la page s'affiche
+  sans bannière (`Content.Banner` renvoie `nil`) et l'admin avertit (`BannerKnown`).
+  La migration `002` choisit `aube` tant que le contenu n'a jamais été enregistré
+  (`version = 1`) ; retirer une illustration ne demande **aucune** migration.
 - Base locale sur le port **5436**.
 
 ## Décisions ouvertes

@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 533" width="1600" height="533">
+  <title>Aube</title>
+  <desc>Dégradé violet et cyan avec une fleur lumineuse au centre.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2e1065"/><stop offset="0.55" stop-color="#4c1d95"/><stop offset="1" stop-color="#0e7490"/>
+    </linearGradient>
+    <linearGradient id="shape" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ede9fe"/><stop offset="1" stop-color="#67e8f9"/>
+    </linearGradient>
+    <filter id="blur" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="90"/></filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2"/></filter>
+  </defs>
+  <rect width="1600" height="533" fill="url(#bg)"/>
+  <g filter="url(#blur)">
+  <ellipse cx="300" cy="120" rx="520" ry="260" fill="#a78bfa" opacity="0.75"/>
+  <ellipse cx="1350" cy="420" rx="520" ry="240" fill="#22d3ee" opacity="0.75"/>
+  <ellipse cx="800" cy="80" rx="420" ry="160" fill="#f0abfc" opacity="0.75"/>
+  </g>
+  <g opacity="0.92" filter="url(#soft)">
+    <g transform="translate(635 101) scale(1.65)"><path d="M200 50c0-27.614-22.386-50-50-50s-50 22.386-50 50c0-27.614-22.386-50-50-50S0 22.386 0 50s22.386 50 50 50c-27.614 0-50 22.386-50 50s22.386 50 50 50 50-22.386 50-50c0 27.614 22.386 50 50 50s50-22.386 50-50c0-27.608-22.375-49.989-49.98-50C177.625 99.99 200 77.608 200 50z" fill="url(#shape)"/></g>
+  </g>
+</svg>

@@ -70,7 +70,7 @@ func (s *server) admin(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	p := newEditPage(c, s.cfg.MaxUploadBytes)
+	p := s.newEditPage(c)
 	if r.URL.Query().Get("saved") == "1" {
 		p.Notice = "Modifications enregistrées"
 	}
@@ -143,7 +143,7 @@ func (s *server) save(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	p := newEditPage(current, s.cfg.MaxUploadBytes)
+	p := s.newEditPage(current)
 	p.fill(edit, version)
 	p.Errors = errs
 	if len(errs) > 0 {
@@ -205,6 +205,8 @@ func (editPage) BackgroundOptions() []backgroundOption {
 
 type backgroundOption struct{ ID, Label string }
 
+type illustrationOption struct{ ID, Name, Alt, URL string }
+
 // editPage is the data of the "dashboard" template: the edit form.
 type editPage struct {
 	Title        string
@@ -214,22 +216,36 @@ type editPage struct {
 	Background   string
 	Version      int
 	Upload       *content.Image
-	MaxUploadMB  int64
-	Errors       map[string]string
-	Notice       string
-	Conflict     bool
+	// Illustrations are the thumbnails of the gallery, in the order of the form.
+	Illustrations []illustrationOption
+	// BannerUnknown is true when the stored choice is an illustration that has been
+	// removed from the code: the page shows no banner (F16b).
+	BannerUnknown bool
+	MaxUploadMB   int64
+	Errors        map[string]string
+	Notice        string
+	Conflict      bool
 }
 
-func newEditPage(c content.Content, maxUploadBytes int64) editPage {
+func (s *server) newEditPage(c content.Content) editPage {
+	illustrations := make([]illustrationOption, 0, len(content.Gallery))
+	for _, il := range content.Gallery {
+		// An illustration without a picture cannot happen (TestGalleryPictures):
+		// it would simply have no thumbnail.
+		url, _ := s.assets.IllustrationURL(il.ID)
+		illustrations = append(illustrations, illustrationOption{ID: il.ID, Name: il.Name, Alt: il.Alt, URL: url})
+	}
 	return editPage{
-		MaxUploadMB:  maxUploadBytes >> 20,
-		Title:        c.Title,
-		Body:         c.Body,
-		BannerChoice: c.BannerChoice,
-		BannerAlt:    c.BannerAlt,
-		Background:   c.Background,
-		Version:      c.Version,
-		Upload:       c.Upload,
+		MaxUploadMB:   s.cfg.MaxUploadBytes >> 20,
+		Illustrations: illustrations,
+		BannerUnknown: !c.BannerKnown(),
+		Title:         c.Title,
+		Body:          c.Body,
+		BannerChoice:  c.BannerChoice,
+		BannerAlt:     c.BannerAlt,
+		Background:    c.Background,
+		Version:       c.Version,
+		Upload:        c.Upload,
 	}
 }
 

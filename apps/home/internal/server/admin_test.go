@@ -391,7 +391,7 @@ func TestSaveContentValidation(t *testing.T) {
 		"body of 601":      {"body", strings.Repeat("a", 601)},
 		"control in title": {"title", "a\x07b"},
 		"control in body":  {"body", "a\tb"},
-		"unknown banner":   {"banner", "aube"},
+		"unknown banner":   {"banner", "disparue"},
 		"upload no image":  {"banner", "upload"},
 		"unknown fond":     {"background", "disco"},
 		"alt of 151":       {"banner_alt", strings.Repeat("a", 151)},

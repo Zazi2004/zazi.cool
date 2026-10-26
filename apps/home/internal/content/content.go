@@ -14,7 +14,7 @@ import (
 type Content struct {
 	Title string
 	Body  string
-	// BannerChoice is "none", "upload" or the id of a built-in illustration.
+	// BannerChoice is BannerNone, BannerUpload or the id of a Gallery illustration.
 	BannerChoice string
 	BannerAlt    string
 	Background   string
@@ -39,19 +39,51 @@ type Banner struct {
 	Height int
 }
 
-// Banner returns the banner to display, or nil when the page has none.
-// Built-in illustrations arrive with the gallery (T7): until then, as for an
-// illustration removed from the code, an unknown choice shows no banner.
-func (c Content) Banner() *Banner {
-	if c.BannerChoice != "upload" || c.Upload == nil {
+// IllustrationURL gives the root-relative URL of an illustration's picture, with its
+// fingerprint, or false if the picture is not embedded.
+type IllustrationURL func(id string) (string, bool)
+
+// Banner returns the banner to display, or nil when the page has none: "none", an
+// upload that is gone, or an illustration removed from the code (F16b). The saved
+// alternative text wins; an illustration falls back to its own (F16c).
+func (c Content) Banner(illustrationURL IllustrationURL) *Banner {
+	switch c.BannerChoice {
+	case BannerNone:
+		return nil
+	case BannerUpload:
+		if c.Upload == nil {
+			return nil
+		}
+		return &Banner{
+			URL:    "/images/" + c.Upload.ID,
+			Alt:    c.BannerAlt,
+			Width:  c.Upload.Width,
+			Height: c.Upload.Height,
+		}
+	}
+	il, ok := FindIllustration(c.BannerChoice)
+	if !ok {
 		return nil
 	}
-	return &Banner{
-		URL:    "/images/" + c.Upload.ID,
-		Alt:    c.BannerAlt,
-		Width:  c.Upload.Width,
-		Height: c.Upload.Height,
+	url, ok := illustrationURL(il.ID)
+	if !ok {
+		return nil
 	}
+	alt := c.BannerAlt
+	if alt == "" {
+		alt = il.Alt
+	}
+	return &Banner{URL: url, Alt: alt, Width: IllustrationWidth, Height: IllustrationHeight}
+}
+
+// BannerKnown reports whether the stored choice can still be displayed: false only
+// for an illustration that is no longer in the gallery, which the admin reports.
+func (c Content) BannerKnown() bool {
+	if c.BannerChoice == BannerNone || c.BannerChoice == BannerUpload {
+		return true
+	}
+	_, ok := FindIllustration(c.BannerChoice)
+	return ok
 }
 
 // Backgrounds lists the page backgrounds (F22). The default, aurore, is set by

@@ -5,9 +5,9 @@ titre et un paragraphe modifiables dans une mini administration (`/admin`).
 Spécification : [`docs/specs/home.md`](../../docs/specs/home.md) ;
 contexte : [`CLAUDE.md`](CLAUDE.md).
 
-> **En construction.** Le squelette (T1), la page publique (T3) et la connexion à l'admin
-> (T4) existent. L'édition (T5 à T7) et le fond animé (T8) arrivent dans les tickets
-> suivants.
+> **En construction.** Le squelette (T1), la page publique (T3), la connexion à l'admin
+> (T4), l'édition (T5), la bannière téléversée (T6) et les illustrations par défaut (T7)
+> existent. Le fond animé (T8) arrive dans le ticket suivant.
 
 ## Prérequis
 
@@ -35,6 +35,7 @@ make lint           # gofmt + go vet
 make fmt            # formate le Go
 make build          # image Docker taguée avec le SHA git (injecté dans /version)
 make migrate        # applique les migrations sur DATABASE_URL
+make export-banners # régénère les JPEG des illustrations depuis web/banners/*.svg (Chrome, Chromium ou Brave)
 make hash-password  # génère un ADMIN_PASSWORD_HASH (mot de passe saisi sans écho)
 make down           # arrête les conteneurs (le volume de la base est conservé)
 ```
@@ -54,6 +55,14 @@ Image de partage : `static/og-default.png` est une capture à 1200 × 630 de
 `internal/web/source/og-default.html` (ouvrir le fichier dans un navigateur, ou avec
 Playwright : `page.setViewportSize({ width: 1200, height: 630 })` puis
 `page.screenshot()`).
+
+Illustrations par défaut : les sources sont les SVG de `web/banners/` (1600 × 533,
+formes Coolshapes et dégradés violet et cyan). `make export-banners` les exporte en JPEG
+dans `internal/web/static/assets/banners/` (250 Kio au plus), servis sous
+`/assets/banners/<id>.<empreinte>.jpg`. Les JPEG sont versionnés : après un changement de
+SVG, relancer l'export et commiter les deux. La liste (identifiant, nom, texte alternatif)
+est `content.Gallery` ; `TestGalleryPictures` vérifie qu'à chaque entrée correspond une
+image au bon format.
 
 Licences : police Geist (SIL OFL 1.1) et formes Coolshapes (MIT), dans
 `internal/web/licenses/`.
