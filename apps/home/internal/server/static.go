@@ -16,7 +16,16 @@ const svgCSP = "default-src 'none'; style-src 'unsafe-inline'"
 // asset serves a fingerprinted file of /assets: its name changes with its
 // content, so it can be cached for a year.
 func (s *server) asset(w http.ResponseWriter, r *http.Request) {
-	f, ok := s.assets.Asset(r.PathValue("file"))
+	s.serveAsset(w, r, r.PathValue("file"))
+}
+
+// banner serves a fingerprinted illustration of /assets/banners.
+func (s *server) banner(w http.ResponseWriter, r *http.Request) {
+	s.serveAsset(w, r, "banners/"+r.PathValue("file"))
+}
+
+func (s *server) serveAsset(w http.ResponseWriter, r *http.Request, name string) {
+	f, ok := s.assets.Asset(name)
 	if !ok {
 		s.notFound(w, r)
 		return

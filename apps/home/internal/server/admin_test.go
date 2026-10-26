@@ -43,11 +43,12 @@ func adminHandler(t *testing.T, db *pgxpool.Pool, password string) http.Handler 
 		t.Fatal(err)
 	}
 	return newHandler(t, Config{
-		DB:            db,
-		Content:       content.NewStore(db),
-		Auth:          auth.NewManager(string(hash), db, true),
-		PublicBaseURL: testBaseURL,
-		LoginLimit:    10,
+		DB:             db,
+		Content:        content.NewStore(db),
+		Auth:           auth.NewManager(string(hash), db, true),
+		PublicBaseURL:  testBaseURL,
+		LoginLimit:     10,
+		MaxUploadBytes: 5 << 20,
 	})
 }
 
@@ -390,7 +391,7 @@ func TestSaveContentValidation(t *testing.T) {
 		"body of 601":      {"body", strings.Repeat("a", 601)},
 		"control in title": {"title", "a\x07b"},
 		"control in body":  {"body", "a\tb"},
-		"unknown banner":   {"banner", "aube"},
+		"unknown banner":   {"banner", "disparue"},
 		"upload no image":  {"banner", "upload"},
 		"unknown fond":     {"background", "disco"},
 		"alt of 151":       {"banner_alt", strings.Repeat("a", 151)},

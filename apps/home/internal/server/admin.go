@@ -5,7 +5,9 @@ import (
 	"context"
 	"embed"
 	"errors"
+	"fmt"
 	"html/template"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -15,6 +17,7 @@ import (
 
 	"zazi.cool/home/internal/auth"
 	"zazi.cool/home/internal/content"
+	"zazi.cool/home/internal/images"
 	"zazi.cool/home/internal/ratelimit"
 )
 
@@ -33,12 +36,9 @@ var adminTemplates = template.Must(template.ParseFS(adminFS, "templates/admin.ht
 // ContentStore reads and saves the homepage content; *content.Store satisfies it.
 type ContentStore interface {
 	ContentLoader
-	Save(ctx context.Context, version int, e content.Edit) error
+	Save(ctx context.Context, version int, e content.Edit, img *images.Image) error
+	Image(ctx context.Context, id string) (images.Image, error)
 }
-
-// formMemory is the memory the multipart parser may keep in RAM; the body itself
-// is bounded by limitBody (NF8).
-const formMemory = 1 << 20
 
 // loginPage is the data of the "login" template.
 type loginPage struct {
@@ -70,7 +70,7 @@ func (s *server) admin(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	p := newEditPage(c)
+	p := s.newEditPage(c)
 	if r.URL.Query().Get("saved") == "1" {
 		p.Notice = "Modifications enregistrées"
 	}
@@ -91,7 +91,10 @@ func (s *server) save(w http.ResponseWriter, r *http.Request) {
 	}
 	// A browser sends multipart/form-data; other clients may send urlencoded
 	// forms, which ParseMultipartForm reports as ErrNotMultipart after parsing them.
-	if err := r.ParseMultipartForm(formMemory); err != nil && !errors.Is(err, http.ErrNotMultipart) {
+	// The whole body is bounded by limitBody (NF8), so the parser may keep all of it
+	// in RAM: the container has no writable disk for the temporary files it would
+	// create above this size.
+	if err := r.ParseMultipartForm(s.cfg.MaxUploadBytes + adminFormOverage); err != nil && !errors.Is(err, http.ErrNotMultipart) {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
 			http.Error(w, "Requête trop volumineuse.", http.StatusRequestEntityTooLarge)
@@ -105,6 +108,15 @@ func (s *server) save(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Formulaire invalide.", http.StatusBadRequest)
 		return
 	}
+	file, tooLarge, err := s.bannerFile(r)
+	if err != nil {
+		http.Error(w, "Formulaire invalide.", http.StatusBadRequest)
+		return
+	}
+	if tooLarge {
+		http.Error(w, "Image trop volumineuse.", http.StatusRequestEntityTooLarge)
+		return
+	}
 	current, err := s.cfg.Content.Load(r.Context())
 	if err != nil {
 		s.internalError(w, r, err)
@@ -116,16 +128,29 @@ func (s *server) save(w http.ResponseWriter, r *http.Request) {
 		BannerChoice: r.PostForm.Get("banner"),
 		BannerAlt:    r.PostForm.Get("banner_alt"),
 		Background:   r.PostForm.Get("background"),
-	}.Validate(current.Upload != nil)
+	}.Validate(current.Upload != nil, file != nil)
 
-	p := newEditPage(current)
+	var img *images.Image
+	if file != nil {
+		processed, err := images.Process(file)
+		switch {
+		case errors.Is(err, images.ErrTooLarge):
+			errs["banner_file"] = fmt.Sprintf("L'image dépasse %d × %d pixels.", images.MaxInputSide, images.MaxInputSide)
+		case err != nil:
+			errs["banner_file"] = "Le fichier doit être une image JPEG ou PNG."
+		default:
+			img = &processed
+		}
+	}
+
+	p := s.newEditPage(current)
 	p.fill(edit, version)
 	p.Errors = errs
 	if len(errs) > 0 {
 		s.render(w, r, http.StatusUnprocessableEntity, "dashboard", p)
 		return
 	}
-	err = s.cfg.Content.Save(r.Context(), version, edit)
+	err = s.cfg.Content.Save(r.Context(), version, edit, img)
 	if errors.Is(err, content.ErrConflict) {
 		p.Conflict = true
 		s.render(w, r, http.StatusConflict, "dashboard", p)
@@ -136,6 +161,29 @@ func (s *server) save(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/admin?saved=1", http.StatusSeeOther)
+}
+
+// bannerFile returns the bytes of the file sent in the "banner_file" field, nil if
+// there is none (an untouched file input sends an empty part, which Go does not
+// count as a file). tooLarge is true when it is over MAX_UPLOAD_MB: the body limit
+// leaves some slack for the other fields, so the file is measured on its own.
+func (s *server) bannerFile(r *http.Request) (data []byte, tooLarge bool, err error) {
+	f, header, err := r.FormFile("banner_file")
+	if errors.Is(err, http.ErrMissingFile) || errors.Is(err, http.ErrNotMultipart) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	defer f.Close()
+	if header.Size > s.cfg.MaxUploadBytes {
+		return nil, true, nil
+	}
+	data, err = io.ReadAll(f)
+	if err != nil {
+		return nil, false, err
+	}
+	return data, false, nil
 }
 
 // backgroundLabels names the backgrounds of content.Backgrounds in the form.
@@ -157,6 +205,8 @@ func (editPage) BackgroundOptions() []backgroundOption {
 
 type backgroundOption struct{ ID, Label string }
 
+type illustrationOption struct{ ID, Name, Alt, URL string }
+
 // editPage is the data of the "dashboard" template: the edit form.
 type editPage struct {
 	Title        string
@@ -165,21 +215,37 @@ type editPage struct {
 	BannerAlt    string
 	Background   string
 	Version      int
-	HasUpload    bool
-	Errors       map[string]string
-	Notice       string
-	Conflict     bool
+	Upload       *content.Image
+	// Illustrations are the thumbnails of the gallery, in the order of the form.
+	Illustrations []illustrationOption
+	// BannerUnknown is true when the stored choice is an illustration that has been
+	// removed from the code: the page shows no banner (F16b).
+	BannerUnknown bool
+	MaxUploadMB   int64
+	Errors        map[string]string
+	Notice        string
+	Conflict      bool
 }
 
-func newEditPage(c content.Content) editPage {
+func (s *server) newEditPage(c content.Content) editPage {
+	illustrations := make([]illustrationOption, 0, len(content.Gallery))
+	for _, il := range content.Gallery {
+		// An illustration without a picture cannot happen (TestGalleryPictures):
+		// it would simply have no thumbnail.
+		url, _ := s.assets.IllustrationURL(il.ID)
+		illustrations = append(illustrations, illustrationOption{ID: il.ID, Name: il.Name, Alt: il.Alt, URL: url})
+	}
 	return editPage{
-		Title:        c.Title,
-		Body:         c.Body,
-		BannerChoice: c.BannerChoice,
-		BannerAlt:    c.BannerAlt,
-		Background:   c.Background,
-		Version:      c.Version,
-		HasUpload:    c.Upload != nil,
+		MaxUploadMB:   s.cfg.MaxUploadBytes >> 20,
+		Illustrations: illustrations,
+		BannerUnknown: !c.BannerKnown(),
+		Title:         c.Title,
+		Body:          c.Body,
+		BannerChoice:  c.BannerChoice,
+		BannerAlt:     c.BannerAlt,
+		Background:    c.Background,
+		Version:       c.Version,
+		Upload:        c.Upload,
 	}
 }
 

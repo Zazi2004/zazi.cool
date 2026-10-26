@@ -14,6 +14,7 @@ import (
 
 	"zazi.cool/home/internal/content"
 	"zazi.cool/home/internal/dbtest"
+	"zazi.cool/home/internal/images"
 	"zazi.cool/home/internal/migrate"
 	"zazi.cool/home/migrations"
 )
@@ -26,8 +27,12 @@ type fakeContent struct {
 
 func (f fakeContent) Load(context.Context) (content.Content, error) { return f.c, f.err }
 
-func (f fakeContent) Save(context.Context, int, content.Edit) error {
+func (f fakeContent) Save(context.Context, int, content.Edit, *images.Image) error {
 	return errors.New("fake: read-only")
+}
+
+func (f fakeContent) Image(context.Context, string) (images.Image, error) {
+	return images.Image{}, content.ErrImageNotFound
 }
 
 func defaultContent() content.Content {

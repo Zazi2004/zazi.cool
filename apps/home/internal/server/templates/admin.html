@@ -50,13 +50,27 @@
 <fieldset>
 <legend>Bannière</legend>
 <p><label><input type="radio" name="banner" value="none"{{if eq .BannerChoice "none"}} checked{{end}}> Aucune</label></p>
-{{if .HasUpload}}<p><label><input type="radio" name="banner" value="upload"{{if eq .BannerChoice "upload"}} checked{{end}}> Mon image</label></p>{{end}}
+{{$choice := .BannerChoice}}
+{{range .Illustrations}}<p><label><input type="radio" name="banner" value="{{.ID}}"{{if eq .ID $choice}} checked{{end}}> {{.Name}}<br><img src="{{.URL}}" alt="{{.Alt}}" width="240" height="80"></label></p>
+{{end}}
+{{if .Upload}}<p><label><input type="radio" name="banner" value="upload"{{if eq "upload" $choice}} checked{{end}}> Mon image<br><img src="/images/{{.Upload.ID}}" alt="Image actuellement téléversée" width="240" height="80"></label></p>
+{{else}}<p><label><input type="radio" name="banner" value="upload"{{if eq "upload" $choice}} checked{{end}}> Mon image (aucune image envoyée pour l'instant)</label></p>
+{{end}}
+{{if .BannerUnknown}}<p role="alert">L'illustration choisie n'existe plus : la page s'affiche sans bannière. Choisissez-en une autre.</p>{{end}}
 {{template "field-error" .Errors.banner}}
+
+<p>
+<label for="banner_file">Envoyer une nouvelle image (JPEG ou PNG, {{.MaxUploadMB}} Mo au plus)</label>
+<input id="banner_file" name="banner_file" type="file" accept="image/jpeg,image/png">
+</p>
+<p>Conseil : une image de 1600 × 533 px, avec le sujet au centre. Elle est affichée dans un cadre 3:1 (2:1 sur un petit écran) et recadrée au centre. Pour l'utiliser, cochez « Mon image ».</p>
+{{template "field-error" .Errors.banner_file}}
 </fieldset>
 
 <p>
 <label for="banner_alt">Texte alternatif de la bannière</label>
-<input id="banner_alt" name="banner_alt" type="text" value="{{.BannerAlt}}">
+<input id="banner_alt" name="banner_alt" type="text" value="{{.BannerAlt}}" aria-describedby="banner_alt_help">
+<small id="banner_alt_help">Laissez vide pour une illustration : son texte par défaut est utilisé.</small>
 {{template "field-error" .Errors.banner_alt}}
 </p>
 

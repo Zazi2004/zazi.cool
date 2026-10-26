@@ -38,6 +38,7 @@ var contentTypes = map[string]string{
 	".woff2": "font/woff2",
 	".svg":   "image/svg+xml",
 	".png":   "image/png",
+	".jpg":   "image/jpeg",
 	".txt":   "text/plain; charset=utf-8",
 }
 
@@ -63,6 +64,9 @@ func LoadAssets() (*Assets, error) {
 	// fingerprint changes when one of them does).
 	var styles []string
 	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
 		if path.Ext(e.Name()) == ".css" {
 			styles = append(styles, e.Name())
 			continue
@@ -85,6 +89,22 @@ func LoadAssets() (*Assets, error) {
 			css = strings.ReplaceAll(css, `url("`+asset+`")`, `url("`+path.Base(url)+`")`)
 		}
 		if err := a.add(name, []byte(css)); err != nil {
+			return nil, err
+		}
+	}
+
+	// The illustrations live in a subdirectory: "banners/aube.jpg" is served at
+	// "/assets/banners/aube.<fingerprint>.jpg".
+	banners, err := fs.ReadDir(staticFS, "static/assets/banners")
+	if err != nil {
+		return nil, fmt.Errorf("read banners: %w", err)
+	}
+	for _, e := range banners {
+		data, err := fs.ReadFile(staticFS, "static/assets/banners/"+e.Name())
+		if err != nil {
+			return nil, fmt.Errorf("read banner: %w", err)
+		}
+		if err := a.add("banners/"+e.Name(), data); err != nil {
 			return nil, err
 		}
 	}
@@ -197,7 +217,14 @@ func (a *Assets) URL(name string) (string, error) {
 	return url, nil
 }
 
-// Asset returns the asset with the given fingerprinted name.
+// IllustrationURL returns the URL of a built-in illustration's picture.
+func (a *Assets) IllustrationURL(id string) (string, bool) {
+	url, ok := a.urls["banners/"+id+".jpg"]
+	return url, ok
+}
+
+// Asset returns the asset with the given fingerprinted name ("home.<hash>.css",
+// "banners/aube.<hash>.jpg").
 func (a *Assets) Asset(hashed string) (File, bool) {
 	f, ok := a.hashed[hashed]
 	return f, ok

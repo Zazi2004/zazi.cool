@@ -64,6 +64,8 @@ func NewHandler(cfg Config) (http.Handler, error) {
 	// "/{$}" matches "/" only; "/" alone would match every path.
 	mux.HandleFunc("GET /{$}", s.home)
 	mux.HandleFunc("GET /assets/{file}", s.asset)
+	mux.HandleFunc("GET /assets/banners/{file}", s.banner)
+	mux.HandleFunc("GET /images/{id}", s.image)
 	for _, name := range []string{"favicon.svg", "og-default.png", "robots.txt"} {
 		mux.HandleFunc("GET /"+name, s.rootFile(name))
 	}

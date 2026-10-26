@@ -9,7 +9,7 @@ TAG   ?= $(shell git rev-parse --short HEAD)
 # Go packages of the app (`go list` skips web/node_modules thanks to go.mod's ignore).
 GO_DIRS = $(shell go list -f '{{.Dir}}' ./...)
 
-.PHONY: up down dev test lint fmt build migrate hash-password web-build dist-placeholder
+.PHONY: up down dev test lint fmt build migrate hash-password web-build dist-placeholder export-banners
 
 .env:
 	cp .env.example .env
@@ -72,3 +72,7 @@ migrate: .env dist-placeholder
 hash-password:
 	@printf "Mot de passe : "; stty -echo; read -r pw; stty echo; echo; \
 		printf '%s' "$$pw" | go run ./cmd/hashpw
+
+## export-banners: render web/banners/*.svg to the embedded JPEGs (needs Chrome, Chromium or Brave)
+export-banners:
+	node web/scripts/export-banners.mjs
