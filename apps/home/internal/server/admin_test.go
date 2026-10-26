@@ -43,11 +43,12 @@ func adminHandler(t *testing.T, db *pgxpool.Pool, password string) http.Handler 
 		t.Fatal(err)
 	}
 	return newHandler(t, Config{
-		DB:            db,
-		Content:       content.NewStore(db),
-		Auth:          auth.NewManager(string(hash), db, true),
-		PublicBaseURL: testBaseURL,
-		LoginLimit:    10,
+		DB:             db,
+		Content:        content.NewStore(db),
+		Auth:           auth.NewManager(string(hash), db, true),
+		PublicBaseURL:  testBaseURL,
+		LoginLimit:     10,
+		MaxUploadBytes: 5 << 20,
 	})
 }
 

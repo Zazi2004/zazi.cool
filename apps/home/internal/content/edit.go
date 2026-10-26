@@ -33,10 +33,11 @@ type Edit struct {
 // Validate cleans e and checks every rule of F13. It returns the cleaned edit and
 // one message per invalid field, keyed "title", "body", "banner", "banner_alt" or
 // "background"; the map is empty when the edit is valid. hasUpload tells whether an
-// uploaded image already exists, which the "upload" choice needs.
+// uploaded image already exists and hasFile whether a file was sent with the form:
+// the "upload" choice needs one of them, and any other choice refuses a file (F13).
 // Built-in illustrations arrive with the gallery (T7): until then only "none" and
 // "upload" are valid choices.
-func (e Edit) Validate(hasUpload bool) (Edit, map[string]string) {
+func (e Edit) Validate(hasUpload, hasFile bool) (Edit, map[string]string) {
 	errs := map[string]string{}
 	e.Title = cleanText(e.Title, false, 1, MaxTitle, "Le titre", errs, "title")
 	e.Body = cleanText(e.Body, true, 0, MaxBody, "Le paragraphe", errs, "body")
@@ -45,11 +46,14 @@ func (e Edit) Validate(hasUpload bool) (Edit, map[string]string) {
 	switch e.BannerChoice {
 	case BannerNone:
 	case BannerUpload:
-		if !hasUpload {
+		if !hasUpload && !hasFile {
 			errs["banner"] = "Aucune image n'a encore été envoyée."
 		}
 	default:
 		errs["banner"] = "Choisissez une bannière de la liste."
+	}
+	if hasFile && e.BannerChoice != BannerUpload {
+		errs["banner"] = "Choisissez soit une illustration, soit votre image"
 	}
 	if !slices.Contains(Backgrounds, e.Background) {
 		errs["background"] = "Choisissez un fond de la liste."
