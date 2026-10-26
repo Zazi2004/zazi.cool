@@ -60,7 +60,7 @@ func TestInitialContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read content: %v", err)
 	}
-	if title != "zazi.cool" || body == "" || banner != "none" || alt != "" || background != "aurore" || version != 1 {
+	if title != "zazi.cool" || body == "" || banner != "aube" || alt != "" || background != "aurore" || version != 1 {
 		t.Errorf("default content = %q, %q, %q, %q, %q, %d", title, body, banner, alt, background, version)
 	}
 }
@@ -89,5 +89,49 @@ func TestContentConstraints(t *testing.T) {
 	}
 	if _, err := pool.Exec(ctx, "UPDATE content SET banner_choice = 'upload', upload_image_id = $1", imageID); err != nil {
 		t.Errorf("upload with image: %v", err)
+	}
+}
+
+// F8: a page whose content was never saved gets the first illustration; a page
+// where « Aucune » was chosen on purpose (version raised) keeps it.
+func TestDefaultBannerMigration(t *testing.T) {
+	ctx := context.Background()
+	for name, tc := range map[string]struct {
+		setup string
+		want  string
+	}{
+		"never saved":       {"", "aube"},
+		"none chosen":       {"UPDATE content SET banner_choice = 'none', version = 2", "none"},
+		"illustration kept": {"UPDATE content SET banner_choice = 'minuit', version = 2", "minuit"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			pool := dbtest.New(t)
+			first, err := migrations.FS.ReadFile("001_init.sql")
+			if err != nil {
+				t.Fatal(err)
+			}
+			second, err := migrations.FS.ReadFile("002_default_banner.sql")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := pool.Exec(ctx, string(first)); err != nil {
+				t.Fatalf("001: %v", err)
+			}
+			if tc.setup != "" {
+				if _, err := pool.Exec(ctx, tc.setup); err != nil {
+					t.Fatalf("setup: %v", err)
+				}
+			}
+			if _, err := pool.Exec(ctx, string(second)); err != nil {
+				t.Fatalf("002: %v", err)
+			}
+			var got string
+			if err := pool.QueryRow(ctx, "SELECT banner_choice FROM content").Scan(&got); err != nil {
+				t.Fatal(err)
+			}
+			if got != tc.want {
+				t.Errorf("banner_choice = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }

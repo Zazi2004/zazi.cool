@@ -1,8 +1,12 @@
 package web
 
 import (
+	"bytes"
+	"image/jpeg"
 	"strings"
 	"testing"
+
+	"zazi.cool/home/internal/content"
 )
 
 func TestLoadAssets(t *testing.T) {
@@ -50,5 +54,49 @@ func TestTemplates(t *testing.T) {
 		if tmpl.Lookup(name) == nil {
 			t.Errorf("template %s is not defined", name)
 		}
+	}
+}
+
+// F16b: every illustration of the gallery has its picture, in the format of D6, and
+// no picture is left out of the gallery.
+func TestGalleryPictures(t *testing.T) {
+	a, err := LoadAssets()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, il := range content.Gallery {
+		url, ok := a.IllustrationURL(il.ID)
+		if !ok {
+			t.Errorf("%s: no picture", il.ID)
+			continue
+		}
+		if !strings.HasPrefix(url, "/assets/banners/"+il.ID+".") || !strings.HasSuffix(url, ".jpg") {
+			t.Errorf("%s: URL %q", il.ID, url)
+		}
+		f, ok := a.Asset(strings.TrimPrefix(url, "/assets/"))
+		if !ok || f.ContentType != "image/jpeg" {
+			t.Errorf("%s: %q is not served as a JPEG", il.ID, url)
+			continue
+		}
+		if len(f.Data) > 250<<10 {
+			t.Errorf("%s: %d bytes, over 250 Kio", il.ID, len(f.Data))
+		}
+		cfg, err := jpeg.DecodeConfig(bytes.NewReader(f.Data))
+		if err != nil {
+			t.Errorf("%s: %v", il.ID, err)
+			continue
+		}
+		if cfg.Width != content.IllustrationWidth || cfg.Height != content.IllustrationHeight {
+			t.Errorf("%s: %d × %d, want %d × %d", il.ID, cfg.Width, cfg.Height, content.IllustrationWidth, content.IllustrationHeight)
+		}
+	}
+	banners := 0
+	for name := range a.urls {
+		if strings.HasPrefix(name, "banners/") {
+			banners++
+		}
+	}
+	if banners != len(content.Gallery) {
+		t.Errorf("%d pictures for %d illustrations", banners, len(content.Gallery))
 	}
 }

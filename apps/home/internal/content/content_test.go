@@ -3,6 +3,7 @@ package content
 import (
 	"context"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -52,6 +53,8 @@ func TestSummary(t *testing.T) {
 
 func TestBanner(t *testing.T) {
 	upload := &Image{ID: "0193", Width: 1600, Height: 533}
+	urls := func(id string) (string, bool) { return "/assets/banners/" + id + ".abc.jpg", id != "lagon" }
+	aube, _ := FindIllustration("aube")
 	tests := []struct {
 		name string
 		c    Content
@@ -61,10 +64,17 @@ func TestBanner(t *testing.T) {
 		{"upload", Content{BannerChoice: "upload", BannerAlt: "Ciel", Upload: upload},
 			&Banner{URL: "/images/0193", Alt: "Ciel", Width: 1600, Height: 533}},
 		{"upload without image", Content{BannerChoice: "upload"}, nil},
-		{"unknown illustration", Content{BannerChoice: "aube", Upload: upload}, nil},
+		{"upload without alt stays decorative", Content{BannerChoice: "upload", Upload: upload},
+			&Banner{URL: "/images/0193", Width: 1600, Height: 533}},
+		{"illustration with its default alt", Content{BannerChoice: "aube", Upload: upload},
+			&Banner{URL: "/assets/banners/aube.abc.jpg", Alt: aube.Alt, Width: 1600, Height: 533}},
+		{"illustration with the saved alt", Content{BannerChoice: "aube", BannerAlt: "Mon texte"},
+			&Banner{URL: "/assets/banners/aube.abc.jpg", Alt: "Mon texte", Width: 1600, Height: 533}},
+		{"illustration removed from the code", Content{BannerChoice: "disparue", Upload: upload}, nil},
+		{"illustration without a picture", Content{BannerChoice: "lagon"}, nil},
 	}
 	for _, tt := range tests {
-		if got := tt.c.Banner(); !reflect.DeepEqual(got, tt.want) {
+		if got := tt.c.Banner(urls); !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("%s: Banner() = %+v, want %+v", tt.name, got, tt.want)
 		}
 	}
@@ -101,7 +111,7 @@ func TestStoreLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if c.Title != "zazi.cool" || c.BannerChoice != "none" || c.Background != "aurore" || c.Version != 1 || c.Upload != nil {
+	if c.Title != "zazi.cool" || c.BannerChoice != "aube" || c.Background != "aurore" || c.Version != 1 || c.Upload != nil {
 		t.Errorf("default content = %+v", c)
 	}
 
@@ -167,5 +177,38 @@ func TestEditValidate(t *testing.T) {
 	}
 	if _, errs := (Edit{Title: "bad\xff", BannerChoice: "none", Background: "aurore"}).Validate(false, false); errs["title"] == "" {
 		t.Error("invalid UTF-8 should be refused")
+	}
+}
+
+func TestBannerKnown(t *testing.T) {
+	for choice, want := range map[string]bool{"none": true, "upload": true, "aube": true, "disparue": false, "": false} {
+		if got := (Content{BannerChoice: choice}).BannerKnown(); got != want {
+			t.Errorf("BannerKnown(%q) = %v, want %v", choice, got, want)
+		}
+	}
+}
+
+func TestGallery(t *testing.T) {
+	if len(Gallery) != 6 {
+		t.Errorf("%d illustrations, want 6 (D8)", len(Gallery))
+	}
+	seen := map[string]bool{}
+	for _, il := range Gallery {
+		if !regexp.MustCompile(`^[a-z]+$`).MatchString(il.ID) || il.ID == BannerNone || il.ID == BannerUpload {
+			t.Errorf("illustration id %q is not a safe, unreserved identifier", il.ID)
+		}
+		if seen[il.ID] {
+			t.Errorf("duplicate illustration id %q", il.ID)
+		}
+		seen[il.ID] = true
+		if il.Name == "" || il.Alt == "" {
+			t.Errorf("illustration %q needs a name and an alternative text", il.ID)
+		}
+		if _, errs := (Edit{Title: "t", BannerChoice: il.ID, Background: "aurore"}).Validate(false, false); len(errs) != 0 {
+			t.Errorf("choice %q refused: %v", il.ID, errs)
+		}
+	}
+	if _, errs := (Edit{Title: "t", BannerChoice: "disparue", Background: "aurore"}).Validate(false, false); errs["banner"] == "" {
+		t.Error("an unknown illustration should be refused")
 	}
 }

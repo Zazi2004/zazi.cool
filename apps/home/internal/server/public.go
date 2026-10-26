@@ -48,7 +48,7 @@ func (s *server) home(w http.ResponseWriter, r *http.Request) {
 		Image:       s.cfg.PublicBaseURL + "/og-default.png",
 		Background:  c.BackgroundOrStatic(),
 		Heading:     c.Title,
-		Banner:      c.Banner(),
+		Banner:      c.Banner(s.assets.IllustrationURL),
 		Paragraphs:  content.Paragraphs(c.Body),
 		Services:    content.Services,
 	}

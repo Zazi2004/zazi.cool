@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 533" width="1600" height="533">
+  <title>Lagon</title>
+  <desc>Vagues cyan et violettes autour d'un cercle clair.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#083344"/><stop offset="0.55" stop-color="#155e75"/><stop offset="1" stop-color="#4c1d95"/>
+    </linearGradient>
+    <linearGradient id="shape" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#cffafe"/><stop offset="1" stop-color="#a78bfa"/>
+    </linearGradient>
+    <filter id="blur" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="90"/></filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2"/></filter>
+  </defs>
+  <rect width="1600" height="533" fill="url(#bg)"/>
+  <g filter="url(#blur)">
+  <ellipse cx="200" cy="400" rx="560" ry="230" fill="#22d3ee" opacity="0.75"/>
+  <ellipse cx="1300" cy="130" rx="560" ry="240" fill="#8b5cf6" opacity="0.75"/>
+  <ellipse cx="800" cy="520" rx="480" ry="130" fill="#a5f3fc" opacity="0.75"/>
+  </g>
+  <g opacity="0.92" filter="url(#soft)">
+    <circle cx="800" cy="266" r="135" fill="url(#shape)"/>
+  </g>
+</svg>
