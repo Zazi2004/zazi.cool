@@ -11,4 +11,4 @@ images:
   - name: ghcr.io/zazi2004/home
     # Quoted: an all-digit SHA would be read as a number. Empty until the first deployment
     # (the Flux Kustomization is suspended until then): deploy-verify skips an empty tag.
-    newTag: ""
+    newTag: "c1279a6"
