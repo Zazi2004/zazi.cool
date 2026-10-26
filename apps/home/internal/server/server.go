@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"zazi.cool/home/internal/auth"
 	"zazi.cool/home/internal/web"
 )
 
@@ -23,8 +24,15 @@ type Config struct {
 	Content ContentLoader
 	// Version is the git SHA of the running build, served by /version.
 	Version string
-	// PublicBaseURL is the public URL of the site, without trailing slash.
+	// Auth checks the admin password and sessions.
+	Auth *auth.Manager
+	// PublicBaseURL is the public URL of the site, without trailing slash: Open
+	// Graph URLs, and admin POSTs with another Origin are refused.
 	PublicBaseURL string
+	// TrustProxy reads the client IP from X-Forwarded-For (behind Traefik only).
+	TrustProxy bool
+	// LoginLimit is the number of login attempts allowed per IP and per hour.
+	LoginLimit int
 	// MaxUploadBytes bounds the banner upload of the admin form (MAX_UPLOAD_MB).
 	MaxUploadBytes int64
 }
@@ -59,6 +67,7 @@ func NewHandler(cfg Config) (http.Handler, error) {
 	for _, name := range []string{"favicon.svg", "og-default.png", "robots.txt"} {
 		mux.HandleFunc("GET /"+name, s.rootFile(name))
 	}
+	s.adminRoutes(mux)
 	mux.HandleFunc("/", s.notFound)
 	return logRequests(securityHeaders(limitBody(cfg.MaxUploadBytes, mux))), nil
 }

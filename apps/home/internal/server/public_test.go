@@ -18,8 +18,6 @@ import (
 	"zazi.cool/home/migrations"
 )
 
-const testBaseURL = "https://zazi.example"
-
 // fakeContent serves a fixed content, or an error.
 type fakeContent struct {
 	c   content.Content

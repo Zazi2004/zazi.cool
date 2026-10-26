@@ -1,0 +1,35 @@
+{{define "admin-head"}}<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{{.}} · Admin zazi.cool</title>
+</head>
+<body>
+<main>
+{{end}}
+
+{{define "admin-foot"}}</main>
+</body>
+</html>
+{{end}}
+
+{{define "login"}}{{template "admin-head" "Connexion"}}
+<h1>Connexion</h1>
+{{with .Error}}<p role="alert">{{.}}</p>{{end}}
+<form method="post" action="/admin/login">
+<label for="password">Mot de passe</label>
+<input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+<button type="submit">Se connecter</button>
+</form>
+{{template "admin-foot"}}{{end}}
+
+{{define "dashboard"}}{{template "admin-head" "Administration"}}
+<h1>Administration</h1>
+<p>Vous êtes connecté.</p>
+<p><a href="/">Voir la page</a></p>
+<form method="post" action="/admin/logout">
+<button type="submit">Se déconnecter</button>
+</form>
+{{template "admin-foot"}}{{end}}

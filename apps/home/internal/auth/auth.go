@@ -1,4 +1,5 @@
-// Package auth handles the admin password. Sessions come with the admin (T4).
+// Package auth protects the admin with a single password (its bcrypt hash only)
+// and server-side sessions.
 package auth
 
 import (

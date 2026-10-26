@@ -38,8 +38,7 @@ type page struct {
 func (s *server) home(w http.ResponseWriter, r *http.Request) {
 	c, err := s.cfg.Content.Load(r.Context())
 	if err != nil {
-		slog.Error("request failed", "method", r.Method, "path", r.URL.Path, "error", err)
-		http.Error(w, "Erreur interne, réessayez plus tard.", http.StatusInternalServerError)
+		s.internalError(w, r, err)
 		return
 	}
 	p := page{
@@ -57,26 +56,25 @@ func (s *server) home(w http.ResponseWriter, r *http.Request) {
 		p.Image = s.cfg.PublicBaseURL + p.Banner.URL
 		p.ImageAlt = p.Banner.Alt
 	}
-	s.render(w, r, http.StatusOK, "home.html", p)
+	s.renderPage(w, r, http.StatusOK, "home.html", p)
 }
 
 // notFound answers every path that no other route matches (F7).
 func (s *server) notFound(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, http.StatusNotFound, "notfound.html", page{
+	s.renderPage(w, r, http.StatusNotFound, "notfound.html", page{
 		Title:      "Page introuvable — zazi.cool",
 		NoIndex:    true,
 		Background: content.StaticBackground,
 	})
 }
 
-func (s *server) render(w http.ResponseWriter, r *http.Request, status int, name string, p page) {
+// renderPage writes a public page; admin pages use render (admin.go).
+func (s *server) renderPage(w http.ResponseWriter, r *http.Request, status int, name string, p page) {
 	// Rendering into a buffer first: a template error then becomes a clean 500
 	// instead of a half-written page with a 200 status.
 	var buf bytes.Buffer
 	if err := s.tmpl.ExecuteTemplate(&buf, name, p); err != nil {
-		slog.Error("request failed", "method", r.Method, "path", r.URL.Path,
-			"error", fmt.Errorf("render %s: %w", name, err))
-		http.Error(w, "Erreur interne, réessayez plus tard.", http.StatusInternalServerError)
+		s.internalError(w, r, fmt.Errorf("render %s: %w", name, err))
 		return
 	}
 	h := w.Header()

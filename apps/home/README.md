@@ -5,8 +5,9 @@ titre et un paragraphe modifiables dans une mini administration (`/admin`).
 Spécification : [`docs/specs/home.md`](../../docs/specs/home.md) ;
 contexte : [`CLAUDE.md`](CLAUDE.md).
 
-> **En construction.** Le squelette (T1) et la page publique (T3) existent ; l'admin
-> (T4 à T7) et le fond animé (T8) arrivent dans les tickets suivants.
+> **En construction.** Le squelette (T1), la page publique (T3) et la connexion à l'admin
+> (T4) existent. L'édition (T5 à T7) et le fond animé (T8) arrivent dans les tickets
+> suivants.
 
 ## Prérequis
 

@@ -13,8 +13,9 @@ modifie dans une **mini administration** (`/admin`), sans redéploiement, sur un
 `www.zazi.cool` redirige en 301 vers `zazi.cool` (middleware Traefik `redirectRegex`, sans
 logique applicative).
 
-**Statut : en développement, application dynamique.** Le squelette (T1) et la page
-publique (T3 : `/`, 404, fichiers statiques, Open Graph) sont en place. Démarrage local :
+**Statut : en développement, application dynamique.** Le squelette (T1), la page
+publique (T3 : `/`, 404, fichiers statiques, Open Graph) et l'authentification de l'admin
+(T4 : connexion et déconnexion de `/admin`) sont en place. Démarrage local :
 [`README.md`](README.md).
 
 ## Architecture
@@ -23,15 +24,16 @@ publique (T3 : `/`, 404, fichiers statiques, Open Graph) sont en place. Démarra
   propre), `cmd/hashpw` (`make hash-password`), `internal/server` (routes HTTP, en-têtes
   de sécurité), `internal/content` (le document de la page, les règles d'affichage sans
   I/O et sa lecture en base ; liste des services), `internal/web` (gabarits, CSS, police
-  et images embarqués, noms avec empreinte),
-  `internal/migrate` (exécuteur de migrations), `internal/auth` (hash du mot de passe ;
-  sessions à venir), `internal/dbtest` (base PostgreSQL de test dans un schéma temporaire).
+  et images embarqués, noms avec empreinte), `internal/migrate` (exécuteur de
+  migrations), `internal/auth` (hash du mot de passe, sessions en base),
+  `internal/ratelimit` (limitation par IP en mémoire), `internal/dbtest` (base PostgreSQL
+  de test dans un schéma temporaire).
 - **Rendu serveur** (`html/template` + CSS), pas de React (D1). Seul le fond animé sera
   en TypeScript + Vite sans framework, dans `web/`, embarqué dans le binaire (T8).
 - **PostgreSQL**, base `home` (`migrations/001_init.sql`) : `content` (une seule ligne :
   titre, paragraphe, choix de bannière, image téléversée, texte alternatif, fond,
   version), `images` (bannières téléversées), `sessions`.
-- Un seul réplica (la limitation des tentatives de connexion sera en mémoire).
+- Un seul réplica (la limitation des tentatives de connexion est en mémoire).
 
 ## Décisions closes
 
@@ -44,10 +46,11 @@ publique (T3 : `/`, 404, fichiers statiques, Open Graph) sont en place. Démarra
 
 ## Règles durables (à respecter pour tout changement)
 
-- **Code recopié du linktree** : l'exécuteur de migrations, `cmd/hashpw` et le hash du
-  mot de passe viennent de `apps/linktree/` ; l'authentification, la limitation et le
-  traitement d'image le seront aussi (T4, T6), simplifiés. Chaque app garde son module Go :
-  **un correctif de sécurité dans l'une doit être reporté dans l'autre.**
+- **Code recopié du linktree** : l'exécuteur de migrations, `cmd/hashpw`, le hash du
+  mot de passe, les sessions (`internal/auth/session.go`, sans interface de stockage),
+  la limitation (`internal/ratelimit`) et `clientIP` viennent de `apps/linktree/` ; le
+  traitement d'image le sera aussi (T6). L'origine est notée en tête des fichiers.
+  Chaque app garde son module Go : **un correctif de sécurité dans l'une doit être reporté dans l'autre.**
 - **Le contenu est une seule ligne** (`content.id = 1`) ; `banner_choice = 'upload'`
   exige `upload_image_id` (contrainte en base). Les illustrations par défaut ne sont pas
   en base : leur liste est une constante du code.
@@ -72,6 +75,13 @@ publique (T3 : `/`, 404, fichiers statiques, Open Graph) sont en place. Démarra
   d'un jour). Les SVG ont leur propre CSP (`svgCSP`, styles en ligne des Coolshapes).
 - **Poids** : HTML + CSS + police ≤ 80 Kio (`TestPageWeight`).
 - **Corps de requête bornés** (NF8) : 16 Kio, sauf `POST /admin` (`MAX_UPLOAD_MB` + 64 Kio).
+- **Admin** : toutes ses réponses portent `Cache-Control: no-store`, `noindex` et la CSP
+  de NF5, sans aucun script. Chaque `POST` d'admin passe par `sameOrigin` (403 si
+  `Sec-Fetch-Site: cross-site` ou `Origin` ≠ `PUBLIC_BASE_URL`, NF6) ; `POST /admin/login`
+  passe en plus par la limitation, **avant** la vérification du mot de passe (F20).
+- **Sessions** : jeton de 256 bits, seule son empreinte SHA-256 en base ; chaque session
+  garde l'empreinte de `ADMIN_PASSWORD_HASH` (F19). Cookie `__Host-session` en HTTPS,
+  `session` en HTTP local. Purge des sessions expirées toutes les heures (`cmd/home`).
 - Base locale sur le port **5436**.
 
 ## Décisions ouvertes
