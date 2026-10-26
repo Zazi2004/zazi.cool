@@ -1,0 +1,29 @@
+{{define "home.html"}}{{template "head" .}}
+<main class="page">
+<header>
+{{- with .Banner}}
+<div class="banner"><img src="{{.URL}}" alt="{{.Alt}}" width="{{.Width}}" height="{{.Height}}" fetchpriority="high"></div>
+{{- else}}
+<div class="banner banner-none" aria-hidden="true"></div>
+{{- end}}
+<h1>{{.Heading}}</h1>
+{{- if .Paragraphs}}
+<div class="intro">
+{{- range .Paragraphs}}
+<p>{{range $i, $line := .}}{{if $i}}<br>{{end}}{{$line}}{{end}}</p>
+{{- end}}
+</div>
+{{- end}}
+</header>
+<section aria-labelledby="services-title">
+<h2 class="services-title" id="services-title">Les services</h2>
+<ul class="services">
+{{- range .Services}}
+<li><a class="card" href="{{.URL}}"><img class="card-icon" src="{{asset .Icon}}" alt="" width="44" height="44"><span class="card-name">{{.Name}}</span><span class="card-description">{{.Description}}</span><span class="card-domain">{{.Domain}}</span></a></li>
+{{- end}}
+</ul>
+</section>
+</main>
+</body>
+</html>
+{{end}}

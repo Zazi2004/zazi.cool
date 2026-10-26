@@ -23,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"zazi.cool/home/internal/auth"
+	"zazi.cool/home/internal/content"
 	"zazi.cool/home/internal/migrate"
 	"zazi.cool/home/internal/server"
 	"zazi.cool/home/migrations"
@@ -33,6 +34,9 @@ var version = "dev"
 
 // shutdownTimeout bounds how long in-flight requests may take to finish on SIGTERM.
 const shutdownTimeout = 10 * time.Second
+
+// cleanupEvery is the period of the purge of expired sessions.
+const cleanupEvery = time.Hour
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
@@ -64,11 +68,44 @@ func run(args []string) error {
 		return nil
 	}
 
-	handler := server.NewHandler(server.Config{
-		DB:      pool,
-		Version: version,
+	sessions := auth.NewManager(cfg.passwordHash, pool, strings.HasPrefix(cfg.publicBaseURL, "https://"))
+	go cleanUp(ctx, sessions)
+
+	handler, err := server.NewHandler(server.Config{
+		DB:             pool,
+		Content:        content.NewStore(pool),
+		Version:        version,
+		Auth:           sessions,
+		PublicBaseURL:  cfg.publicBaseURL,
+		TrustProxy:     cfg.trustProxy,
+		LoginLimit:     cfg.loginLimit,
+		MaxUploadBytes: int64(cfg.maxUploadMB) << 20,
 	})
+	if err != nil {
+		return err
+	}
 	return serve(ctx, ":"+cfg.port, handler)
+}
+
+// cleanUp deletes the expired sessions now and then every cleanupEvery, until ctx
+// ends. The deletion is idempotent: running it twice is harmless.
+func cleanUp(ctx context.Context, sessions *auth.Manager) {
+	ticker := time.NewTicker(cleanupEvery)
+	defer ticker.Stop()
+	for {
+		if n, err := sessions.DeleteExpired(ctx, time.Now()); err != nil {
+			slog.Error("clean up sessions", "error", err)
+		} else if n > 0 {
+			slog.Info("expired sessions deleted", "count", n)
+		}
+
+		// select waits for whichever comes first: the next tick or the shutdown.
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
 // serve runs the HTTP server until ctx is cancelled, then shuts it down gracefully:
@@ -110,9 +147,9 @@ func serve(ctx context.Context, addr string, handler http.Handler) error {
 	return nil
 }
 
-// config is the whole configuration of the app (see .env.example). The admin and
-// upload settings are read and checked now, so that a deployment with a wrong
-// value fails at startup; the admin (T4) and the banner upload (T6) use them.
+// config is the whole configuration of the app (see .env.example). The upload
+// setting is read and checked now, so that a deployment with a wrong value fails
+// at startup; the banner upload (T6) uses it.
 type config struct {
 	port          string
 	databaseURL   string

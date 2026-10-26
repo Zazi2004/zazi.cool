@@ -4,9 +4,13 @@ package server
 import (
 	"context"
 	"fmt"
+	"html/template"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"zazi.cool/home/internal/auth"
+	"zazi.cool/home/internal/web"
 )
 
 // Pinger is the part of the database that /readyz needs; *pgxpool.Pool satisfies it.
@@ -16,25 +20,56 @@ type Pinger interface {
 
 // Config holds what the HTTP layer needs.
 type Config struct {
-	DB Pinger
+	DB      Pinger
+	Content ContentLoader
 	// Version is the git SHA of the running build, served by /version.
 	Version string
+	// Auth checks the admin password and sessions.
+	Auth *auth.Manager
+	// PublicBaseURL is the public URL of the site, without trailing slash: Open
+	// Graph URLs, and admin POSTs with another Origin are refused.
+	PublicBaseURL string
+	// TrustProxy reads the client IP from X-Forwarded-For (behind Traefik only).
+	TrustProxy bool
+	// LoginLimit is the number of login attempts allowed per IP and per hour.
+	LoginLimit int
+	// MaxUploadBytes bounds the banner upload of the admin form (MAX_UPLOAD_MB).
+	MaxUploadBytes int64
 }
 
 const readyTimeout = 2 * time.Second
 
 type server struct {
-	cfg Config
+	cfg    Config
+	assets *web.Assets
+	tmpl   *template.Template
 }
 
 // NewHandler returns the root handler of the application.
-func NewHandler(cfg Config) http.Handler {
-	s := &server{cfg: cfg}
+func NewHandler(cfg Config) (http.Handler, error) {
+	assets, err := web.LoadAssets()
+	if err != nil {
+		return nil, err
+	}
+	tmpl, err := web.Templates(assets)
+	if err != nil {
+		return nil, err
+	}
+	s := &server{cfg: cfg, assets: assets, tmpl: tmpl}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.healthz)
 	mux.HandleFunc("GET /readyz", s.readyz)
 	mux.HandleFunc("GET /version", s.version)
-	return logRequests(mux)
+	// "/{$}" matches "/" only; "/" alone would match every path.
+	mux.HandleFunc("GET /{$}", s.home)
+	mux.HandleFunc("GET /assets/{file}", s.asset)
+	for _, name := range []string{"favicon.svg", "og-default.png", "robots.txt"} {
+		mux.HandleFunc("GET /"+name, s.rootFile(name))
+	}
+	s.adminRoutes(mux)
+	mux.HandleFunc("/", s.notFound)
+	return logRequests(securityHeaders(limitBody(cfg.MaxUploadBytes, mux))), nil
 }
 
 // healthz only proves that the process answers: it never checks the database, so
@@ -61,33 +96,4 @@ func (s *server) version(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	fmt.Fprintln(w, s.cfg.Version)
-}
-
-// statusRecorder remembers the status code written, for the request log.
-type statusRecorder struct {
-	http.ResponseWriter
-	status int
-}
-
-func (r *statusRecorder) WriteHeader(status int) {
-	r.status = status
-	r.ResponseWriter.WriteHeader(status)
-}
-
-func logRequests(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
-		next.ServeHTTP(rec, r)
-		// Health probes run every few seconds and would drown the useful logs.
-		if r.URL.Path == "/healthz" || r.URL.Path == "/readyz" {
-			return
-		}
-		slog.Info("request",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"status", rec.status,
-			"duration_ms", time.Since(start).Milliseconds(),
-		)
-	})
 }

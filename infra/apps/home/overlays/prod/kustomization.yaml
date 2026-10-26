@@ -9,7 +9,6 @@ resources:
   - secret.enc.yaml
 images:
   - name: ghcr.io/zazi2004/home
-    # Quoted: an all-digit SHA would be read as a number. While the Flux Kustomization is
-    # suspended (until the first deployment, docs/specs/home.md T9), this tag deploys
-    # nothing and bump.yml and deploy-verify skip home: T9 sets it by hand.
-    newTag: "c1279a6"
+    # Quoted: an all-digit SHA would be read as a number. Empty until the first deployment
+    # (the Flux Kustomization is suspended until then): deploy-verify skips an empty tag.
+    newTag: "4a80d10"
