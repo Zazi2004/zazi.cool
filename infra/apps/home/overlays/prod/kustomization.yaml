@@ -1,0 +1,14 @@
+# Production, reconciled by Flux (infra/flux). To deploy a new version: set newTag to the
+# 7-character git SHA built by the CI (ghcr.io/zazi2004/home:<sha>) and merge.
+# secret.enc.yaml is decrypted by Flux (SOPS + age); never `kubectl apply -k` this folder,
+# it would apply the encrypted values.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+  - secret.enc.yaml
+images:
+  - name: ghcr.io/zazi2004/home
+    # Quoted: an all-digit SHA would be read as a number. Empty until the first deployment
+    # (the Flux Kustomization is suspended until then): deploy-verify skips an empty tag.
+    newTag: ""

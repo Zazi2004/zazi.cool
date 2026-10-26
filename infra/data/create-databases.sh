@@ -25,3 +25,4 @@ SQL
 create_app_db undercover "$UNDERCOVER_DB_PASSWORD"
 create_app_db pastebin "$PASTEBIN_DB_PASSWORD"
 create_app_db linktree "$LINKTREE_DB_PASSWORD"
+create_app_db home "$HOME_DB_PASSWORD"

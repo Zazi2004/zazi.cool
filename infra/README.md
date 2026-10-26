@@ -155,6 +155,33 @@ flux get kustomization linktree
 gh workflow run verify.yml -f app=linktree -f url=https://link.zazi.cool -f sha=<newTag>
 ```
 
+### Première fois pour home (`zazi.cool`, `www.zazi.cool`)
+
+Comme linktree, home est géré par Flux, mais ses manifests arrivent avant sa première
+image : la Kustomization Flux `home` est **suspendue** (`suspend: true`), l'overlay n'a pas
+encore de `newTag` et `secret.enc.yaml` ne contient que des valeurs d'exemple chiffrées.
+Au premier déploiement (T9 de `docs/specs/home.md`) :
+
+```sh
+# 1. Ajouter la clé `home` (mot de passe aléatoire) dans le secret des bases
+sops edit infra/data/secrets/app-db-passwords.enc.yaml
+# 2. Créer la base et mettre à jour la sauvegarde : appliquer les secrets, infra/data (voir §5)
+#    puis infra/data/backup
+kubectl apply -k infra/data/backup
+# 3. Hash du mot de passe de l'admin (saisi sans écho)
+make -C apps/home hash-password
+# 4. Remplacer les valeurs d'exemple : même mot de passe dans DATABASE_URL, hash de l'étape 3
+sops edit infra/apps/home/overlays/prod/secret.enc.yaml
+# 5. Dans la PR de déploiement : newTag, secret et retrait de `suspend: true` de
+#    infra/flux/clusters/prod/apps.yaml ; merger : Flux déploie, puis vérifier
+flux get kustomization home
+gh workflow run verify.yml -f app=home -f url=https://zazi.cool -f sha=<newTag>
+curl -sI https://www.zazi.cool/test    # 301, Location: https://zazi.cool/test
+```
+
+Le premier `host` de l'Ingress doit rester `zazi.cool` : `deploy-verify` vérifie le premier
+host, et `www.zazi.cool` ne répond que par une redirection.
+
 ## Vérifier un déploiement
 
 Le workflow réutilisable `.github/workflows/verify.yml` contrôle une app depuis l'extérieur.

@@ -43,7 +43,7 @@ spec:
                       key: password
                 # Space-separated list of the databases to back up.
                 - name: DATABASES
-                  value: "undercover linktree"
+                  value: "undercover linktree home"
               command:
                 - sh
                 - -c
