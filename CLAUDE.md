@@ -19,7 +19,7 @@ et **prime sur ce fichier** en cas de conflit pour ce qui la concerne.
 
 | Projet       | Dossier            | Sous-domaine                                    | Statut     |
 |--------------|--------------------|-------------------------------------------------|------------|
-| Accueil      | `apps/home/`       | `zazi.cool` (+ `www.zazi.cool` → redirection 301) | Cadrage    |
+| Accueil      | `apps/home/`       | `zazi.cool` (+ `www.zazi.cool` → redirection 301) | Développement |
 | Pastebin     | `apps/pastebin/`   | `pb.zazi.cool`                                  | Production (2026-10-19) |
 | Linktree     | `apps/linktree/`   | `link.zazi.cool`                                | Production (2026-10-21) |
 | Undercover   | `apps/undercover/` | `undercover.zazi.cool`                          | Production (2026-10-14) |
@@ -271,7 +271,8 @@ Les tests Go sont placés à côté du code testé (`*_test.go`), selon la conve
 - [x] Sous-domaine du linktree : **`link.zazi.cool`** seul (pas de `links.zazi.cool`).
 - [x] Sous-domaine du jeu Undercover : **`undercover.zazi.cool`**.
 - [x] Apex `zazi.cool` : **page d'accueil dédiée** (`apps/home/`, statique) ;
-      `www.zazi.cool` redirige en 301 vers l'apex.
+      `www.zazi.cool` redirige en 301 vers l'apex. Devenue une petite app dynamique
+      (base `home`, admin) avec la spec du 2026-10-26 (`docs/specs/home.md`).
 - [x] Stack technique : **Go pour tous les back-ends** ; front en rendu serveur par défaut,
       **TypeScript + Vite** (embarqué dans le binaire Go) pour les fronts interactifs comme
       Undercover. Les choix détaillés (bibliothèques, temps réel) se font au cadrage de
