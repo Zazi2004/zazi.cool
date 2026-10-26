@@ -75,10 +75,11 @@ func (m *Manager) Login(ctx context.Context, w http.ResponseWriter, password str
 	token := make([]byte, tokenBytes)
 	// crypto/rand.Read never returns an error on supported platforms.
 	_, _ = rand.Read(token)
-	expires := m.now().Add(SessionTTL)
+	now := m.now()
+	expires := now.Add(SessionTTL)
 	_, err := m.db.Exec(ctx,
 		`INSERT INTO sessions (token_hash, password_fingerprint, created_at, expires_at) VALUES ($1, $2, $3, $4)`,
-		hashToken(token), m.fingerprint, m.now(), expires)
+		hashToken(token), m.fingerprint, now, expires)
 	if err != nil {
 		return fmt.Errorf("insert session: %w", err)
 	}
