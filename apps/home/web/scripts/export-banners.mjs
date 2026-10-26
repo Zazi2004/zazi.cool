@@ -85,7 +85,8 @@ try {
       jpeg = Buffer.from(data, "base64");
       if (jpeg.length <= MAX_BYTES) break;
     }
-    if (jpeg.length > MAX_BYTES) throw new Error(`${file}: ${jpeg.length} bytes, over ${MAX_BYTES}`);
+    if (jpeg.length > MAX_BYTES)
+      throw new Error(`${file}: ${jpeg.length} bytes, over ${MAX_BYTES}`);
     const out = join(outDir, basename(file, ".svg") + ".jpg");
     await writeFile(out, jpeg);
     console.log(`${basename(out)}  ${(jpeg.length / 1024).toFixed(0)} Kio`);

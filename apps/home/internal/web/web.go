@@ -6,11 +6,15 @@ import (
 	"crypto/sha256"
 	"embed"
 	"encoding/hex"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io/fs"
 	"path"
 	"strings"
+
+	front "zazi.cool/home/web"
 )
 
 //go:embed templates/*.html
@@ -30,6 +34,7 @@ type File struct {
 // /etc/mime.types, and Go's built-in table lacks woff2.
 var contentTypes = map[string]string{
 	".css":   "text/css; charset=utf-8",
+	".js":    "text/javascript; charset=utf-8",
 	".woff2": "font/woff2",
 	".svg":   "image/svg+xml",
 	".png":   "image/png",
@@ -43,6 +48,7 @@ type Assets struct {
 	urls   map[string]string // asset name → "/assets/<fingerprinted name>"
 	hashed map[string]File   // fingerprinted name → file
 	root   map[string]File   // "favicon.svg", "robots.txt"…
+	script string            // URL of the bootstrap script of the animated backgrounds, "" if not built
 }
 
 // LoadAssets reads the embedded static files.
@@ -121,8 +127,64 @@ func LoadAssets() (*Assets, error) {
 		}
 		a.root[e.Name()] = File{Name: e.Name(), ContentType: ct, Data: data}
 	}
+
+	if err := a.loadFront(); err != nil {
+		return nil, err
+	}
 	return a, nil
 }
+
+// bootEntry is the key of the bootstrap script in the Vite manifest.
+const bootEntry = "src/boot.ts"
+
+// loadFront adds the files built by Vite (web/dist/assets). Their names already carry
+// a content hash, and the bootstrap script imports the background modules by relative
+// URL: they are served as they are, not renamed. If the front is not built (only the
+// placeholder of the make targets is there), the page has no animated background.
+func (a *Assets) loadFront() error {
+	dist, err := front.Dist()
+	if err != nil {
+		return fmt.Errorf("open front: %w", err)
+	}
+	raw, err := fs.ReadFile(dist, ".vite/manifest.json")
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read front manifest: %w", err)
+	}
+	var manifest map[string]struct {
+		File string `json:"file"`
+	}
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		return fmt.Errorf("parse front manifest: %w", err)
+	}
+	boot, ok := manifest[bootEntry]
+	if !ok {
+		return fmt.Errorf("front manifest has no %s", bootEntry)
+	}
+	entries, err := fs.ReadDir(dist, "assets")
+	if err != nil {
+		return fmt.Errorf("read front assets: %w", err)
+	}
+	for _, e := range entries {
+		data, err := fs.ReadFile(dist, "assets/"+e.Name())
+		if err != nil {
+			return fmt.Errorf("read front asset: %w", err)
+		}
+		ct, err := contentType(e.Name())
+		if err != nil {
+			return err
+		}
+		a.hashed[e.Name()] = File{Name: e.Name(), ContentType: ct, Data: data}
+	}
+	a.script = "/" + boot.File
+	return nil
+}
+
+// Script returns the URL of the bootstrap script of the animated backgrounds, or ""
+// when the front is not built.
+func (a *Assets) Script() string { return a.script }
 
 func (a *Assets) add(name string, data []byte) error {
 	ct, err := contentType(name)

@@ -2,6 +2,8 @@ module zazi.cool/home
 
 go 1.27.0
 
+ignore ./web/node_modules
+
 require (
 	github.com/jackc/pgx/v5 v5.11.0
 	golang.org/x/crypto v0.58.0

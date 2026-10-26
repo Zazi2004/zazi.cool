@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"math"
 	"os"
 	"regexp"
@@ -124,6 +125,60 @@ func TestContrastAA(t *testing.T) {
 			for _, bg := range bgs {
 				if r := contrast(get(text), backgrounds[bg]); r < 4.5 {
 					t.Errorf("%s: --%s on %s: contrast %.2f, want ≥ 4.5", mode, text, bg, r)
+				}
+			}
+		}
+	}
+}
+
+// textColors are the text colors checked against every color the animated backgrounds
+// can show, and against the cards (at rest and hovered) laid over it.
+var textColors = []string{"text", "muted", "accent-text"}
+
+// CA24 (F24, NF4): for every animated background and every mode, the extreme colors of
+// the shader (backgrounds.json), seen through the fixed opacity of the canvas over
+// both ends of the static gradient, keep the AA contrast of the text and of the cards.
+// The same file feeds the shaders: changing a color or an opacity there is tested here.
+func TestContrastAnimatedBackgrounds(t *testing.T) {
+	data, err := os.ReadFile("../../web/src/backgrounds.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var backgrounds map[string]map[string]struct {
+		Opacity float64  `json:"opacity"`
+		Colors  []string `json:"colors"`
+	}
+	if err := json.Unmarshal(data, &backgrounds); err != nil {
+		t.Fatal(err)
+	}
+	if len(backgrounds) != 3 {
+		t.Fatalf("backgrounds.json has %d backgrounds, want aurore, fils and grain", len(backgrounds))
+	}
+	light, dark := themeVars(t)
+	for name, modes := range backgrounds {
+		for mode, vars := range map[string]map[string]string{"light": light, "dark": dark} {
+			bg, ok := modes[mode]
+			if !ok {
+				t.Fatalf("%s has no %s mode", name, mode)
+			}
+			get := func(v string) color { return parseColor(t, vars[v]) }
+			for _, base := range []string{"bg-0", "bg-1"} {
+				for _, hex := range bg.Colors {
+					seen := parseColor(t, hex)
+					seen.a = bg.Opacity
+					behind := seen.over(get(base))
+					surfaces := map[string]color{"page": behind}
+					for _, card := range []string{"card", "card-hover"} {
+						surfaces[card] = get(card).over(behind)
+					}
+					for surface, s := range surfaces {
+						for _, text := range textColors {
+							if r := contrast(get(text), s); r < 4.5 {
+								t.Errorf("%s / %s: --%s on %s over %s through %s at %.2f: contrast %.2f, want ≥ 4.5",
+									name, mode, text, surface, base, hex, bg.Opacity, r)
+							}
+						}
+					}
 				}
 			}
 		}

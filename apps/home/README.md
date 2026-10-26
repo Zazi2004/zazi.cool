@@ -5,13 +5,13 @@ titre et un paragraphe modifiables dans une mini administration (`/admin`).
 Spécification : [`docs/specs/home.md`](../../docs/specs/home.md) ;
 contexte : [`CLAUDE.md`](CLAUDE.md).
 
-> **En construction.** Le squelette (T1), la page publique (T3), la connexion à l'admin
-> (T4), l'édition (T5), la bannière téléversée (T6) et les illustrations par défaut (T7)
-> existent. Le fond animé (T8) arrive dans le ticket suivant.
+> **En construction.** Toutes les étapes de la spec sont en place : squelette (T1), page
+> publique (T3), connexion à l'admin (T4), édition (T5), bannière téléversée (T6),
+> illustrations par défaut (T7) et fonds animés (T8).
 
 ## Prérequis
 
-Docker (Compose v2), `make` et Go 1.27+.
+Docker (Compose v2), `make`, Go 1.27+ et Node 24+ (pour les fonds animés, `web/`).
 
 ## Démarrage rapide
 
@@ -29,11 +29,11 @@ démarrage. En local, le mot de passe de l'admin est `home-dev-password` (hash f
 ## Développement
 
 ```sh
-make dev            # PostgreSQL dans Docker, serveur Go sur la machine (relancer après une modification)
-make test           # tests Go, dont les tests d'intégration PostgreSQL
-make lint           # gofmt + go vet
-make fmt            # formate le Go
-make build          # image Docker taguée avec le SHA git (injecté dans /version)
+make dev            # PostgreSQL dans Docker, serveur Go sur la machine (relancer après une modification du Go ou de web/)
+make test           # tests du front (Vitest), puis tests Go, dont les tests d'intégration PostgreSQL
+make lint           # gofmt + go vet, type check TypeScript + Prettier
+make fmt            # formate le Go et le front
+make build          # image Docker taguée avec le SHA git (injecté dans /version) ; échoue si le front dépasse son budget
 make migrate        # applique les migrations sur DATABASE_URL
 make export-banners # régénère les JPEG des illustrations depuis web/banners/*.svg (Chrome, Chromium ou Brave)
 make hash-password  # génère un ADMIN_PASSWORD_HASH (mot de passe saisi sans écho)

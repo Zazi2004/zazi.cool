@@ -17,7 +17,7 @@ logique applicative).
 publique (T3 : `/`, 404, fichiers statiques, Open Graph) et l'authentification de l'admin
 (T4 : connexion et déconnexion de `/admin`), le formulaire d'édition (T5 : titre,
 paragraphe, texte alternatif, fond) et la bannière téléversée (T6 : `/images/{id}`,
-purge) et les illustrations par défaut (T7 : galerie, vignettes) sont en place. Démarrage local :
+purge) et les illustrations par défaut (T7 : galerie, vignettes) et les fonds animés WebGL (T8) sont en place. Démarrage local :
 [`README.md`](README.md).
 
 ## Architecture
@@ -31,8 +31,9 @@ purge) et les illustrations par défaut (T7 : galerie, vignettes) sont en place.
   `internal/ratelimit` (limitation par IP en mémoire), `internal/images` (vérification,
   redimensionnement et ré-encodage des bannières), `internal/dbtest` (base PostgreSQL
   de test dans un schéma temporaire).
-- **Rendu serveur** (`html/template` + CSS), pas de React (D1). Seul le fond animé sera
-  en TypeScript + Vite sans framework, dans `web/`, embarqué dans le binaire (T8).
+- **Rendu serveur** (`html/template` + CSS), pas de React (D1). Seul le fond animé est
+  en TypeScript + Vite sans framework, dans `web/` (`npm run build` → `web/dist`, embarqué
+  dans le binaire par `web/embed.go`).
 - **PostgreSQL**, base `home` (`migrations/001_init.sql`) : `content` (une seule ligne :
   titre, paragraphe, choix de bannière, image téléversée, texte alternatif, fond,
   version), `images` (bannières téléversées), `sessions`.
@@ -110,6 +111,28 @@ purge) et les illustrations par défaut (T7 : galerie, vignettes) sont en place.
   sans bannière (`Content.Banner` renvoie `nil`) et l'admin avertit (`BannerKnown`).
   La migration `002` choisit `aube` tant que le contenu n'a jamais été enregistré
   (`version = 1`) ; retirer une illustration ne demande **aucune** migration.
+- **Fonds animés** (`web/`, aucune dépendance d'exécution ; dev : TypeScript, Vite, Vitest,
+  Prettier, `@types/node`). `src/boot.ts` (script d'amorçage, seul script de la page)
+  lit `data-background` ; si `animationAllowed` (`src/policy.ts` : WebGL 2 réellement
+  disponible, ni `prefers-reduced-motion` ni `Save-Data`), il charge, au repos du
+  navigateur, le module du fond (`src/backgrounds/{aurore,fils,grain}.ts`, shaders dans
+  `*.shaders.ts`, repris des composants React Bits du linktree : origine et licence en
+  tête de fichier). `statique` ou fond inconnu : aucun `<script>` dans la page. Le module
+  dessine dans un `<canvas>` ajouté à `.backdrop`, se met en pause quand l'onglet est
+  caché et suit clair/sombre.
+- **Opacité et couleurs des fonds** : `web/src/backgrounds.json` est la source unique
+  (shaders **et** `TestContrastAnimatedBackgrounds`, qui vérifie l'AA du texte et des
+  cartes sur chaque couleur extrême vue à travers l'opacité). Changer une couleur ou une
+  opacité = relancer `make test`. Le `--muted` sombre vaut `#bcbcc4` (et non `#a1a1aa`
+  du linktree) : sans cela, aucun fond animé ne tient l'AA sur une carte survolée.
+- **Build du front** : Vite produit des noms avec empreinte, servis tels quels sous
+  `/assets/` (le script d'amorçage importe les modules par URL relative, ils ne doivent
+  pas être renommés) ; `.vite/manifest.json` donne le nom du script d'amorçage. Sans
+  build (`dist/.keep` seulement), la page n'a pas de fond animé. `make test`, `make dev`
+  et le `Dockerfile` construisent le front d'abord.
+- **Budget** (NF3, CA25) : `npm run build` échoue (donc `make build`) si le script
+  d'amorçage dépasse 5 Kio gzip ou un module de fond 30 Kio gzip (avec le code partagé
+  qu'il importe) ; logique dans `web/src/budget.ts`, testée.
 - Base locale sur le port **5436**.
 
 ## Décisions ouvertes

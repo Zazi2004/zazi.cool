@@ -5,3 +5,5 @@ bin
 *.md
 compose.yaml
 Makefile
+web/node_modules
+web/dist

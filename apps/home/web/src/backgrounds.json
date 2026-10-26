@@ -1,0 +1,14 @@
+{
+  "aurore": {
+    "light": { "opacity": 0.28, "colors": ["#a78bfa", "#22d3ee", "#a78bfa"] },
+    "dark": { "opacity": 0.28, "colors": ["#6d28d9", "#0e7490", "#6d28d9"] }
+  },
+  "fils": {
+    "light": { "opacity": 0.28, "colors": ["#a78bfa", "#22d3ee"] },
+    "dark": { "opacity": 0.28, "colors": ["#6d28d9", "#0e7490"] }
+  },
+  "grain": {
+    "light": { "opacity": 0.4, "colors": ["#f7f6f3", "#c4b5fd", "#a5f3fc", "#e9e1f0"] },
+    "dark": { "opacity": 0.4, "colors": ["#0c0c10", "#4c1d95", "#6d28d9", "#155e75"] }
+  }
+}

@@ -27,7 +27,8 @@ type page struct {
 	Image       string // absolute URL of og:image
 	ImageAlt    string
 	NoIndex     bool
-	Background  string // data-background, read by the animated background (T8)
+	Background  string // data-background, read by the bootstrap script of the animated backgrounds
+	Script      string // URL of that script; empty for the static background (no script at all)
 
 	Heading    string
 	Banner     *content.Banner
@@ -51,6 +52,9 @@ func (s *server) home(w http.ResponseWriter, r *http.Request) {
 		Banner:      c.Banner(s.assets.IllustrationURL),
 		Paragraphs:  content.Paragraphs(c.Body),
 		Services:    content.Services,
+	}
+	if p.Background != content.StaticBackground {
+		p.Script = s.assets.Script()
 	}
 	if p.Banner != nil {
 		p.Image = s.cfg.PublicBaseURL + p.Banner.URL
