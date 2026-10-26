@@ -137,3 +137,25 @@ func TestStoreLoadWithoutRow(t *testing.T) {
 		t.Error("Load without content row: no error")
 	}
 }
+
+func TestEditValidate(t *testing.T) {
+	valid := Edit{Title: " Titre ", Body: "a\r\nb", BannerChoice: "none", Background: "aurore"}
+	got, errs := valid.Validate(false)
+	if len(errs) != 0 || got.Title != "Titre" || got.Body != "a\nb" {
+		t.Errorf("valid edit: %+v, errors %v", got, errs)
+	}
+	if _, errs := (Edit{Title: "t", BannerChoice: "upload", Background: "aurore"}).Validate(true); len(errs) != 0 {
+		t.Errorf("upload with an image: %v", errs)
+	}
+	_, errs = (Edit{Title: "t", BannerChoice: "upload", Background: "aurore"}).Validate(false)
+	if errs["banner"] == "" {
+		t.Error("upload without an image should be refused")
+	}
+	// 80 multi-byte characters are fine, 81 are not: lengths count characters.
+	if _, errs := (Edit{Title: strings.Repeat("é", 80), BannerChoice: "none", Background: "aurore"}).Validate(false); len(errs) != 0 {
+		t.Errorf("80 characters: %v", errs)
+	}
+	if _, errs := (Edit{Title: "bad\xff", BannerChoice: "none", Background: "aurore"}).Validate(false); errs["title"] == "" {
+		t.Error("invalid UTF-8 should be refused")
+	}
+}

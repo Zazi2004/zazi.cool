@@ -25,10 +25,51 @@
 </form>
 {{template "admin-foot"}}{{end}}
 
+{{define "field-error"}}{{if .}}<p role="alert">{{.}}</p>{{end}}{{end}}
+
 {{define "dashboard"}}{{template "admin-head" "Administration"}}
 <h1>Administration</h1>
-<p>Vous êtes connecté.</p>
+{{with .Notice}}<p role="status">{{.}}</p>{{end}}
+{{if .Conflict}}<p role="alert">Le contenu a été modifié ailleurs, rechargez la page.</p>{{end}}
 <p><a href="/">Voir la page</a></p>
+<form method="post" action="/admin" enctype="multipart/form-data">
+<input type="hidden" name="version" value="{{.Version}}">
+
+<p>
+<label for="title">Titre</label>
+<input id="title" name="title" type="text" value="{{.Title}}" required>
+{{template "field-error" .Errors.title}}
+</p>
+
+<p>
+<label for="body">Paragraphe</label>
+<textarea id="body" name="body" rows="6">{{.Body}}</textarea>
+{{template "field-error" .Errors.body}}
+</p>
+
+<fieldset>
+<legend>Bannière</legend>
+<p><label><input type="radio" name="banner" value="none"{{if eq .BannerChoice "none"}} checked{{end}}> Aucune</label></p>
+{{if .HasUpload}}<p><label><input type="radio" name="banner" value="upload"{{if eq .BannerChoice "upload"}} checked{{end}}> Mon image</label></p>{{end}}
+{{template "field-error" .Errors.banner}}
+</fieldset>
+
+<p>
+<label for="banner_alt">Texte alternatif de la bannière</label>
+<input id="banner_alt" name="banner_alt" type="text" value="{{.BannerAlt}}">
+{{template "field-error" .Errors.banner_alt}}
+</p>
+
+<fieldset>
+<legend>Fond</legend>
+{{$bg := .Background}}
+{{range .BackgroundOptions}}<p><label><input type="radio" name="background" value="{{.ID}}"{{if eq .ID $bg}} checked{{end}}> {{.Label}}</label></p>
+{{end}}
+{{template "field-error" .Errors.background}}
+</fieldset>
+
+<button type="submit">Enregistrer</button>
+</form>
 <form method="post" action="/admin/logout">
 <button type="submit">Se déconnecter</button>
 </form>

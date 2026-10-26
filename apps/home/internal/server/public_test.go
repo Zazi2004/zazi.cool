@@ -26,6 +26,10 @@ type fakeContent struct {
 
 func (f fakeContent) Load(context.Context) (content.Content, error) { return f.c, f.err }
 
+func (f fakeContent) Save(context.Context, int, content.Edit) error {
+	return errors.New("fake: read-only")
+}
+
 func defaultContent() content.Content {
 	return content.Content{
 		Title:        "zazi.cool",

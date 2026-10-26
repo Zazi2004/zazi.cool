@@ -2,7 +2,7 @@
 
 | Champ          | Valeur |
 |----------------|--------|
-| Statut         | **En revue** — D1 à D6 tranchées par Noah le 2026-10-26 ; D7 et D8 ouvertes |
+| Statut         | **Validée le 2026-10-26** — D1 à D8 tranchées par Noah |
 | Issue Multica  | ONBO-64 |
 | Application    | `apps/home/` |
 | Auteur, valideur | Rédacteur de specs / Noah |
@@ -414,15 +414,12 @@ développement seulement : TypeScript, Vite, Vitest et Prettier, comme le linktr
 - [x] **D6** — Bannière au ratio **3:1** (≥ 640 px) et **2:1** en dessous, recadrage
   centré, stockée à 1600 px de large au plus ; conseil « 1600 × 533 px, sujet au
   centre ».
-
-### Ouvertes
-
-- [ ] **D7** — **Fonds proposés** : `aurore`, `fils`, `grain` et `statique`, choisis dans
-  l'admin, `aurore` par défaut, couleurs fixes (violet de l'accent et cyan) ?
-  **Proposition :** oui. Choisir le fond dans l'admin coûte un champ et laisse Noah
+- [x] **D7** — **Fonds proposés** : `aurore`, `fils`, `grain` et `statique`, choisis dans
+  l'admin, `aurore` par défaut, couleurs fixes (violet de l'accent et cyan).
+  **Décision :** oui (proposition acceptée). Choisir le fond dans l'admin coûte un champ et laisse Noah
   changer d'ambiance sans PR ; un seul fond en dur serait plus simple mais figé.
   (bloque : T5, T8)
-- [ ] **D8** — **Illustrations par défaut** : combien, et lesquelles ? **Proposition :**
+- [x] **D8** — **Illustrations par défaut** : combien, et lesquelles ? **Décision :** proposition acceptée —
   6 illustrations **abstraites** dans le style du site (dégradés violet et cyan, formes
   `coolshapes` déjà utilisées par le linktree, licence MIT), dessinées en SVG par l'agent
   et exportées une fois en JPEG 1600 × 533 par un script de développement
