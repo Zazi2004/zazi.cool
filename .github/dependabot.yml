@@ -11,6 +11,13 @@ updates:
         patterns: ["*"]
 
   - package-ecosystem: gomod
+    directory: /apps/habits
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(habits)"
+
+  - package-ecosystem: gomod
     directory: /apps/pastebin
     schedule:
       interval: weekly
@@ -30,6 +37,13 @@ updates:
       interval: weekly
     commit-message:
       prefix: "chore(undercover)"
+
+  - package-ecosystem: docker
+    directory: /apps/habits
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(habits)"
 
   - package-ecosystem: docker
     directory: /apps/pastebin
