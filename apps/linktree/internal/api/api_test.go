@@ -494,3 +494,12 @@ func TestDevCSP(t *testing.T) {
 		}
 	}
 }
+
+func TestNewNonceIsHTMLSafe(t *testing.T) {
+	for range 1000 {
+		n := newNonce()
+		if n == "" || strings.Trim(n, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_") != "" {
+			t.Fatalf("nonce %q has characters that html/template may escape", n)
+		}
+	}
+}
