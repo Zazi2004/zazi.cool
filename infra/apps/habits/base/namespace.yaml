@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: habits
+  annotations:
+    # Flux must never delete the namespace (and the Secret in it) on prune.
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  labels:
+    # Allowed to reach PostgreSQL (infra/data/networkpolicy.yaml).
+    zazi.cool/database: "true"
