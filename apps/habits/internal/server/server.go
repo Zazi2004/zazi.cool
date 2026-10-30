@@ -34,6 +34,7 @@ type Store interface {
 	ListHabits(ctx context.Context, today time.Time) ([]habit.Habit, error)
 	DayHabits(ctx context.Context, day time.Time) ([]habit.DayItem, error)
 	SetDone(ctx context.Context, habitID int64, day time.Time, done bool) error
+	History(ctx context.Context, from, to time.Time) ([]habit.History, error)
 }
 
 // Authenticator checks the password and handles sessions. *auth.Manager satisfies it.
@@ -93,6 +94,12 @@ func NewHandler(cfg Config) http.Handler {
 	mux.Handle("GET /", h.requireSession(http.HandlerFunc(h.home)))
 	mux.Handle("GET /day/{date}", h.requireSession(http.HandlerFunc(h.day)))
 	mux.Handle("POST /day/{date}/toggle", h.requireSession(http.HandlerFunc(h.toggle)))
+	mux.Handle("GET /week", h.requireSession(h.redirectToCurrent("/week/")))
+	mux.Handle("GET /week/{date}", h.requireSession(http.HandlerFunc(h.week)))
+	mux.Handle("GET /month", h.requireSession(h.redirectToCurrent("/month/")))
+	mux.Handle("GET /month/{month}", h.requireSession(http.HandlerFunc(h.month)))
+	mux.Handle("GET /year", h.requireSession(h.redirectToCurrent("/year/")))
+	mux.Handle("GET /year/{year}", h.requireSession(http.HandlerFunc(h.year)))
 	mux.Handle("GET /habits", h.requireSession(http.HandlerFunc(h.habitsIndex)))
 	mux.Handle("POST /habits", h.requireSession(http.HandlerFunc(h.createHabit)))
 	mux.Handle("POST /habits/{id}", h.requireSession(http.HandlerFunc(h.updateHabit)))

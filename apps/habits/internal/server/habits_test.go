@@ -18,6 +18,8 @@ import (
 type memStore struct {
 	habits  []habit.Habit
 	items   []habit.DayItem
+	history []habit.History
+	histAsk [][2]string // from, to requested through History
 	dayAsk  []time.Time // days requested through DayHabits
 	setDone []setDoneCall
 	err     error // returned by every habit write
@@ -51,6 +53,11 @@ func (m *memStore) ListHabits(context.Context, time.Time) ([]habit.Habit, error)
 func (m *memStore) DayHabits(_ context.Context, day time.Time) ([]habit.DayItem, error) {
 	m.dayAsk = append(m.dayAsk, day)
 	return m.items, nil
+}
+
+func (m *memStore) History(_ context.Context, from, to time.Time) ([]habit.History, error) {
+	m.histAsk = append(m.histAsk, [2]string{habit.FormatDay(from), habit.FormatDay(to)})
+	return m.history, nil
 }
 
 func (m *memStore) SetDone(_ context.Context, id int64, day time.Time, done bool) error {

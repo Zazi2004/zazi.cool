@@ -220,3 +220,63 @@ func (s *Store) SetDone(ctx context.Context, habitID int64, day time.Time, done 
 	}
 	return nil
 }
+
+// History returns what the statistics need for the habits that existed at some point
+// of [from, to]: their schedule versions and the days they were done in that range.
+// It takes two queries whatever the range, so a year costs no more than a week (NF6).
+func (s *Store) History(ctx context.Context, from, to time.Time) ([]habit.History, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT h.id, h.name, h.created_on, h.archived_on, s.valid_from, s.weekdays
+		 FROM habits h JOIN habit_schedules s ON s.habit_id = h.id
+		 WHERE h.created_on <= $2 AND (h.archived_on IS NULL OR h.archived_on > $1)
+		 ORDER BY lower(h.name), h.id, s.valid_from`, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("list schedules: %w", err)
+	}
+	defer rows.Close()
+
+	var out []habit.History
+	byID := map[int64]int{}
+	for rows.Next() {
+		var h habit.History
+		var v habit.ScheduleVersion
+		var days int16
+		if err := rows.Scan(&h.ID, &h.Name, &h.CreatedOn, &h.ArchivedOn, &v.ValidFrom, &days); err != nil {
+			return nil, fmt.Errorf("scan schedule: %w", err)
+		}
+		v.Weekdays = habit.Weekdays(days)
+		// Rows come grouped by habit: the first one creates the entry.
+		i, seen := byID[h.ID]
+		if !seen {
+			h.Done = map[time.Time]bool{}
+			out = append(out, h)
+			i = len(out) - 1
+			byID[h.ID] = i
+		}
+		out[i].Schedules = append(out[i].Schedules, v)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list schedules: %w", err)
+	}
+
+	done, err := s.pool.Query(ctx,
+		`SELECT habit_id, day FROM completions WHERE day BETWEEN $1 AND $2`, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("list completions: %w", err)
+	}
+	defer done.Close()
+	for done.Next() {
+		var id int64
+		var day time.Time
+		if err := done.Scan(&id, &day); err != nil {
+			return nil, fmt.Errorf("scan completion: %w", err)
+		}
+		if i, ok := byID[id]; ok {
+			out[i].Done[day] = true
+		}
+	}
+	if err := done.Err(); err != nil {
+		return nil, fmt.Errorf("list completions: %w", err)
+	}
+	return out, nil
+}

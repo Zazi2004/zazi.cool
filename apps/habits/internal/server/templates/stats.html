@@ -1,0 +1,63 @@
+{{define "periodnav"}}<p>
+<a href="{{.PrevHref}}" rel="prev">Précédent</a>
+{{with .NextHref}}<a href="{{.}}" rel="next">Suivant</a>{{end}}
+</p>{{end}}
+
+{{define "ratetable"}}{{if .Rows}}
+<table>
+<caption>Taux de réussite par habitude</caption>
+<thead><tr><th scope="col">Habitude</th><th scope="col">Taux</th><th scope="col">Faits</th><th scope="col">Série en cours</th></tr></thead>
+<tbody>
+{{range .Rows}}<tr><th scope="row">{{.Name}}</th><td>{{.Rate}}</td><td>{{.Done}}/{{.Due}}</td><td>{{.Streak}}</td></tr>
+{{end}}</tbody>
+<tfoot><tr><th scope="row">Global</th><td>{{.Total}}</td><td></td><td></td></tr></tfoot>
+</table>
+{{else}}
+<p>Aucune habitude sur cette période. <a href="/habits">Gérer les habitudes</a></p>
+{{end}}{{end}}
+
+{{define "calendar"}}<table class="calendar">
+<thead><tr>{{range .Weekdays}}<th scope="col">{{.}}</th>{{end}}</tr></thead>
+<tbody>
+{{range .Weeks}}<tr>{{range .}}{{if .Blank}}<td></td>{{else}}<td class="lvl-{{.Level}}">{{if .Href}}<a href="{{.Href}}"><span class="sr">{{.Date}} : </span>{{.Day}} <small>{{.Rate}}</small></a>{{else}}<span class="sr">{{.Date}} : {{.Rate}}</span><span aria-hidden="true">{{.Day}}</span>{{end}}</td>{{end}}{{end}}</tr>
+{{end}}</tbody>
+</table>{{end}}
+
+{{define "week"}}{{template "head" .Label}}
+{{template "nav"}}
+<h1>{{.Label}}</h1>
+{{template "periodnav" .}}
+{{if .Rows}}
+<table>
+<caption>Habitudes de la semaine</caption>
+<thead><tr><th scope="col">Habitude</th>{{range .Days}}<th scope="col"><a href="/day/{{.Date}}">{{.Label}}</a></th>{{end}}<th scope="col">Taux</th><th scope="col">Série en cours</th></tr></thead>
+<tbody>
+{{range .Rows}}<tr><th scope="row">{{.Name}}</th>{{range .Cells}}<td class="{{.Class}}">{{.Label}}</td>{{end}}<td>{{.Rate}}</td><td>{{.Streak}}</td></tr>
+{{end}}</tbody>
+<tfoot><tr><th scope="row">Global</th>{{range .Days}}<td></td>{{end}}<td>{{.Total}}</td><td></td></tr></tfoot>
+</table>
+{{else}}
+<p>Aucune habitude cette semaine. <a href="/habits">Gérer les habitudes</a></p>
+{{end}}
+{{template "foot"}}{{end}}
+
+{{define "month"}}{{template "head" .Label}}
+{{template "nav"}}
+<h1>{{.Label}}</h1>
+{{template "periodnav" .}}
+{{template "calendar" .}}
+{{template "ratetable" .}}
+{{template "foot"}}{{end}}
+
+{{define "year"}}{{template "head" .Label}}
+{{template "nav"}}
+<h1>{{.Label}}</h1>
+{{template "periodnav" .}}
+<h2>Mois</h2>
+<ul>
+{{range .Months}}<li><a href="{{.Href}}">{{.Label}}</a> : {{.Rate}}</li>
+{{end}}</ul>
+<h2>Jours</h2>
+{{template "calendar" .}}
+{{template "ratetable" .}}
+{{template "foot"}}{{end}}

@@ -252,3 +252,54 @@ func TestArchiveAndRestore(t *testing.T) {
 		}
 	}
 }
+
+// History feeds the statistics: schedule versions stay, completions are limited to
+// the range, and a habit archived before the range is left out.
+func TestHistory(t *testing.T) {
+	ctx := context.Background()
+	s := newStore(t)
+	created := day(t, "2026-10-01")
+	if err := s.CreateHabit(ctx, "Lire", habit.AllDays, created); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CreateHabit(ctx, "Ancienne", habit.AllDays, created); err != nil {
+		t.Fatal(err)
+	}
+	lire, old := idOf(t, s, "Lire"), idOf(t, s, "Ancienne")
+	mondays, _ := habit.ParseWeekdays([]string{"1"})
+	if err := s.UpdateHabit(ctx, lire, "Lire", mondays, day(t, "2026-10-26")); err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range []string{"2026-10-05", "2026-10-20", "2026-10-26"} {
+		if err := s.SetDone(ctx, lire, day(t, d), true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.ArchiveHabit(ctx, old, day(t, "2026-10-10")); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := s.History(ctx, day(t, "2026-10-15"), day(t, "2026-10-31"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Name != "Lire" {
+		t.Fatalf("history = %+v, want only Lire", got)
+	}
+	h := got[0]
+	if len(h.Schedules) != 2 || h.Schedules[1].Weekdays != mondays {
+		t.Errorf("schedules = %+v, want 2 versions ending on Mondays", h.Schedules)
+	}
+	if len(h.Done) != 2 || !h.Done[day(t, "2026-10-20")] || !h.Done[day(t, "2026-10-26")] {
+		t.Errorf("done = %v, want 20 and 26 October only", h.Done)
+	}
+	if h.Applies(day(t, "2026-10-27")) || !h.Applies(day(t, "2026-10-21")) {
+		t.Error("Applies does not follow the schedule versions")
+	}
+
+	// Archived on the 10th: still listed for a range that covers days before it.
+	got, err = s.History(ctx, day(t, "2026-10-01"), day(t, "2026-10-31"))
+	if err != nil || len(got) != 2 {
+		t.Errorf("full range = %d habits, %v; want 2", len(got), err)
+	}
+}
