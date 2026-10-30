@@ -55,6 +55,12 @@ jobs:
             exit 0
           fi
 
+          # An app without manifests yet (infra/apps/<app> comes in its own ticket) has nothing to bump.
+          if [ ! -f "$file" ]; then
+            echo "::warning::$file does not exist yet, skipping the bump"
+            exit 0
+          fi
+
           # A suspended Flux Kustomization deploys nothing: a bump would only make verify fail.
           rc=0
           .github/scripts/flux-suspended.sh "$APP" || rc=$?
