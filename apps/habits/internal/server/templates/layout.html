@@ -25,10 +25,10 @@
 </form>
 {{template "foot"}}{{end}}
 
-{{define "home"}}{{template "head" "Aujourd'hui"}}
-<h1>Habits</h1>
-<p>Connecté.</p>
+{{define "nav"}}<nav>
+<a href="/">Aujourd'hui</a>
+<a href="/habits">Habitudes</a>
 <form method="post" action="/logout">
 <button type="submit">Se déconnecter</button>
 </form>
-{{template "foot"}}{{end}}
+</nav>{{end}}

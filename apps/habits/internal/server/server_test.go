@@ -9,7 +9,12 @@ import (
 	"testing"
 )
 
-type fakeStore struct{ pingErr error }
+// fakeStore answers the probes only. The embedded nil Store makes any habit call
+// panic, which is what we want in tests that must not reach it.
+type fakeStore struct {
+	Store
+	pingErr error
+}
 
 func (f fakeStore) Ping(context.Context) error { return f.pingErr }
 

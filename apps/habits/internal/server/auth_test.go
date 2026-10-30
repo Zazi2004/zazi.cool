@@ -40,7 +40,7 @@ func (fakeAuth) Authenticated(r *http.Request) (bool, error) {
 
 func newTestHandler(limit int) http.Handler {
 	return NewHandler(Config{
-		Store: fakeStore{}, Auth: fakeAuth{}, Version: "abc1234",
+		Store: &memStore{}, Auth: fakeAuth{}, Version: "abc1234",
 		BaseURL: testBaseURL, LoginLimit: limit,
 	})
 }

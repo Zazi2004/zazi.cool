@@ -74,12 +74,14 @@ func run(args []string) error {
 	go cleanUp(ctx, sessions)
 
 	return serve(ctx, ":"+cfg.port, server.NewHandler(server.Config{
-		Store:      st,
-		Auth:       sessions,
-		Version:    version,
-		BaseURL:    cfg.baseURL,
-		TrustProxy: cfg.trustProxy,
-		LoginLimit: cfg.loginLimit,
+		Store:          st,
+		Auth:           sessions,
+		Version:        version,
+		BaseURL:        cfg.baseURL,
+		TrustProxy:     cfg.trustProxy,
+		LoginLimit:     cfg.loginLimit,
+		Location:       cfg.location,
+		EditWindowDays: cfg.editWindowDays,
 	}))
 }
 
@@ -150,6 +152,9 @@ type config struct {
 	baseURL      string
 	trustProxy   bool
 	loginLimit   int
+	// location defines the "day" (TZ_NAME); editWindowDays how far back days can be edited.
+	location       *time.Location
+	editWindowDays int
 }
 
 // loadConfig reads the configuration from environment variables (see .env.example).
@@ -182,6 +187,12 @@ func loadConfig() (config, error) {
 	}
 	if cfg.loginLimit, err = strconv.Atoi(getenv("RATE_LIMIT_LOGIN", "10")); err != nil || cfg.loginLimit <= 0 {
 		return config{}, errors.New("RATE_LIMIT_LOGIN must be a positive integer")
+	}
+	if cfg.location, err = time.LoadLocation(getenv("TZ_NAME", "Europe/Paris")); err != nil {
+		return config{}, fmt.Errorf("TZ_NAME: %w", err)
+	}
+	if cfg.editWindowDays, err = strconv.Atoi(getenv("EDIT_WINDOW_DAYS", "14")); err != nil || cfg.editWindowDays < 0 {
+		return config{}, errors.New("EDIT_WINDOW_DAYS must be a non-negative integer")
 	}
 	return cfg, nil
 }
