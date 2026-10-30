@@ -84,15 +84,12 @@ spec:
     secretRef:
       name: sops-age
 ---
-# Suspended until the first deployment (docs/specs/habits.md, T7): the overlay has no image
-# tag and secret.enc.yaml only holds placeholders. T7 sets both and removes `suspend`.
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
   name: habits
   namespace: flux-system
 spec:
-  suspend: true
   interval: 10m
   retryInterval: 2m
   timeout: 5m

@@ -10,7 +10,7 @@ par jour, semaine, mois et année. Privé (un seul utilisateur), mobile d'abord.
 `docs/specs/habits.md` fait foi (brouillon tant que Noah n'a pas validé les décisions D1–D6 ;
 les propositions de la spec sont appliquées).
 
-**Statut : en développement.** Le squelette (ONBO-90, T1) est en place : `GET /healthz`
+**Statut : premier déploiement (2026-10-30), recette en cours.** Le squelette (ONBO-90, T1) est en place : `GET /healthz`
 (liveness, sans base), `GET /readyz` (base jointe), `GET /version` (SHA git), arrêt propre,
 exécuteur de migrations. L'authentification (ONBO-92, T3) l'est aussi : `/login`, `/logout`,
 sessions en base, rate limiting, CSRF, en-têtes de sécurité. Les habitudes et le suivi du jour
@@ -18,12 +18,12 @@ sessions en base, rate limiting, CSRF, en-têtes de sécurité. Les habitudes et
 fenêtre `EDIT_WINDOW_DAYS`), `POST /day/{date}/toggle`, `/habits` (création, renommage, jours,
 archivage, restauration). Les statistiques (ONBO-94, T5) le sont aussi : `/week/{date}`,
 `/month/{AAAA-MM}`, `/year/{AAAA}` (et `/week`, `/month`, `/year` qui redirigent vers la période
-courante). Les finitions mobile (ONBO-95, T6) le sont aussi : feuille de style et script de cochage. Rien n'est déployé : les manifests (`infra/apps/habits/`, T2) et le
-premier déploiement (T7) viennent après.
+courante). Les finitions mobile (ONBO-95, T6) le sont aussi : feuille de style et script de cochage. Les manifests (`infra/apps/habits/`, T2) sont en place et le
+premier déploiement (T7) est en cours.
 
 ## Reste à faire (spec §8)
 
-T7 déploiement.
+T7 : recette (`docs/specs/habits.md` §9) et ajout au service d'uptime.
 
 ## Configuration
 

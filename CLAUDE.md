@@ -23,6 +23,7 @@ et **prime sur ce fichier** en cas de conflit pour ce qui la concerne.
 | Pastebin     | `apps/pastebin/`   | `pb.zazi.cool`                                  | Production (2026-10-19) |
 | Linktree     | `apps/linktree/`   | `link.zazi.cool`                                | Production (2026-10-21) |
 | Undercover   | `apps/undercover/` | `undercover.zazi.cool`                          | Production (2026-10-14) |
+| Habits       | `apps/habits/`     | `habits.zazi.cool`                              | Premier déploiement (2026-10-30) |
 
 Les spécifications sont rédigées dans `docs/specs/<app>.md` pendant le cadrage, puis leurs
 règles durables sont reportées dans le `CLAUDE.md` de l'app. Workflow complet : `docs/workflow/`.
