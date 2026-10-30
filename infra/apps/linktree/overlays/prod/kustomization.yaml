@@ -10,4 +10,4 @@ resources:
 images:
   - name: ghcr.io/zazi2004/linktree
     # Quoted: an all-digit SHA would be read as a number.
-    newTag: "36be960"
+    newTag: "0a421a9"
