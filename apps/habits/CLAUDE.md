@@ -18,12 +18,12 @@ sessions en base, rate limiting, CSRF, en-têtes de sécurité. Les habitudes et
 fenêtre `EDIT_WINDOW_DAYS`), `POST /day/{date}/toggle`, `/habits` (création, renommage, jours,
 archivage, restauration). Les statistiques (ONBO-94, T5) le sont aussi : `/week/{date}`,
 `/month/{AAAA-MM}`, `/year/{AAAA}` (et `/week`, `/month`, `/year` qui redirigent vers la période
-courante). Les pages sont sans style ni script : T6 les finit. Rien n'est déployé : les manifests (`infra/apps/habits/`, T2) et le
+courante). Les finitions mobile (ONBO-95, T6) le sont aussi : feuille de style et script de cochage. Rien n'est déployé : les manifests (`infra/apps/habits/`, T2) et le
 premier déploiement (T7) viennent après.
 
 ## Reste à faire (spec §8)
 
-T6 finitions mobile (CSS et script de cochage servis en `'self'`) → T7 déploiement.
+T7 déploiement.
 
 ## Configuration
 
@@ -76,6 +76,19 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   coché ne casse pas la série ; un jour non concerné la saute ; une habitude archivée n'en a pas).
 - Les cellules portent des classes `lvl-none`, `lvl-0` à `lvl-4` (par quarts) et `done` / `missed` /
   `future` / `na` pour que T6 les colore ; il n'y a aucun style en ligne (CSP).
+
+## Interface (T6)
+
+- Assets embarqués dans `internal/server/static/` et servis publiquement sous `/static/` (la page de
+  connexion en a besoin avant toute session) : `style.css` et `app.js`, tous deux en `'self'`
+  (CSP stricte) ; jamais de `style=`, `onclick=` ni de script en ligne.
+- Mobile d'abord : cibles tactiles d'au moins 44 px (`min-height: 44px` sur liens, boutons, champs ;
+  `.check .box` fait 44×44), pas de défilement horizontal de la page (les tableaux défilent dans
+  `.scroll`). Clair / sombre via variables CSS et `prefers-color-scheme` ; ne coder une couleur
+  qu'en variable, en gardant le contraste AA dans les deux modes.
+- Le script intercepte les formulaires `data-toggle`, poste avec `Accept: application/json` et met à
+  jour la case ; sans JS ou en cas d'échec réseau côté `fetch` indisponible, le formulaire part
+  normalement. Le message d'erreur va dans `#status` (`role="status"`).
 
 ## Décisions
 

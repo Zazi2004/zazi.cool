@@ -1,0 +1,194 @@
+:root {
+  color-scheme: light dark;
+  --bg: #fafaf7;
+  --fg: #1c1c1a;
+  --muted: #5c5c57;
+  --border: #c9c9c2;
+  --surface: #ffffff;
+  --accent: #0b5cad;
+  --accent-fg: #ffffff;
+  --done: #1d6b3a;
+  --done-bg: #d8f0e0;
+  --missed-bg: #f6dcd8;
+  --error: #a3260f;
+  --l1: #e3f0e6;
+  --l2: #bfe0c8;
+  --l3: #8fcaa0;
+  --l4: #5bb077;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141412;
+    --fg: #ece6e6;
+    --muted: #a8a8a0;
+    --border: #44443f;
+    --surface: #1e1e1b;
+    --accent: #7ab8f5;
+    --accent-fg: #0b1d30;
+    --done: #8fd8a7;
+    --done-bg: #1f3a2a;
+    --missed-bg: #4a2420;
+    --error: #ff9c86;
+    --l1: #1f3326;
+    --l2: #285038;
+    --l3: #34704c;
+    --l4: #43905f;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 1rem/1.5 system-ui, sans-serif;
+}
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+h1 { font-size: 1.4rem; margin: 1rem 0 0.5rem; }
+h2 { font-size: 1.15rem; margin: 1.5rem 0 0.5rem; }
+
+a { color: var(--accent); }
+
+a, button, input, summary { min-height: 44px; }
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  align-items: center;
+}
+
+nav a, p a[rel] {
+  display: inline-flex;
+  align-items: center;
+  min-width: 44px;
+}
+
+nav form { margin-left: auto; }
+
+button, input:not([type="checkbox"]) {
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+input:not([type="checkbox"]) { width: 100%; }
+
+button { cursor: pointer; }
+
+form button[type="submit"]:not(.check) {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+
+nav form button { background: var(--surface); color: var(--fg); border-color: var(--border); }
+
+label { display: block; margin-top: 0.5rem; }
+
+fieldset { border: 1px solid var(--border); border-radius: 0.5rem; margin: 0.75rem 0; }
+
+fieldset label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  margin: 0 0.5rem 0 0;
+}
+
+input[type="checkbox"] { width: 1.5rem; height: 1.5rem; min-height: 0; }
+
+[role="alert"] { color: var(--error); font-weight: 600; }
+
+/* Day page: one wide tappable row per habit. */
+.habits { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+
+.habits form { margin: 0; }
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 56px;
+  text-align: left;
+}
+
+.check .box {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--border);
+  border-radius: 0.5rem;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.check[aria-pressed="true"] { background: var(--done-bg); border-color: var(--done); }
+.check[aria-pressed="true"] .box { border-color: var(--done); color: var(--done); }
+.check[aria-busy="true"] { opacity: 0.6; }
+
+.readonly {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 56px;
+}
+
+.status { color: var(--error); min-height: 1.5rem; }
+
+/* Statistics tables scroll inside their own box, never the page. */
+.scroll { overflow-x: auto; }
+
+table { border-collapse: collapse; width: 100%; }
+caption { text-align: left; font-weight: 600; padding: 0.5rem 0; }
+th, td { border: 1px solid var(--border); padding: 0.4rem; text-align: center; }
+th[scope="row"] { text-align: left; }
+
+td.done { background: var(--done-bg); color: var(--done); font-weight: 600; }
+td.missed { background: var(--missed-bg); }
+td.future, td.na { color: var(--muted); }
+
+.calendar td { padding: 0; }
+.calendar td a, .calendar td > span:not(.sr) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  text-decoration: none;
+  color: inherit;
+}
+.calendar small { font-size: 0.7rem; color: var(--muted); }
+.lvl-1 { background: var(--l1); }
+.lvl-2 { background: var(--l2); }
+.lvl-3 { background: var(--l3); }
+.lvl-4 { background: var(--l4); }
