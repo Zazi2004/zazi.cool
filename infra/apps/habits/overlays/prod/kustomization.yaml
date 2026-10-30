@@ -10,4 +10,4 @@ resources:
 images:
   - name: ghcr.io/zazi2004/habits
     # Quoted: an all-digit SHA would be read as a number.
-    newTag: "71af07e"
+    newTag: "665da6f"
