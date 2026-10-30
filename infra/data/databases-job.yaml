@@ -54,6 +54,11 @@ spec:
                 secretKeyRef:
                   name: app-db-passwords
                   key: home
+            - name: HABITS_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-db-passwords
+                  key: habits
           resources:
             requests: { cpu: 10m, memory: 16Mi }
             limits: { memory: 64Mi }
