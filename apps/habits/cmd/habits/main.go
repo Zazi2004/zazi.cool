@@ -12,13 +12,17 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"zazi.cool/habits/internal/auth"
 	"zazi.cool/habits/internal/migrate"
 	"zazi.cool/habits/internal/server"
 	"zazi.cool/habits/internal/store"
@@ -30,6 +34,9 @@ var version = "dev"
 
 // shutdownTimeout bounds how long in-flight requests may take to finish on SIGTERM.
 const shutdownTimeout = 10 * time.Second
+
+// cleanupEvery is the period of the purge of expired sessions.
+const cleanupEvery = time.Hour
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
@@ -62,10 +69,39 @@ func run(args []string) error {
 		return nil
 	}
 
+	st := store.New(pool)
+	sessions := auth.NewManager(cfg.passwordHash, st, strings.HasPrefix(cfg.baseURL, "https://"))
+	go cleanUp(ctx, sessions)
+
 	return serve(ctx, ":"+cfg.port, server.NewHandler(server.Config{
-		Store:   store.New(pool),
-		Version: version,
+		Store:      st,
+		Auth:       sessions,
+		Version:    version,
+		BaseURL:    cfg.baseURL,
+		TrustProxy: cfg.trustProxy,
+		LoginLimit: cfg.loginLimit,
 	}))
+}
+
+// cleanUp deletes the expired sessions now and then every cleanupEvery, until ctx
+// ends. The deletion is idempotent: running it twice is harmless.
+func cleanUp(ctx context.Context, sessions *auth.Manager) {
+	ticker := time.NewTicker(cleanupEvery)
+	defer ticker.Stop()
+	for {
+		if n, err := sessions.DeleteExpired(ctx, time.Now()); err != nil {
+			slog.Error("clean up sessions", "error", err)
+		} else if n > 0 {
+			slog.Info("expired sessions deleted", "count", n)
+		}
+
+		// select waits for whichever comes first: the next tick or the shutdown.
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
 // serve runs the HTTP server until ctx is cancelled, then shuts it down gracefully:
@@ -108,18 +144,44 @@ func serve(ctx context.Context, addr string, handler http.Handler) error {
 }
 
 type config struct {
-	port        string
-	databaseURL string
+	port         string
+	databaseURL  string
+	passwordHash string
+	baseURL      string
+	trustProxy   bool
+	loginLimit   int
 }
 
 // loadConfig reads the configuration from environment variables (see .env.example).
 func loadConfig() (config, error) {
 	cfg := config{
-		port:        getenv("PORT", "8080"),
-		databaseURL: os.Getenv("DATABASE_URL"),
+		port:         getenv("PORT", "8080"),
+		databaseURL:  os.Getenv("DATABASE_URL"),
+		passwordHash: os.Getenv("ADMIN_PASSWORD_HASH"),
+		baseURL:      strings.TrimSuffix(getenv("BASE_URL", "https://habits.zazi.cool"), "/"),
 	}
 	if cfg.databaseURL == "" {
 		return config{}, errors.New("DATABASE_URL is required")
+	}
+	if cfg.passwordHash == "" {
+		return config{}, errors.New("ADMIN_PASSWORD_HASH is required (see `make hash-password`)")
+	}
+	if err := auth.CheckHash(cfg.passwordHash); err != nil {
+		return config{}, err
+	}
+	if u, err := url.Parse(cfg.baseURL); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return config{}, fmt.Errorf("BASE_URL must be an absolute http(s) URL, got %q", cfg.baseURL)
+	}
+	if n, err := strconv.Atoi(cfg.port); err != nil || n < 1 || n > 65535 {
+		return config{}, fmt.Errorf("PORT must be a port number, got %q", cfg.port)
+	}
+
+	var err error
+	if cfg.trustProxy, err = strconv.ParseBool(getenv("TRUST_PROXY", "false")); err != nil {
+		return config{}, fmt.Errorf("TRUST_PROXY: %w", err)
+	}
+	if cfg.loginLimit, err = strconv.Atoi(getenv("RATE_LIMIT_LOGIN", "10")); err != nil || cfg.loginLimit <= 0 {
+		return config{}, errors.New("RATE_LIMIT_LOGIN must be a positive integer")
 	}
 	return cfg, nil
 }
