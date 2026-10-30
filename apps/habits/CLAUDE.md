@@ -16,12 +16,14 @@ exécuteur de migrations. L'authentification (ONBO-92, T3) l'est aussi : `/login
 sessions en base, rate limiting, CSRF, en-têtes de sécurité. Les habitudes et le suivi du jour
 (ONBO-93, T4) le sont aussi : `/` et `/day/{date}` (cases à cocher, jours passés dans la
 fenêtre `EDIT_WINDOW_DAYS`), `POST /day/{date}/toggle`, `/habits` (création, renommage, jours,
-archivage, restauration). Les pages sont sans style ni script : T6 les finit. Rien n'est déployé : les manifests (`infra/apps/habits/`, T2) et le
+archivage, restauration). Les statistiques (ONBO-94, T5) le sont aussi : `/week/{date}`,
+`/month/{AAAA-MM}`, `/year/{AAAA}` (et `/week`, `/month`, `/year` qui redirigent vers la période
+courante). Les pages sont sans style ni script : T6 les finit. Rien n'est déployé : les manifests (`infra/apps/habits/`, T2) et le
 premier déploiement (T7) viennent après.
 
 ## Reste à faire (spec §8)
 
-T5 statistiques / T6 finitions mobile (CSS et script de cochage servis en `'self'`) → T7 déploiement.
+T6 finitions mobile (CSS et script de cochage servis en `'self'`) → T7 déploiement.
 
 ## Configuration
 
@@ -63,6 +65,17 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
 - Port local de la base Compose : `5437` (5433 à 5436 sont pris par les autres apps).
 - Tests d'intégration : `TEST_DATABASE_URL` (posé par `make test`) ; chaque test de
   migration travaille dans un schéma jetable.
+
+## Statistiques
+
+- Les règles de calcul sont pures et testées en table dans `internal/habit/stats.go`
+  (`History.Applies`, `Tally`, `Streak`) ; le store ne fait que lire (`Store.History`, 2 requêtes
+  SQL quelle que soit la période, NF6) et les handlers (`internal/server/stats.go`) mettent en page.
+- Taux = jours faits ÷ jours concernés **et** existants jusqu'à aujourd'hui inclus ; le rendu est
+  « 67 % » (espace insécable), « — » si rien n'était dû. Série : voir `Streak` (aujourd'hui non
+  coché ne casse pas la série ; un jour non concerné la saute ; une habitude archivée n'en a pas).
+- Les cellules portent des classes `lvl-none`, `lvl-0` à `lvl-4` (par quarts) et `done` / `missed` /
+  `future` / `na` pour que T6 les colore ; il n'y a aucun style en ligne (CSP).
 
 ## Décisions
 
