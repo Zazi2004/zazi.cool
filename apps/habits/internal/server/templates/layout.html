@@ -1,0 +1,34 @@
+{{define "head"}}<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{{.}} · Habits</title>
+</head>
+<body>
+<main>
+{{end}}
+
+{{define "foot"}}</main>
+</body>
+</html>
+{{end}}
+
+{{define "login"}}{{template "head" "Connexion"}}
+<h1>Connexion</h1>
+{{with .Error}}<p role="alert">{{.}}</p>{{end}}
+<form method="post" action="/login">
+<label for="password">Mot de passe</label>
+<input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+<button type="submit">Se connecter</button>
+</form>
+{{template "foot"}}{{end}}
+
+{{define "home"}}{{template "head" "Aujourd'hui"}}
+<h1>Habits</h1>
+<p>Connecté.</p>
+<form method="post" action="/logout">
+<button type="submit">Se déconnecter</button>
+</form>
+{{template "foot"}}{{end}}

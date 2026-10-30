@@ -3,8 +3,8 @@
 Suivi d'habitudes personnel (un seul utilisateur, pensé pour le téléphone). Spécification :
 [`docs/specs/habits.md`](../../docs/specs/habits.md) ; contexte : [`CLAUDE.md`](CLAUDE.md).
 
-Le squelette (ONBO-90) ne sert encore que `/healthz`, `/readyz` et `/version` ; les
-fonctionnalités arrivent avec les tickets suivants de la spec (§8).
+Pour l'instant : `/healthz`, `/readyz`, `/version` et la connexion (`/login`, `/logout`) ;
+les fonctionnalités arrivent avec les tickets suivants de la spec (§8).
 
 ## Prérequis
 
@@ -19,7 +19,9 @@ curl localhost:8080/readyz
 curl localhost:8080/version   # « local » en Compose, le SHA git avec `make build`
 ```
 
-`.env` est créé depuis `.env.example` si absent. Les migrations sont appliquées au démarrage.
+`.env` est créé depuis `.env.example` si absent. En local, le mot de passe est
+`habits-dev-password` ; `make hash-password` produit le hash d'un autre mot de passe
+(`ADMIN_PASSWORD_HASH`). Les migrations sont appliquées au démarrage.
 
 ## Développement
 

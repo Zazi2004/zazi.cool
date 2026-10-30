@@ -7,7 +7,7 @@ IMAGE ?= ghcr.io/zazi2004/habits
 TAG   ?= $(shell git rev-parse --short HEAD)
 GO_DIRS = $(shell go list -f '{{.Dir}}' ./...)
 
-.PHONY: up down dev test lint fmt build migrate
+.PHONY: up down dev test lint fmt build migrate hash-password
 
 .env:
 	cp .env.example .env
@@ -49,3 +49,8 @@ build:
 migrate: .env
 	docker compose up -d --wait db
 	set -a; . ./.env; set +a; go run ./cmd/habits migrate
+
+## hash-password: print the ADMIN_PASSWORD_HASH of a password typed without echo
+hash-password:
+	@printf "Mot de passe : "; stty -echo; read -r pw; stty echo; echo; \
+		printf '%s' "$$pw" | go run ./cmd/hashpw
