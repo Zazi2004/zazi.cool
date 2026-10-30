@@ -7,16 +7,17 @@
 </p>
 {{if not .Editable}}<p>Ce jour n'est pas modifiable.</p>{{end}}
 {{if .Items}}
-<ul>
+<ul class="habits">
 {{range .Items}}<li>
-{{if $.Editable}}<form method="post" action="/day/{{$.Date}}/toggle">
+{{if $.Editable}}<form method="post" action="/day/{{$.Date}}/toggle" data-toggle>
 <input type="hidden" name="habit_id" value="{{.HabitID}}">
 <input type="hidden" name="done" value="{{if .Done}}0{{else}}1{{end}}">
-<button type="submit" aria-pressed="{{.Done}}"><span aria-hidden="true">{{if .Done}}☑{{else}}☐{{end}}</span> {{.Name}}</button>
+<button type="submit" class="check" aria-pressed="{{.Done}}"><span class="box" aria-hidden="true">{{if .Done}}✓{{end}}</span><span>{{.Name}}</span></button>
 </form>
-{{else}}<span aria-hidden="true">{{if .Done}}☑{{else}}☐{{end}}</span> {{.Name}}{{if .Done}} (fait){{end}}
+{{else}}<span class="readonly"><span class="box" aria-hidden="true">{{if .Done}}✓{{end}}</span><span>{{.Name}}{{if .Done}} (fait){{end}}</span></span>
 {{end}}</li>
 {{end}}</ul>
+<p id="status" class="status" role="status"></p>
 {{else}}
 <p>Aucune habitude ce jour-là. <a href="/habits">Gérer les habitudes</a></p>
 {{end}}

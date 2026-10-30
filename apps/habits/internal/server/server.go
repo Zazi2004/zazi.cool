@@ -21,6 +21,9 @@ const readyTimeout = 2 * time.Second
 //go:embed templates/*.html
 var templateFS embed.FS
 
+//go:embed static
+var staticFS embed.FS
+
 var templates = template.Must(template.ParseFS(templateFS, "templates/*.html"))
 
 // Store is what the handlers need from the persistence layer. *store.Store satisfies
@@ -84,6 +87,8 @@ func NewHandler(cfg Config) http.Handler {
 	mux.HandleFunc("GET /healthz", healthz)
 	mux.HandleFunc("GET /readyz", h.readyz)
 	mux.HandleFunc("GET /version", h.version)
+
+	mux.Handle("GET /static/", http.FileServerFS(staticFS))
 
 	mux.HandleFunc("GET /login", h.loginForm)
 	mux.Handle("POST /login", h.rateLimited(loginLimiter, h.login))

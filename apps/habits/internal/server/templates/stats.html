@@ -4,6 +4,7 @@
 </p>{{end}}
 
 {{define "ratetable"}}{{if .Rows}}
+<div class="scroll" tabindex="0" role="region" aria-label="Tableau défilant">
 <table>
 <caption>Taux de réussite par habitude</caption>
 <thead><tr><th scope="col">Habitude</th><th scope="col">Taux</th><th scope="col">Faits</th><th scope="col">Série en cours</th></tr></thead>
@@ -12,6 +13,7 @@
 {{end}}</tbody>
 <tfoot><tr><th scope="row">Global</th><td>{{.Total}}</td><td></td><td></td></tr></tfoot>
 </table>
+</div>
 {{else}}
 <p>Aucune habitude sur cette période. <a href="/habits">Gérer les habitudes</a></p>
 {{end}}{{end}}
@@ -28,6 +30,7 @@
 <h1>{{.Label}}</h1>
 {{template "periodnav" .}}
 {{if .Rows}}
+<div class="scroll" tabindex="0" role="region" aria-label="Tableau défilant">
 <table>
 <caption>Habitudes de la semaine</caption>
 <thead><tr><th scope="col">Habitude</th>{{range .Days}}<th scope="col"><a href="/day/{{.Date}}">{{.Label}}</a></th>{{end}}<th scope="col">Taux</th><th scope="col">Série en cours</th></tr></thead>
@@ -36,6 +39,7 @@
 {{end}}</tbody>
 <tfoot><tr><th scope="row">Global</th>{{range .Days}}<td></td>{{end}}<td>{{.Total}}</td><td></td></tr></tfoot>
 </table>
+</div>
 {{else}}
 <p>Aucune habitude cette semaine. <a href="/habits">Gérer les habitudes</a></p>
 {{end}}
