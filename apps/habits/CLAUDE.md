@@ -90,6 +90,11 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   jour la case ; sans JS ou en cas d'échec réseau côté `fetch` indisponible, le formulaire part
   normalement. Le message d'erreur va dans `#status` (`role="status"`).
 
+- Refonte esthétique (ONBO-106) : effets inspirés de React Bits (aurore, projecteur au survol,
+  titre dégradé, pop de la coche) en CSS et JS maison, **sans React ni dépendance** (NF1). Toute
+  animation doit être neutralisée par `prefers-reduced-motion` ; le script n'écrit que des
+  variables CSS via `style.setProperty` (compatible avec la CSP).
+
 ## Décisions
 
 - [x] D1–D6 de la spec : propositions appliquées (ticket ONBO-90).

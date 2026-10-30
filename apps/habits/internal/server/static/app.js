@@ -11,6 +11,18 @@
     }
   }
 
+  // Spotlight position for .check buttons (pure decoration).
+  document.addEventListener("pointermove", function (event) {
+    var target = event.target;
+    var el = target instanceof Element ? target.closest(".check") : null;
+    if (!el) {
+      return;
+    }
+    var rect = el.getBoundingClientRect();
+    el.style.setProperty("--mx", event.clientX - rect.left + "px");
+    el.style.setProperty("--my", event.clientY - rect.top + "px");
+  });
+
   document.addEventListener("submit", function (event) {
     var form = event.target;
     if (!(form instanceof HTMLFormElement) || !form.hasAttribute("data-toggle")) {
@@ -48,7 +60,13 @@
           return;
         }
         button.setAttribute("aria-pressed", result.done ? "true" : "false");
-        button.querySelector(".box").textContent = result.done ? "✓" : "";
+        var box = button.querySelector(".box");
+        box.textContent = result.done ? "✓" : "";
+        box.classList.remove("pop");
+        if (result.done) {
+          void box.offsetWidth;
+          box.classList.add("pop");
+        }
         done.value = result.done ? "0" : "1";
         say("");
       })
