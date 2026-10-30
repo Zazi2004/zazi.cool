@@ -23,6 +23,7 @@ et **prime sur ce fichier** en cas de conflit pour ce qui la concerne.
 | Pastebin     | `apps/pastebin/`   | `pb.zazi.cool`                                  | Production (2026-10-19) |
 | Linktree     | `apps/linktree/`   | `link.zazi.cool`                                | Production (2026-10-21) |
 | Undercover   | `apps/undercover/` | `undercover.zazi.cool`                          | Production (2026-10-14) |
+| Habits       | `apps/habits/`     | `habits.zazi.cool`                              | Déploiement en cours (ONBO-96) |
 
 Les spécifications sont rédigées dans `docs/specs/<app>.md` pendant le cadrage, puis leurs
 règles durables sont reportées dans le `CLAUDE.md` de l'app. Workflow complet : `docs/workflow/`.
@@ -45,6 +46,7 @@ règles durables sont reportées dans le `CLAUDE.md` de l'app. Workflow complet 
 │   ├─ ns: pastebin    → Deployment + Service       │
 │   ├─ ns: linktree    → Deployment + Service       │
 │   ├─ ns: undercover  → Deployment + Service       │
+│   ├─ ns: habits      → Deployment + Service       │
 │   └─ ns: data        → PostgreSQL (+ Redis si besoin)
 └───────────────────────────────────────────────────┘
                    │ pg_dump quotidien
