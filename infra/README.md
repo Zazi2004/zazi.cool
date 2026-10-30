@@ -184,6 +184,30 @@ curl -sI https://www.zazi.cool/test    # 301, Location: https://zazi.cool/test
 Le premier `host` de l'Ingress doit rester `zazi.cool` : `deploy-verify` vérifie le premier
 host, et `www.zazi.cool` ne répond que par une redirection.
 
+### Première fois pour habits (`habits.zazi.cool`)
+
+Même schéma que home : la Kustomization Flux `habits` est **suspendue**, `newTag` est vide et
+`secret.enc.yaml` ne contient que des valeurs d'exemple chiffrées. La clé `habits` n'existe pas
+encore dans `app-db-passwords.enc.yaml` : tant que Noah ne l'a pas ajoutée, le Job
+`create-databases` ne démarre pas (`CreateContainerConfigError`). À faire **avant** d'appliquer
+`infra/data`. Au premier déploiement (T7 de `docs/specs/habits.md`) :
+
+```sh
+# 1. Ajouter la clé `habits` (mot de passe aléatoire) dans le secret des bases
+sops edit infra/data/secrets/app-db-passwords.enc.yaml
+# 2. Créer la base et mettre à jour la sauvegarde : appliquer les secrets, infra/data (voir §5)
+#    puis infra/data/backup
+kubectl apply -k infra/data/backup
+# 3. Hash du mot de passe de l'app (saisi sans écho)
+make -C apps/habits hash-password
+# 4. Remplacer les valeurs d'exemple : même mot de passe dans DATABASE_URL, hash de l'étape 3
+sops edit infra/apps/habits/overlays/prod/secret.enc.yaml
+# 5. Dans la PR de déploiement : newTag, secret et retrait de `suspend: true` de
+#    infra/flux/clusters/prod/apps.yaml ; merger : Flux déploie, puis vérifier
+flux get kustomization habits
+gh workflow run verify.yml -f app=habits -f url=https://habits.zazi.cool -f sha=<newTag>
+```
+
 ## Vérifier un déploiement
 
 Le workflow réutilisable `.github/workflows/verify.yml` contrôle une app depuis l'extérieur.
