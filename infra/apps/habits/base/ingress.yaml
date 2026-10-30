@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: habits
+  namespace: habits
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    # <namespace>-<name>@kubernetescrd refers to the Traefik Middlewares of middleware.yaml.
+    traefik.ingress.kubernetes.io/router.middlewares: habits-redirect-https@kubernetescrd,habits-security-headers@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - habits.zazi.cool
+      secretName: habits-tls
+  rules:
+    - host: habits.zazi.cool
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: habits
+                port:
+                  name: http
