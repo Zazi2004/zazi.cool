@@ -13,6 +13,7 @@ jobs:
     name: ci / changes
     runs-on: ubuntu-latest
     outputs:
+      habits: ${{ steps.filter.outputs.habits }}
       home: ${{ steps.filter.outputs.home }}
       linktree: ${{ steps.filter.outputs.linktree }}
       pastebin: ${{ steps.filter.outputs.pastebin }}
@@ -31,7 +32,7 @@ jobs:
             base="${{ github.event.before }}"
           fi
           changed="$(git diff --name-only "$base" "$GITHUB_SHA")"
-          for app in home linktree pastebin undercover; do
+          for app in habits home linktree pastebin undercover; do
             if [ -f "apps/$app/Dockerfile" ] && echo "$changed" | grep -qE "^(apps/$app/|\.github/workflows/app\.yml)"; then
               echo "$app=true" >> "$GITHUB_OUTPUT"
             else
@@ -75,6 +76,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: .github/scripts/flux-suspended_test.sh
+
+  habits:
+    name: habits
+    needs: changes
+    if: needs.changes.outputs.habits == 'true'
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+      issues: read
+    uses: ./.github/workflows/app.yml
+    secrets: inherit
+    with:
+      app: habits
 
   home:
     name: home
@@ -140,7 +155,7 @@ jobs:
   required:
     name: ci / required
     if: always()
-    needs: [changes, secrets, scan, scripts, home, linktree, pastebin, undercover]
+    needs: [changes, secrets, scan, scripts, habits, home, linktree, pastebin, undercover]
     runs-on: ubuntu-latest
     steps:
       - name: Verify upstream jobs
