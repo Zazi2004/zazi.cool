@@ -138,10 +138,11 @@ func (s *server) adminShell(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// newNonce returns 128 random bits, base64-encoded, for a CSP nonce.
+// newNonce returns 128 random bits, base64url-encoded, for a CSP nonce. The URL-safe
+// alphabet has no "+", which html/template would escape in the page's meta tag.
 func newNonce() string {
 	b := make([]byte, 16)
 	// crypto/rand.Read never returns an error on supported platforms.
 	_, _ = rand.Read(b)
-	return base64.StdEncoding.EncodeToString(b)
+	return base64.RawURLEncoding.EncodeToString(b)
 }
