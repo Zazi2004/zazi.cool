@@ -3,8 +3,9 @@
 Suivi d'habitudes personnel (un seul utilisateur, pensé pour le téléphone). Spécification :
 [`docs/specs/habits.md`](../../docs/specs/habits.md) ; contexte : [`CLAUDE.md`](CLAUDE.md).
 
-Pour l'instant : `/healthz`, `/readyz`, `/version` et la connexion (`/login`, `/logout`) ;
-les fonctionnalités arrivent avec les tickets suivants de la spec (§8).
+Pour l'instant : `/healthz`, `/readyz`, `/version`, la connexion (`/login`, `/logout`), le suivi
+du jour (`/`, `/day/AAAA-MM-JJ`) et la gestion des habitudes (`/habits`) ; les statistiques et
+les finitions mobile arrivent avec les tickets suivants de la spec (§8).
 
 ## Prérequis
 

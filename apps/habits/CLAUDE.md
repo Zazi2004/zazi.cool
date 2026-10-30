@@ -13,13 +13,15 @@ les propositions de la spec sont appliquées).
 **Statut : en développement.** Le squelette (ONBO-90, T1) est en place : `GET /healthz`
 (liveness, sans base), `GET /readyz` (base jointe), `GET /version` (SHA git), arrêt propre,
 exécuteur de migrations. L'authentification (ONBO-92, T3) l'est aussi : `/login`, `/logout`,
-sessions en base, rate limiting, CSRF, en-têtes de sécurité ; `/` est pour l'instant une page
-« Connecté » que T4 remplace par la vue du jour. Rien n'est déployé : les manifests (`infra/apps/habits/`, T2) et le
+sessions en base, rate limiting, CSRF, en-têtes de sécurité. Les habitudes et le suivi du jour
+(ONBO-93, T4) le sont aussi : `/` et `/day/{date}` (cases à cocher, jours passés dans la
+fenêtre `EDIT_WINDOW_DAYS`), `POST /day/{date}/toggle`, `/habits` (création, renommage, jours,
+archivage, restauration). Les pages sont sans style ni script : T6 les finit. Rien n'est déployé : les manifests (`infra/apps/habits/`, T2) et le
 premier déploiement (T7) viennent après.
 
 ## Reste à faire (spec §8)
 
-T4 habitudes et suivi du jour → T5 statistiques / T6 finitions mobile → T7 déploiement.
+T5 statistiques / T6 finitions mobile (CSS et script de cochage servis en `'self'`) → T7 déploiement.
 
 ## Configuration
 
@@ -27,8 +29,9 @@ Variables d'environnement (voir `.env.example`) : `DATABASE_URL` et `ADMIN_PASSW
 (obligatoires ; hash bcrypt produit par `make hash-password`), `PORT` (`8080`), `BASE_URL`
 (`https://habits.zazi.cool` : contrôle d'`Origin`, cookie `Secure`/`__Host-` et HSTS si
 `https://`), `TRUST_PROXY` (`false` ; `true` derrière Traefik pour lire l'IP dans
-`X-Forwarded-For`), `RATE_LIMIT_LOGIN` (`10` par IP et par heure). `TZ_NAME` et
-`EDIT_WINDOW_DAYS` sont ajoutées par le ticket qui les utilise (T4).
+`X-Forwarded-For`), `RATE_LIMIT_LOGIN` (`10` par IP et par heure). `TZ_NAME`
+(`Europe/Paris` : fuseau qui définit le « jour ») et `EDIT_WINDOW_DAYS` (`14` : jours passés
+modifiables, aujourd'hui inclus dans la fenêtre, le futur jamais).
 
 ## Commandes
 
@@ -41,12 +44,22 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
 - Paquets : `cmd/habits` (point d'entrée, configuration, arrêt propre), `internal/server`
   (handlers HTTP et middlewares ; dépend des interfaces `Store` et `Authenticator`, pas des
   paquets concrets), `internal/auth` (bcrypt, sessions ; dépend de l'interface `SessionStore`),
+  `internal/habit` (types du domaine et règles pures : masque de jours, jour civil, fenêtre
+  d'édition, validation du nom ; ni HTTP ni SQL),
   `internal/ratelimit` (fenêtre glissante en mémoire), `internal/store` (accès PostgreSQL),
   `internal/dbtest` (base jetable pour les tests), `internal/migrate` (exécuteur de migrations), `migrations/` (SQL
   embarqué, appliqué au démarrage et par `habits migrate`).
 - Pas de framework ni de TypeScript : rendu `html/template` et un petit script embarqué
   (spec NF1). Aucune dépendance au-delà de `pgx` sans approbation de la spec (le hash bcrypt
   de T3 demandera `golang.org/x/crypto`, prévu par F13).
+- Jours : toujours des **jours civils** (`time.Time` à minuit UTC, colonnes `date`), calculés
+  avec `habit.Today(now, loc)` ; l'horloge (`Config.Now`) et le fuseau sont injectés, jamais
+  `time.Now()` direct dans un handler.
+- Jours concernés : masque 7 bits, bit 0 = lundi ; `habit_schedules` est versionnée (une ligne
+  par changement, effective dès `valid_from`) : ne jamais réécrire une ligne passée (NF5).
+  Modifier les jours un même jour remplace la version de ce jour.
+- Archiver = `archived_on` (l'habitude disparaît ce jour-là et après) ; une habitude cochée
+  n'est enregistrée que pour un jour où elle est concernée (`SetDone` refuse sinon).
 - Port local de la base Compose : `5437` (5433 à 5436 sont pris par les autres apps).
 - Tests d'intégration : `TEST_DATABASE_URL` (posé par `make test`) ; chaque test de
   migration travaille dans un schéma jetable.

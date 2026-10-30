@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"zazi.cool/habits/internal/habit"
 	"zazi.cool/habits/internal/ratelimit"
 )
 
@@ -26,6 +27,13 @@ var templates = template.Must(template.ParseFS(templateFS, "templates/*.html"))
 // it, and tests pass a fake.
 type Store interface {
 	Ping(ctx context.Context) error
+	CreateHabit(ctx context.Context, name string, days habit.Weekdays, today time.Time) error
+	UpdateHabit(ctx context.Context, id int64, name string, days habit.Weekdays, today time.Time) error
+	ArchiveHabit(ctx context.Context, id int64, today time.Time) error
+	RestoreHabit(ctx context.Context, id int64) error
+	ListHabits(ctx context.Context, today time.Time) ([]habit.Habit, error)
+	DayHabits(ctx context.Context, day time.Time) ([]habit.DayItem, error)
+	SetDone(ctx context.Context, habitID int64, day time.Time, done bool) error
 }
 
 // Authenticator checks the password and handles sessions. *auth.Manager satisfies it.
@@ -48,6 +56,12 @@ type Config struct {
 	TrustProxy bool
 	// LoginLimit is the number of login attempts allowed per IP and per hour.
 	LoginLimit int
+	// Location defines what "today" means (F6); nil means UTC.
+	Location *time.Location
+	// EditWindowDays is how many past days can still be checked or unchecked (F5).
+	EditWindowDays int
+	// Now returns the current time; tests inject a fixed clock. Nil means time.Now.
+	Now func() time.Time
 }
 
 type handler struct {
@@ -56,6 +70,12 @@ type handler struct {
 
 // NewHandler returns the HTTP handler of the application.
 func NewHandler(cfg Config) http.Handler {
+	if cfg.Location == nil {
+		cfg.Location = time.UTC
+	}
+	if cfg.Now == nil {
+		cfg.Now = time.Now
+	}
 	h := &handler{cfg: cfg}
 	loginLimiter := ratelimit.New(cfg.LoginLimit, time.Hour)
 
@@ -71,6 +91,13 @@ func NewHandler(cfg Config) http.Handler {
 	// "GET /" matches every path no other pattern claims, so an unknown URL without a
 	// session leads to the login page rather than revealing which pages exist.
 	mux.Handle("GET /", h.requireSession(http.HandlerFunc(h.home)))
+	mux.Handle("GET /day/{date}", h.requireSession(http.HandlerFunc(h.day)))
+	mux.Handle("POST /day/{date}/toggle", h.requireSession(http.HandlerFunc(h.toggle)))
+	mux.Handle("GET /habits", h.requireSession(http.HandlerFunc(h.habitsIndex)))
+	mux.Handle("POST /habits", h.requireSession(http.HandlerFunc(h.createHabit)))
+	mux.Handle("POST /habits/{id}", h.requireSession(http.HandlerFunc(h.updateHabit)))
+	mux.Handle("POST /habits/{id}/archive", h.requireSession(http.HandlerFunc(h.archiveHabit)))
+	mux.Handle("POST /habits/{id}/restore", h.requireSession(http.HandlerFunc(h.restoreHabit)))
 
 	return h.securityHeaders(h.sameOrigin(mux))
 }
@@ -122,15 +149,6 @@ func (h *handler) render(w http.ResponseWriter, r *http.Request, status int, nam
 func (h *handler) internalError(w http.ResponseWriter, r *http.Request, err error) {
 	slog.Error("request failed", "method", r.Method, "path", r.URL.Path, "error", err)
 	http.Error(w, "Erreur interne, réessayez plus tard.", http.StatusInternalServerError)
-}
-
-// home is the page behind the session; the day view replaces it with the habits ticket.
-func (h *handler) home(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-	h.render(w, r, http.StatusOK, "home", nil)
 }
 
 func isHTTPS(baseURL string) bool {

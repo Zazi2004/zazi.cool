@@ -1,0 +1,23 @@
+{{define "day"}}{{template "head" .Label}}
+{{template "nav"}}
+<h1>{{.Label}}</h1>
+<p>
+{{with .PrevHref}}<a href="{{.}}" rel="prev">Jour précédent</a>{{end}}
+{{with .NextHref}}<a href="{{.}}" rel="next">Jour suivant</a>{{end}}
+</p>
+{{if not .Editable}}<p>Ce jour n'est pas modifiable.</p>{{end}}
+{{if .Items}}
+<ul>
+{{range .Items}}<li>
+{{if $.Editable}}<form method="post" action="/day/{{$.Date}}/toggle">
+<input type="hidden" name="habit_id" value="{{.HabitID}}">
+<input type="hidden" name="done" value="{{if .Done}}0{{else}}1{{end}}">
+<button type="submit" aria-pressed="{{.Done}}"><span aria-hidden="true">{{if .Done}}☑{{else}}☐{{end}}</span> {{.Name}}</button>
+</form>
+{{else}}<span aria-hidden="true">{{if .Done}}☑{{else}}☐{{end}}</span> {{.Name}}{{if .Done}} (fait){{end}}
+{{end}}</li>
+{{end}}</ul>
+{{else}}
+<p>Aucune habitude ce jour-là. <a href="/habits">Gérer les habitudes</a></p>
+{{end}}
+{{template "foot"}}{{end}}

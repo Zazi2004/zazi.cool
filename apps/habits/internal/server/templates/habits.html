@@ -1,0 +1,41 @@
+{{define "weekdays"}}{{range .}}<label><input type="checkbox" name="weekdays" value="{{.Value}}"{{if .Checked}} checked{{end}}> {{.Label}}</label>
+{{end}}{{end}}
+
+{{define "habits"}}{{template "head" "Habitudes"}}
+{{template "nav"}}
+<h1>Habitudes</h1>
+{{with .Error}}<p role="alert">{{.}}</p>{{end}}
+
+<h2>Nouvelle habitude</h2>
+<form method="post" action="/habits">
+<label for="new-name">Nom</label>
+<input id="new-name" name="name" value="{{.NewName}}" maxlength="60" required>
+<fieldset>
+<legend>Jours</legend>
+{{template "weekdays" .NewDays}}
+</fieldset>
+<button type="submit">Ajouter</button>
+</form>
+
+<h2>Actives</h2>
+{{range .Active}}<form method="post" action="/habits/{{.ID}}">
+<label for="name-{{.ID}}">Nom</label>
+<input id="name-{{.ID}}" name="name" value="{{.Name}}" maxlength="60" required>
+<fieldset>
+<legend>Jours (à partir d'aujourd'hui)</legend>
+{{template "weekdays" .Days}}
+</fieldset>
+<button type="submit">Enregistrer</button>
+<button type="submit" formaction="/habits/{{.ID}}/archive">Archiver</button>
+</form>
+{{else}}<p>Aucune habitude active.</p>
+{{end}}
+
+{{if .Archived}}<h2>Archivées</h2>
+<ul>
+{{range .Archived}}<li>{{.Name}}
+<form method="post" action="/habits/{{.ID}}/restore"><button type="submit">Restaurer</button></form>
+</li>
+{{end}}</ul>
+{{end}}
+{{template "foot"}}{{end}}

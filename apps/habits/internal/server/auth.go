@@ -10,9 +10,6 @@ import (
 	"zazi.cool/habits/internal/ratelimit"
 )
 
-// maxLoginBody bounds the login form: a password field and little else.
-const maxLoginBody = 16 << 10
-
 // pageCSP is the policy of NF1: only the app's own files, no inline script or style,
 // so even a name that slipped into a page unescaped could not run a script.
 const pageCSP = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; " +
@@ -25,14 +22,7 @@ func (h *handler) loginForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) login(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxLoginBody)
-	if err := r.ParseForm(); err != nil {
-		var tooLarge *http.MaxBytesError
-		if errors.As(err, &tooLarge) {
-			http.Error(w, "Requête trop volumineuse.", http.StatusRequestEntityTooLarge)
-			return
-		}
-		http.Error(w, "Formulaire invalide.", http.StatusBadRequest)
+	if !parseForm(w, r) {
 		return
 	}
 	err := h.cfg.Auth.Login(r.Context(), w, r.PostForm.Get("password"))
@@ -133,4 +123,23 @@ func clientIP(r *http.Request, trustProxy bool) string {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+// maxFormBody bounds every form: a few short fields and nothing else.
+const maxFormBody = 16 << 10
+
+// parseForm reads the POST body into r.PostForm. On failure it has already answered
+// and returns false.
+func parseForm(w http.ResponseWriter, r *http.Request) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, maxFormBody)
+	if err := r.ParseForm(); err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			http.Error(w, "Requête trop volumineuse.", http.StatusRequestEntityTooLarge)
+			return false
+		}
+		http.Error(w, "Formulaire invalide.", http.StatusBadRequest)
+		return false
+	}
+	return true
 }

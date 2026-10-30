@@ -19,12 +19,15 @@ func TestLoadConfig(t *testing.T) {
 	t.Setenv("BASE_URL", "")
 	t.Setenv("TRUST_PROXY", "")
 	t.Setenv("RATE_LIMIT_LOGIN", "")
+	t.Setenv("TZ_NAME", "")
+	t.Setenv("EDIT_WINDOW_DAYS", "")
 
 	cfg, err := loadConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.port != "8080" || cfg.baseURL != "https://habits.zazi.cool" || cfg.trustProxy || cfg.loginLimit != 10 {
+	if cfg.port != "8080" || cfg.baseURL != "https://habits.zazi.cool" || cfg.trustProxy || cfg.loginLimit != 10 ||
+		cfg.location.String() != "Europe/Paris" || cfg.editWindowDays != 14 {
 		t.Errorf("defaults = %+v", cfg)
 	}
 
@@ -32,11 +35,14 @@ func TestLoadConfig(t *testing.T) {
 	t.Setenv("BASE_URL", "http://localhost:9000/")
 	t.Setenv("TRUST_PROXY", "true")
 	t.Setenv("RATE_LIMIT_LOGIN", "3")
+	t.Setenv("TZ_NAME", "UTC")
+	t.Setenv("EDIT_WINDOW_DAYS", "0")
 	cfg, err = loadConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.port != "9000" || cfg.baseURL != "http://localhost:9000" || !cfg.trustProxy || cfg.loginLimit != 3 {
+	if cfg.port != "9000" || cfg.baseURL != "http://localhost:9000" || !cfg.trustProxy || cfg.loginLimit != 3 ||
+		cfg.location.String() != "UTC" || cfg.editWindowDays != 0 {
 		t.Errorf("custom = %+v", cfg)
 	}
 }
@@ -50,6 +56,9 @@ func TestLoadConfigErrors(t *testing.T) {
 		{"bad port", "PORT", "http"},
 		{"bad trust proxy", "TRUST_PROXY", "maybe"},
 		{"zero rate limit", "RATE_LIMIT_LOGIN", "0"},
+		{"unknown time zone", "TZ_NAME", "Mars/Olympus"},
+		{"negative edit window", "EDIT_WINDOW_DAYS", "-1"},
+		{"non-numeric edit window", "EDIT_WINDOW_DAYS", "many"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
