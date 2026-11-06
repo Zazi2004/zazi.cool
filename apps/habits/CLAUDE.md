@@ -56,8 +56,9 @@ modifiables, aujourd'hui inclus dans la fenêtre, le futur jamais).
 
 ## Commandes
 
-Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, `make dev`,
-`make test` (avec intégration PostgreSQL), `make lint` (gofmt + `go vet`), `make fmt`,
+Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, `make dev`
+(Go sur la machine + Vite sur `:5173`), `make test` (Go avec intégration PostgreSQL + Vitest),
+`make lint` (gofmt + `go vet` + `tsc` + Prettier), `make fmt`, `make web-build`,
 `make build` (image taguée avec le SHA git), `make migrate`, `make hash-password`.
 
 ## Conventions de l'app
@@ -70,9 +71,9 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   `internal/ratelimit` (fenêtre glissante en mémoire), `internal/store` (accès PostgreSQL),
   `internal/dbtest` (base jetable pour les tests), `internal/migrate` (exécuteur de migrations), `migrations/` (SQL
   embarqué, appliqué au démarrage et par `habits migrate`).
-- Pas de framework ni de TypeScript : rendu `html/template` et un petit script embarqué
-  (spec NF1). Aucune dépendance au-delà de `pgx` sans approbation de la spec (le hash bcrypt
-  de T3 demandera `golang.org/x/crypto`, prévu par F13).
+- Côté Go, pas de framework : bibliothèque standard, `pgx` et `golang.org/x/crypto`. Le front
+  (`web/`, React + TypeScript + Vite) a ses propres dépendances, approuvées par la spec v2 :
+  `react`, `react-dom`, `motion` et l'outillage ; toute autre demande l'accord de Noah.
 - Jours : toujours des **jours civils** (`time.Time` à minuit UTC, colonnes `date`), calculés
   avec `habit.Today(now, loc)` ; l'horloge (`Config.Now`) et le fuseau sont injectés, jamais
   `time.Now()` direct dans un handler.
@@ -84,6 +85,29 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
 - Port local de la base Compose : `5437` (5433 à 5436 sont pris par les autres apps).
 - Tests d'intégration : `TEST_DATABASE_URL` (posé par `make test`) ; chaque test de
   migration travaille dans un schéma jetable.
+
+## Socle SPA (v2, ONBO-110)
+
+- `web/` : front React 19 + TypeScript `strict` + Vite, Prettier, Vitest (`package-lock.json`
+  versionné). `web/embed.go` embarque `web/dist` ; `make` crée un `web/dist/.keep` pour que
+  `go build` / `go vet` compilent avant le premier `npm run build`. L'image Docker construit le
+  front dans une étape Node, l'exécution reste distroless sans Node.
+- Routage côté client (`web/src/router.ts`, sans bibliothèque) : toute URL hors `/api/`,
+  `/healthz`, `/readyz`, `/version` et les fichiers du build sert `index.html` ; un fichier
+  manquant sous `/assets/` donne `404` (jamais du HTML à un `<script>`).
+- API JSON sous `/api/` : `POST /api/login`, `POST /api/logout`, `GET /api/session`. Sans session,
+  tout `/api/*` répond `401 {"error":"unauthorized","message":"…"}` ; avec session, une URL
+  inconnue répond `404` JSON. Erreurs : `{"error": code, "message": texte FR}`. Les requêtes non
+  `GET` sont contrôlées par `Sec-Fetch-Site` / `Origin` (`403`) et un corps non JSON donne `415`.
+- CSP v2 (spec NF2) définie dans `internal/server/auth.go` (`pageCSP`) : aucune balise `<style>`
+  ni attribut `style` dans le HTML, polices et icônes servies par l'app (Inter latin en variable,
+  `web/src/fonts/`, licence OFL jointe), `assetsInlineLimit: 0` pour ne produire aucune URL `data:`
+  de police.
+- `EDIT_WINDOW_DAYS` et `TZ_NAME` restent lus par `cmd/habits`, mais rien ne les utilise tant que
+  l'API des jours (ONBO-112) n'est pas là. Les paquets `internal/habit` et `internal/store` (modèle
+  v1) sont remplacés par ONBO-111.
+- Ce qui suit (statistiques, interface T6) décrit la v1 : les pages HTML sont supprimées de cette
+  branche et ces sections seront réécrites avec les tickets qui les remplacent.
 
 ## Statistiques
 

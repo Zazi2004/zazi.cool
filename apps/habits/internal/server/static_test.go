@@ -4,69 +4,46 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-
-	"zazi.cool/habits/internal/habit"
 )
 
-// The login page needs its stylesheet before any session exists, and the CSP only
-// allows 'self' sources, so assets must be served without authentication.
-func TestStaticAssetsArePublic(t *testing.T) {
+// NF1: every URL outside /api/, /assets/ and the probes is a client-side route.
+func TestClientRoutesServeIndex(t *testing.T) {
 	h := newTestHandler(10)
-	tests := []struct {
-		path, contentType string
-	}{
-		{"/static/style.css", "text/css"},
-		{"/static/app.js", "text/javascript"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.path, func(t *testing.T) {
-			rec := get(t, h, http.MethodGet, tt.path)
-			if rec.Code != http.StatusOK {
-				t.Fatalf("status = %d, want 200", rec.Code)
-			}
-			if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, tt.contentType) {
-				t.Errorf("Content-Type = %q, want prefix %q", ct, tt.contentType)
-			}
-			if rec.Body.Len() == 0 {
-				t.Error("empty body")
-			}
-		})
-	}
-	if rec := get(t, h, http.MethodGet, "/static/missing.css"); rec.Code != http.StatusNotFound {
-		t.Errorf("missing asset status = %d, want 404", rec.Code)
-	}
-}
-
-// Every page links the stylesheet and the script, and nothing inline (CSP, NF1).
-func TestPagesLinkAssetsWithoutInlineCode(t *testing.T) {
-	m := &memStore{items: []habit.DayItem{{HabitID: 1, Name: "Lire", Done: true}}}
-	h := newHabitsHandler(t, m)
-	for _, path := range []string{"/login", "/"} {
-		rec := do(h, http.MethodGet, path, nil, nil)
-		body := rec.Body.String()
-		for _, want := range []string{`href="/static/style.css"`, `src="/static/app.js"`} {
-			if !strings.Contains(body, want) {
-				t.Errorf("%s: missing %s", path, want)
-			}
+	for _, path := range []string{"/", "/habits", "/stats", "/stats/3", "/day/2026-11-06", "/login", "/nope/deep"} {
+		rec := get(t, h, http.MethodGet, path)
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "<title>app</title>") {
+			t.Errorf("GET %s = %d %q, want 200 with index.html", path, rec.Code, rec.Body.String())
 		}
-		for _, bad := range []string{" style=", " onclick=", "<style", "<script>"} {
-			if strings.Contains(body, bad) {
-				t.Errorf("%s: contains inline %q", path, bad)
-			}
+		if got := rec.Header().Get("Cache-Control"); got != "no-cache" {
+			t.Errorf("GET %s Cache-Control = %q, want no-cache", path, got)
 		}
 	}
 }
 
-// The check boxes must stay at least 44 px tall (NF3, CA14); the CSS is the only place
-// that says so, so pin it.
-func TestStylesheetKeepsTouchTargets(t *testing.T) {
-	css, err := staticFS.ReadFile("static/style.css")
-	if err != nil {
-		t.Fatal(err)
+func TestStaticFiles(t *testing.T) {
+	h := newTestHandler(10)
+
+	rec := get(t, h, http.MethodGet, "/assets/index-a.js")
+	if rec.Code != http.StatusOK || rec.Body.String() != "console.log(1)" {
+		t.Errorf("asset = %d %q", rec.Code, rec.Body.String())
 	}
-	for _, want := range []string{"min-height: 44px", "width: 44px", "prefers-color-scheme: dark"} {
-		if !strings.Contains(string(css), want) {
-			t.Errorf("style.css lacks %q", want)
-		}
+	if got := rec.Header().Get("Cache-Control"); !strings.Contains(got, "immutable") {
+		t.Errorf("asset Cache-Control = %q, want immutable", got)
+	}
+
+	if rec := get(t, h, http.MethodGet, "/favicon.svg"); rec.Body.String() != "<svg/>" {
+		t.Errorf("favicon body = %q", rec.Body.String())
+	}
+
+	// A missing asset must not become the HTML page: a <script> would receive HTML.
+	if rec := get(t, h, http.MethodGet, "/assets/missing.js"); rec.Code != http.StatusNotFound {
+		t.Errorf("missing asset = %d, want 404", rec.Code)
+	}
+}
+
+func TestStaticRejectsUnsafeMethods(t *testing.T) {
+	rec := get(t, newTestHandler(10), http.MethodPost, "/habits")
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("POST /habits = %d, want 405", rec.Code)
 	}
 }

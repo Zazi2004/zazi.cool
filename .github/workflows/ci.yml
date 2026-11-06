@@ -90,6 +90,7 @@ jobs:
     secrets: inherit
     with:
       app: habits
+      node: true
 
   home:
     name: home
