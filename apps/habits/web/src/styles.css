@@ -14,6 +14,7 @@
   --accent: #5b47d6;
   --on-accent: #ffffff;
   --error: #b3261e;
+  --ok: #1a7f45;
   --border: #dedce8;
   --glass: rgb(255 255 255 / 0.72);
   --ring-from: #7c5cf0;
@@ -30,6 +31,7 @@
     --accent: #9d8cff;
     --on-accent: #14131a;
     --error: #ff8a80;
+    --ok: #5fd08a;
     --border: #35324a;
     --glass: rgb(31 29 40 / 0.72);
     --ring-from: #9d8cff;
@@ -579,4 +581,12 @@ button.primary {
   .mini-value {
     transition: none;
   }
+}
+
+.pace-ahead {
+  color: var(--ok);
+}
+
+.pace-behind {
+  color: var(--error);
 }

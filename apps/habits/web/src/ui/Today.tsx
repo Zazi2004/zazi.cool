@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, getDay, putEntry } from "../api";
-import { localDate, subtitle, tapValue, withValue } from "../today";
+import { localDate, paceTone, subtitle, tapValue, withValue } from "../today";
 import { momentLabels, type Day, type DayHabit } from "../types";
 
 type State =
@@ -101,7 +101,15 @@ function Row({ item, onTap }: { item: DayHabit; onTap: (item: DayHabit) => void 
         </span>
         <span className="habit-text">
           <span className="habit-name">{h.name}</span>
-          <span className="habit-rule muted">{subtitle(item)}</span>
+          <span className="habit-rule muted">
+            {subtitle(item)}
+            {item.pace && (
+              <>
+                {" · "}
+                <span className={`pace pace-${paceTone(item)}`}>{item.pace.label}</span>
+              </>
+            )}
+          </span>
         </span>
         <MiniRing progress={item.progress} />
       </button>

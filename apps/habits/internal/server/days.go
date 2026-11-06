@@ -20,9 +20,9 @@ type dayHabitJSON struct {
 }
 
 type paceJSON struct {
-	Expected int    `json:"expected"`
-	Diff     int    `json:"diff"`
-	Label    string `json:"label"`
+	Expected float64 `json:"expected"`
+	Diff     int     `json:"diff"`
+	Label    string  `json:"label"`
 }
 
 type weekDayJSON struct {
@@ -48,12 +48,19 @@ type dayJSON struct {
 	Note     string        `json:"note"`
 }
 
-// buildDay computes the Day of the spec from what the store read. Streak, week strip,
-// pace and note belong to later tickets: they are neutral for now.
+func toPaceJSON(p *habit.Pace) *paceJSON {
+	if p == nil {
+		return nil
+	}
+	return &paceJSON{Expected: p.Expected, Diff: p.Diff, Label: p.Label}
+}
+
+// buildDay computes the Day of the spec from what the store read. Streak, week strip
+// and note belong to later tickets: they are neutral for now.
 func buildDay(day time.Time, logged []habit.Logged) dayJSON {
 	items := make([]habit.DayHabit, 0, len(logged))
 	for _, l := range logged {
-		items = append(items, habit.NewDayHabit(l))
+		items = append(items, habit.NewDayHabit(l, day))
 	}
 	done, total := habit.DayCounts(items)
 	out := dayJSON{
@@ -66,7 +73,7 @@ func buildDay(day time.Time, logged []habit.Logged) dayJSON {
 		for _, it := range g.Habits {
 			gj.Habits = append(gj.Habits, dayHabitJSON{
 				Habit: toHabitJSON(it.Habit), Value: it.Value, Total: it.Total,
-				Progress: it.Progress, Complete: it.Complete,
+				Progress: it.Progress, Complete: it.Complete, Pace: toPaceJSON(it.Pace),
 			})
 		}
 		out.Groups = append(out.Groups, gj)

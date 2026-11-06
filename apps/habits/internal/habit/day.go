@@ -3,6 +3,7 @@ package habit
 import (
 	"errors"
 	"slices"
+	"time"
 )
 
 // MaxEntryValue bounds one day's value, far above any realistic count.
@@ -15,10 +16,12 @@ var (
 	ErrDayNotAllowed = errors.New("habit not allowed on this weekday")
 )
 
-// Logged is a habit with what was entered for it on a day.
+// Logged is a habit with what was entered for it on a day, and the total of its period
+// up to that day (the value itself for the `day` period).
 type Logged struct {
 	Habit Habit
 	Value int
+	Total int
 }
 
 // DayHabit is a habit on a day with its computed progress.
@@ -28,6 +31,8 @@ type DayHabit struct {
 	Total    int
 	Progress float64
 	Complete bool
+	// Pace is nil for the `day` period.
+	Pace *Pace
 }
 
 // MomentGroup is the habits of one moment, in display order.
@@ -47,14 +52,14 @@ func Progress(total, target int) float64 {
 // Complete reports whether the target is reached.
 func Complete(total, target int) bool { return target > 0 && total >= target }
 
-// NewDayHabit computes the progress of a habit from its day value. Only the `day`
-// period is handled for now: its total is the value of the day.
-func NewDayHabit(l Logged) DayHabit {
-	total := l.Value
+// NewDayHabit computes the progress and the pace of a habit on day.
+func NewDayHabit(l Logged, day time.Time) DayHabit {
+	h := l.Habit
 	return DayHabit{
-		Habit: l.Habit, Value: l.Value, Total: total,
-		Progress: Progress(total, l.Habit.Target),
-		Complete: Complete(total, l.Habit.Target),
+		Habit: h, Value: l.Value, Total: l.Total,
+		Progress: Progress(l.Total, h.Target),
+		Complete: Complete(l.Total, h.Target),
+		Pace:     NewPace(h.Period, day, l.Total, h.Target),
 	}
 }
 
