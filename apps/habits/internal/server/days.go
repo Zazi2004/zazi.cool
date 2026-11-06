@@ -48,18 +48,25 @@ type dayJSON struct {
 	Note     string        `json:"note"`
 }
 
-// buildDay computes the Day of the spec from what the store read. Streak, week strip,
-// pace and note belong to later tickets: they are neutral for now.
-func buildDay(day time.Time, logged []habit.Logged) dayJSON {
+// buildDay computes the Day of the spec from what the store read. Pace is neutral until
+// the period objectives arrive.
+func buildDay(day time.Time, editable bool, logged []habit.Logged, stats []habit.DayStat, note string, today time.Time) dayJSON {
 	items := make([]habit.DayHabit, 0, len(logged))
 	for _, l := range logged {
 		items = append(items, habit.NewDayHabit(l))
 	}
 	done, total := habit.DayCounts(items)
 	out := dayJSON{
-		Date: habit.FormatDay(day), Editable: true,
+		Date: habit.FormatDay(day), Editable: editable,
 		Progress: habit.DayProgress(items), Done: done, Total: total, Complete: habit.DayComplete(items),
-		Week: []weekDayJSON{}, Groups: []groupJSON{},
+		Streak: habit.Streak(stats, today), Week: []weekDayJSON{}, Groups: []groupJSON{}, Note: note,
+	}
+	progress := make(map[time.Time]float64, len(stats))
+	for _, st := range stats {
+		progress[st.Day] = st.Progress()
+	}
+	for _, d := range habit.WeekDays(day) {
+		out.Week = append(out.Week, weekDayJSON{Date: habit.FormatDay(d), Progress: progress[d]})
 	}
 	for _, g := range habit.GroupByMoment(items) {
 		gj := groupJSON{Moment: string(g.Moment), Habits: make([]dayHabitJSON, 0, len(g.Habits))}
@@ -74,23 +81,29 @@ func buildDay(day time.Time, logged []habit.Logged) dayJSON {
 	return out
 }
 
-// requestedDay parses the {date} of the path. Only today is available for now; it
-// writes the error response and returns false otherwise.
-func (h *handler) requestedDay(w http.ResponseWriter, r *http.Request) (time.Time, bool) {
+// requestedDay parses the {date} of the path: the future is refused (422). When
+// writing, a day outside the edit window is refused too (422), before anything is
+// changed. It writes the error response and returns false on refusal.
+func (h *handler) requestedDay(w http.ResponseWriter, r *http.Request, writing bool) (time.Time, bool) {
 	day, err := habit.ParseDay(r.PathValue("date"))
 	if err != nil {
 		writeError(w, http.StatusUnprocessableEntity, "invalid_day", "Date invalide.")
 		return time.Time{}, false
 	}
-	if !day.Equal(h.today()) {
-		writeError(w, http.StatusUnprocessableEntity, "day_not_editable", "Seul le jour courant est disponible pour l'instant.")
+	today := h.today()
+	if day.After(today) {
+		writeError(w, http.StatusUnprocessableEntity, "day_in_future", "Ce jour n'est pas encore arrivé.")
+		return time.Time{}, false
+	}
+	if writing && !habit.Editable(day, today, h.cfg.EditWindowDays) {
+		writeError(w, http.StatusUnprocessableEntity, "day_not_editable", "Ce jour est en lecture seule.")
 		return time.Time{}, false
 	}
 	return day, true
 }
 
 func (h *handler) getDay(w http.ResponseWriter, r *http.Request) {
-	day, ok := h.requestedDay(w, r)
+	day, ok := h.requestedDay(w, r, false)
 	if !ok {
 		return
 	}
@@ -98,16 +111,35 @@ func (h *handler) getDay(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) writeDay(w http.ResponseWriter, r *http.Request, day time.Time, status int) {
-	logged, err := h.cfg.Store.DayHabits(r.Context(), day)
+	ctx := r.Context()
+	logged, err := h.cfg.Store.DayHabits(ctx, day)
 	if err != nil {
 		h.internalError(w, r, err)
 		return
 	}
-	writeJSON(w, status, buildDay(day, logged))
+	// One read feeds the week strip and the streak: from the earliest habit to the later
+	// of the shown week's Sunday and today.
+	week := habit.WeekDays(day)
+	today := h.today()
+	to := week[6]
+	if today.After(to) {
+		to = today
+	}
+	stats, err := h.cfg.Store.DayStats(ctx, week[0], to)
+	if err != nil {
+		h.internalError(w, r, err)
+		return
+	}
+	note, err := h.cfg.Store.DayNote(ctx, day)
+	if err != nil {
+		h.internalError(w, r, err)
+		return
+	}
+	writeJSON(w, status, buildDay(day, habit.Editable(day, today, h.cfg.EditWindowDays), logged, stats, note, today))
 }
 
 func (h *handler) putEntry(w http.ResponseWriter, r *http.Request) {
-	day, ok := h.requestedDay(w, r)
+	day, ok := h.requestedDay(w, r, true)
 	if !ok {
 		return
 	}
@@ -143,4 +175,30 @@ func (h *handler) putEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.writeDay(w, r, day, http.StatusOK)
+}
+
+func (h *handler) putNote(w http.ResponseWriter, r *http.Request) {
+	day, ok := h.requestedDay(w, r, true)
+	if !ok {
+		return
+	}
+	var req struct {
+		Text *string `json:"text"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.Text == nil {
+		writeError(w, http.StatusUnprocessableEntity, "invalid_note", "Le texte est obligatoire.")
+		return
+	}
+	if err := habit.ValidateNote(*req.Text); err != nil {
+		writeError(w, http.StatusUnprocessableEntity, "invalid_note", err.Error())
+		return
+	}
+	if err := h.cfg.Store.SetNote(r.Context(), day, *req.Text); err != nil {
+		h.internalError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

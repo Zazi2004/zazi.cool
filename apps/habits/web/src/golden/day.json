@@ -5,8 +5,37 @@
   "done": 1,
   "total": 3,
   "complete": false,
-  "streak": 0,
-  "week": [],
+  "streak": 3,
+  "week": [
+    {
+      "date": "2026-11-02",
+      "progress": 0
+    },
+    {
+      "date": "2026-11-03",
+      "progress": 1
+    },
+    {
+      "date": "2026-11-04",
+      "progress": 1
+    },
+    {
+      "date": "2026-11-05",
+      "progress": 1
+    },
+    {
+      "date": "2026-11-06",
+      "progress": 0.5
+    },
+    {
+      "date": "2026-11-07",
+      "progress": 0
+    },
+    {
+      "date": "2026-11-08",
+      "progress": 0
+    }
+  ],
   "groups": [
     {
       "moment": "morning",
@@ -82,5 +111,5 @@
       ]
     }
   ],
-  "note": ""
+  "note": "Bonne journée"
 }

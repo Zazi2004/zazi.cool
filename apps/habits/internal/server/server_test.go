@@ -26,6 +26,16 @@ type fakeStore struct {
 	logged   []habit.Logged
 	entryErr error
 	entries  *[]entryCall
+	// stats is what DayStats returns, note what DayNote returns; SetNote records its
+	// calls in notes.
+	stats []habit.DayStat
+	note  string
+	notes *[]noteCall
+}
+
+type noteCall struct {
+	day  time.Time
+	text string
 }
 
 type entryCall struct {
@@ -62,6 +72,19 @@ func (f fakeStore) SetEntry(_ context.Context, habitID int64, day time.Time, val
 		*f.entries = append(*f.entries, entryCall{habitID, day, value})
 	}
 	return f.entryErr
+}
+
+func (f fakeStore) DayStats(context.Context, time.Time, time.Time) ([]habit.DayStat, error) {
+	return f.stats, nil
+}
+
+func (f fakeStore) DayNote(context.Context, time.Time) (string, error) { return f.note, nil }
+
+func (f fakeStore) SetNote(_ context.Context, day time.Time, text string) error {
+	if f.notes != nil {
+		*f.notes = append(*f.notes, noteCall{day, text})
+	}
+	return nil
 }
 
 var testStatic = fstest.MapFS{

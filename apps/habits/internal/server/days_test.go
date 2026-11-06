@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"zazi.cool/habits/internal/habit"
 )
@@ -46,20 +47,104 @@ func TestGetDay(t *testing.T) {
 
 func TestGetDayEmptyListsAreArrays(t *testing.T) {
 	rec := apiRequest(habitsHandler(fakeStore{}), http.MethodGet, "/api/days/2026-11-06", "")
-	for _, want := range []string{`"groups":[]`, `"week":[]`, `"progress":0`} {
+	for _, want := range []string{`"groups":[]`, `"progress":0`} {
 		if !strings.Contains(rec.Body.String(), want) {
 			t.Errorf("body %s lacks %s", rec.Body.String(), want)
 		}
 	}
 }
 
-func TestDayOnlyToday(t *testing.T) {
+func TestGetDayRange(t *testing.T) {
 	h := habitsHandler(fakeStore{})
-	for _, date := range []string{"2026-11-05", "2026-11-07", "nope"} {
-		rec := apiRequest(h, http.MethodGet, "/api/days/"+date, "")
-		if rec.Code != http.StatusUnprocessableEntity {
-			t.Errorf("GET %s = %d, want 422", date, rec.Code)
+	tests := []struct {
+		date     string
+		want     int
+		editable string
+	}{
+		{"2026-11-06", http.StatusOK, `"editable":true`},
+		{"2026-10-31", http.StatusOK, `"editable":true`},  // today - 6
+		{"2026-10-30", http.StatusOK, `"editable":false`}, // today - 7: read only
+		{"2026-11-07", http.StatusUnprocessableEntity, ""},
+		{"nope", http.StatusUnprocessableEntity, ""},
+	}
+	for _, tt := range tests {
+		rec := apiRequest(h, http.MethodGet, "/api/days/"+tt.date, "")
+		if rec.Code != tt.want || !strings.Contains(rec.Body.String(), tt.editable) {
+			t.Errorf("GET %s = %d %s, want %d with %q", tt.date, rec.Code, rec.Body.String(), tt.want, tt.editable)
 		}
+	}
+}
+
+func TestGetDayStreakWeekAndNote(t *testing.T) {
+	d := func(s string) time.Time { v, _ := habit.ParseDay(s); return v }
+	var stats []habit.DayStat
+	// 12 complete days up to yesterday; the week strip shows Friday 6 at half.
+	for i := 12; i >= 1; i-- {
+		stats = append(stats, habit.DayStat{Day: d("2026-11-06").AddDate(0, 0, -i), Total: 1, Done: 1, ProgressSum: 1})
+	}
+	stats = append(stats, habit.DayStat{Day: d("2026-11-06"), Total: 2, Done: 1, ProgressSum: 1})
+	h := habitsHandler(fakeStore{stats: stats, note: "Bonne journée"})
+
+	rec := apiRequest(h, http.MethodGet, "/api/days/2026-11-06", "")
+	var day dayJSON
+	if err := json.Unmarshal(rec.Body.Bytes(), &day); err != nil {
+		t.Fatal(err)
+	}
+	if day.Streak != 12 || day.Note != "Bonne journée" {
+		t.Errorf("streak = %d, note = %q, want 12 and the note", day.Streak, day.Note)
+	}
+	if len(day.Week) != 7 || day.Week[0].Date != "2026-11-02" || day.Week[6].Date != "2026-11-08" {
+		t.Fatalf("week = %+v", day.Week)
+	}
+	if day.Week[3].Progress != 1 || day.Week[4].Progress != 0.5 || day.Week[5].Progress != 0 {
+		t.Errorf("week progress = %+v", day.Week)
+	}
+}
+
+func TestPutEntryInsideWindow(t *testing.T) {
+	var calls []entryCall
+	h := habitsHandler(fakeStore{entries: &calls})
+	rec := apiRequest(h, http.MethodPut, "/api/days/2026-10-31/entries/1", `{"value":1}`) // today - 6
+	if rec.Code != http.StatusOK || len(calls) != 1 {
+		t.Errorf("status = %d, calls = %+v, want 200 and one call", rec.Code, calls)
+	}
+}
+
+func TestPutNote(t *testing.T) {
+	var notes []noteCall
+	h := habitsHandler(fakeStore{notes: &notes})
+	rec := apiRequest(h, http.MethodPut, "/api/days/2026-11-06/note", `{"text":"Fatigué mais content"}`)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d (%s)", rec.Code, rec.Body.String())
+	}
+	if len(notes) != 1 || notes[0].text != "Fatigué mais content" || habit.FormatDay(notes[0].day) != "2026-11-06" {
+		t.Errorf("notes = %+v", notes)
+	}
+	// An empty text is valid: it deletes the note.
+	if rec := apiRequest(h, http.MethodPut, "/api/days/2026-11-06/note", `{"text":""}`); rec.Code != http.StatusNoContent {
+		t.Errorf("empty note = %d", rec.Code)
+	}
+}
+
+func TestPutNoteRefusals(t *testing.T) {
+	tests := []struct {
+		name, path, body string
+		want             int
+	}{
+		{"1001 characters", "/api/days/2026-11-06/note", `{"text":"` + strings.Repeat("a", 1001) + `"}`, http.StatusUnprocessableEntity},
+		{"missing text", "/api/days/2026-11-06/note", `{}`, http.StatusUnprocessableEntity},
+		{"tomorrow", "/api/days/2026-11-07/note", `{"text":"x"}`, http.StatusUnprocessableEntity},
+		{"today - 7", "/api/days/2026-10-30/note", `{"text":"x"}`, http.StatusUnprocessableEntity},
+		{"invalid json", "/api/days/2026-11-06/note", `{`, http.StatusBadRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var notes []noteCall
+			rec := apiRequest(habitsHandler(fakeStore{notes: &notes}), http.MethodPut, tt.path, tt.body)
+			if rec.Code != tt.want || len(notes) != 0 {
+				t.Errorf("status = %d, saved = %+v, want %d and nothing saved", rec.Code, notes, tt.want)
+			}
+		})
 	}
 }
 
@@ -92,7 +177,8 @@ func TestPutEntryErrors(t *testing.T) {
 		{"negative", "/api/days/2026-11-06/entries/1", `{"value":-1}`, nil, http.StatusUnprocessableEntity},
 		{"too large", "/api/days/2026-11-06/entries/1", `{"value":100001}`, nil, http.StatusUnprocessableEntity},
 		{"invalid json", "/api/days/2026-11-06/entries/1", `{`, nil, http.StatusBadRequest},
-		{"other day", "/api/days/2026-11-05/entries/1", `{"value":1}`, nil, http.StatusUnprocessableEntity},
+		{"tomorrow", "/api/days/2026-11-07/entries/1", `{"value":1}`, nil, http.StatusUnprocessableEntity},
+		{"today - 7", "/api/days/2026-10-30/entries/1", `{"value":1}`, nil, http.StatusUnprocessableEntity},
 		{"bad id", "/api/days/2026-11-06/entries/x", `{"value":1}`, nil, http.StatusNotFound},
 		{"unknown habit", "/api/days/2026-11-06/entries/1", `{"value":1}`, habit.ErrNotFound, http.StatusNotFound},
 		{"weekday excluded", "/api/days/2026-11-06/entries/1", `{"value":1}`, habit.ErrDayNotAllowed, http.StatusUnprocessableEntity},
@@ -104,6 +190,9 @@ func TestPutEntryErrors(t *testing.T) {
 			rec := apiRequest(h, http.MethodPut, tt.path, tt.body)
 			if rec.Code != tt.want {
 				t.Errorf("status = %d, want %d (%s)", rec.Code, tt.want, rec.Body.String())
+			}
+			if tt.entryErr == nil && tt.want != http.StatusOK && len(calls) != 0 {
+				t.Errorf("store was called despite the refusal: %+v", calls)
 			}
 		})
 	}

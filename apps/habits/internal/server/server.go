@@ -26,6 +26,9 @@ type Store interface {
 	ListHabits(ctx context.Context, today time.Time) (active, archived []habit.Habit, err error)
 	DayHabits(ctx context.Context, day time.Time) ([]habit.Logged, error)
 	SetEntry(ctx context.Context, habitID int64, day time.Time, value int) error
+	DayStats(ctx context.Context, from, to time.Time) ([]habit.DayStat, error)
+	DayNote(ctx context.Context, day time.Time) (string, error)
+	SetNote(ctx context.Context, day time.Time, text string) error
 }
 
 // Authenticator checks the password and handles sessions. *auth.Manager satisfies it.
@@ -54,6 +57,8 @@ type Config struct {
 	// civil day (UTC when nil); both are injected so tests control the day.
 	Now      func() time.Time
 	Location *time.Location
+	// EditWindowDays is how many days, today included, can be edited (EDIT_WINDOW_DAYS).
+	EditWindowDays int
 }
 
 type handler struct {
@@ -83,6 +88,7 @@ func NewHandler(cfg Config) http.Handler {
 	mux.Handle("POST /api/habits", h.requireSession(http.HandlerFunc(h.createHabit)))
 	mux.Handle("GET /api/days/{date}", h.requireSession(http.HandlerFunc(h.getDay)))
 	mux.Handle("PUT /api/days/{date}/entries/{habitId}", h.requireSession(http.HandlerFunc(h.putEntry)))
+	mux.Handle("PUT /api/days/{date}/note", h.requireSession(http.HandlerFunc(h.putNote)))
 	// Any other /api/ URL answers JSON, never the front: 401 without a session (so an
 	// unknown URL does not reveal which routes exist), 404 with one.
 	mux.Handle("/api/", h.requireSession(http.HandlerFunc(apiNotFound)))

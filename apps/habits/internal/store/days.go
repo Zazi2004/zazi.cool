@@ -93,3 +93,76 @@ func (s *Store) SetEntry(ctx context.Context, habitID int64, day time.Time, valu
 	}
 	return nil
 }
+
+// DayStats sums up the `day` habits of every civil day from the earliest habit (or
+// from `from` if that is earlier) to `to`, oldest first: the week strip and the
+// streak come from it. One query; days before any habit existed are not listed.
+func (s *Store) DayStats(ctx context.Context, from, to time.Time) ([]habit.DayStat, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT d.day, count(x.target), count(*) FILTER (WHERE x.value >= x.target),
+		        COALESCE(sum(LEAST(1, x.value::float8 / x.target)), 0)
+		 FROM generate_series(
+		          LEAST($1::date, (SELECT COALESCE(MIN(created_on), $1::date) FROM habits)),
+		          $2::date, interval '1 day') AS g(d)
+		 CROSS JOIN LATERAL (SELECT g.d::date AS day) d
+		 LEFT JOIN LATERAL (
+		     SELECT r.target, COALESCE(e.value, 0) AS value
+		     FROM habits h
+		     JOIN LATERAL (
+		         SELECT period, target, weekdays FROM habit_rules
+		         WHERE habit_id = h.id AND valid_from <= d.day
+		         ORDER BY valid_from DESC LIMIT 1
+		     ) r ON true
+		     LEFT JOIN entries e ON e.habit_id = h.id AND e.day = d.day
+		     WHERE h.created_on <= d.day AND (h.archived_on IS NULL OR h.archived_on > d.day)
+		       AND r.period = 'day'
+		       AND (r.weekdays & (1 << (extract(isodow FROM d.day)::int - 1))) <> 0
+		 ) x ON true
+		 GROUP BY d.day ORDER BY d.day`, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("day stats: %w", err)
+	}
+	defer rows.Close()
+
+	var out []habit.DayStat
+	for rows.Next() {
+		var st habit.DayStat
+		if err := rows.Scan(&st.Day, &st.Total, &st.Done, &st.ProgressSum); err != nil {
+			return nil, fmt.Errorf("scan day stat: %w", err)
+		}
+		out = append(out, st)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("day stats: %w", err)
+	}
+	return out, nil
+}
+
+// DayNote returns the note of day, empty when there is none.
+func (s *Store) DayNote(ctx context.Context, day time.Time) (string, error) {
+	var text string
+	err := s.pool.QueryRow(ctx, `SELECT text FROM day_notes WHERE day = $1`, day).Scan(&text)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("day note: %w", err)
+	}
+	return text, nil
+}
+
+// SetNote saves the note of day; an empty text deletes it.
+func (s *Store) SetNote(ctx context.Context, day time.Time, text string) error {
+	var err error
+	if text == "" {
+		_, err = s.pool.Exec(ctx, `DELETE FROM day_notes WHERE day = $1`, day)
+	} else {
+		_, err = s.pool.Exec(ctx,
+			`INSERT INTO day_notes (day, text) VALUES ($1, $2)
+			 ON CONFLICT (day) DO UPDATE SET text = EXCLUDED.text, updated_at = now()`, day, text)
+	}
+	if err != nil {
+		return fmt.Errorf("set note: %w", err)
+	}
+	return nil
+}

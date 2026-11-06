@@ -17,7 +17,8 @@ import (
 func habitsHandler(store fakeStore) http.Handler {
 	return NewHandler(Config{
 		Store: store, Auth: fakeAuth{}, Static: testStatic, BaseURL: testBaseURL, LoginLimit: 10,
-		Now: func() time.Time { return time.Date(2026, time.November, 6, 10, 0, 0, 0, time.UTC) },
+		Now:            func() time.Time { return time.Date(2026, time.November, 6, 10, 0, 0, 0, time.UTC) },
+		EditWindowDays: 7,
 	})
 }
 
@@ -142,7 +143,14 @@ func TestGoldenFiles(t *testing.T) {
 			Unit: "pages", Step: 5, Period: habit.PeriodDay, Target: 20, Weekdays: habit.AllDays,
 		}, Value: 10},
 	}
-	dh := habitsHandler(fakeStore{logged: logged})
+	var stats []habit.DayStat
+	for _, d := range []string{"2026-11-03", "2026-11-04", "2026-11-05"} {
+		day, _ := habit.ParseDay(d)
+		stats = append(stats, habit.DayStat{Day: day, Total: 3, Done: 3, ProgressSum: 3})
+	}
+	today, _ := habit.ParseDay("2026-11-06")
+	stats = append(stats, habit.DayStat{Day: today, Total: 3, Done: 1, ProgressSum: 1.5})
+	dh := habitsHandler(fakeStore{logged: logged, stats: stats, note: "Bonne journée"})
 	writeGolden(t, "day", apiRequest(dh, http.MethodGet, "/api/days/2026-11-06", ""))
 }
 
