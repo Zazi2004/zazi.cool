@@ -7,8 +7,7 @@
 
 Suivi d'habitudes personnel : cocher chaque jour les habitudes faites, consulter le suivi
 par jour, semaine, mois et année. Privé (un seul utilisateur), mobile d'abord. La spec
-`docs/specs/habits.md` fait foi (brouillon tant que Noah n'a pas validé les décisions D1–D6 ;
-les propositions de la spec sont appliquées).
+`docs/specs/habits.md` (v2) fait foi ; la v1 est dans son historique git.
 
 **Statut : premier déploiement (2026-10-30), recette en cours.** Le squelette (ONBO-90, T1) est en place : `GET /healthz`
 (liveness, sans base), `GET /readyz` (base jointe), `GET /version` (SHA git), arrêt propre,
@@ -21,9 +20,29 @@ archivage, restauration). Les statistiques (ONBO-94, T5) le sont aussi : `/week/
 courante). Les finitions mobile (ONBO-95, T6) le sont aussi : feuille de style et script de cochage. Les manifests (`infra/apps/habits/`, T2) sont en place et le
 premier déploiement (T7) est en cours.
 
-## Reste à faire (spec §8)
+## Refonte v2 (cadrée le 2026-11-06)
 
-T7 : recette (`docs/specs/habits.md` §9) et ajout au service d'uptime.
+La v1 décrite ci-dessous est en production mais va être remplacée. **La spec v2
+(`docs/specs/habits.md`) fait foi** pour tout nouveau travail ; elle prime sur les règles v1 de
+ce fichier en cas de conflit. En résumé :
+
+- Modèle : période (jour / semaine / mois / année) + cible + jours autorisés, oui/non ou
+  quantité ; période, cible et jours **versionnés** à partir de la période en cours ; emoji,
+  couleur, moment (Matin / Journée / Soir), ordre manuel ; note journalière. Données v1
+  abandonnées (migration `003_v2.sql`).
+- Front **React + TypeScript + Vite + Motion** dans `web/`, embarqué ; Go devient une API JSON
+  sous `/api/`. Ces dépendances sont approuvées ; les règles « pas de TypeScript » et « aucune
+  dépendance au-delà de `pgx` » de la v1 ne s'appliquent plus au front.
+- Toute règle métier reste calculée en Go (`internal/habit`) ; formats d'échange définis au
+  §7 de la spec, alignés par des golden files.
+- Direction visuelle : variante A « Anneaux » du prototype (branche `proto/habits-redesign`,
+  jamais fusionnée).
+- `EDIT_WINDOW_DAYS` passe à 7.
+- Issue parente ONBO-109, sous-issues ONBO-110 → ONBO-118 (spec §13), mergées dans la branche
+  d'intégration `feat/habits-redesign` ; toutes les décisions sont prises (spec §12), dont un pas
+  d'incrément par habitude (`step`) et une bascule en un bloc à la fin (V7).
+
+La recette v1 (T7) est abandonnée au profit de la recette v2 (spec §14).
 
 ## Configuration
 
