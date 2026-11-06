@@ -311,7 +311,8 @@ Base `habits` existante. Migration **`003_v2.sql`** : supprime `completions`,
 
 ## 9. Configuration
 
-Inchangée, sauf `EDIT_WINDOW_DAYS` dont le défaut passe à **`7`** (`.env.example`, manifests).
+Inchangée, sauf `EDIT_WINDOW_DAYS` dont le défaut passe à **`7`** (code, `.env.example`) et qui est
+posé explicitement à `7` dans l'overlay de production (`infra/apps/habits/overlays/prod`).
 
 ## 10. Critères d'acceptation
 
