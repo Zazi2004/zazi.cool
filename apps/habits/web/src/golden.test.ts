@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import habitGolden from "./golden/habit.json";
+import dayGolden from "./golden/day.json";
 import habitListGolden from "./golden/habit-list.json";
-import type { Habit, HabitList } from "./types";
+import type { Day, DayHabit, Habit, HabitList } from "./types";
 
 // JSON imports widen string literals to `string`; this maps a type to that widened shape
 // so the golden files can be checked against the real types with `satisfies`.
@@ -33,12 +34,23 @@ same<typeof habitListGolden, HabitList>(true);
 same<(typeof habitListGolden.active)[number], Habit>(true);
 same<(typeof habitListGolden.archived)[number], Habit>(true);
 
+const day = dayGolden satisfies Widen<Day>;
+same<typeof dayGolden, Day>(true);
+same<(typeof dayGolden.groups)[number]["habits"][number], DayHabit>(true);
+same<(typeof dayGolden.groups)[number]["habits"][number]["habit"], Habit>(true);
+
 // The checks above are compile-time (tsc runs before vitest in `npm test`); these make
 // sure the files are loaded and carry what the screens rely on.
 describe("golden files", () => {
   it("Habit", () => {
     expect(habit.name).toBe("Vitamine D");
     expect(habit.archivedOn).toBeNull();
+  });
+
+  it("Day", () => {
+    expect(day.groups[0]?.habits[0]?.complete).toBe(false);
+    expect(day.groups[0]?.habits.at(-1)?.complete).toBe(true);
+    expect(day.done).toBe(1);
   });
 
   it("habit list", () => {

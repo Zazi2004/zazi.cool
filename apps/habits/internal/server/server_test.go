@@ -21,6 +21,17 @@ type fakeStore struct {
 	active, archived []habit.Habit
 	// created records the inputs CreateHabit received (a pointer: the fake is passed by value).
 	created *[]habit.Input
+	// logged is what DayHabits returns; entryErr is returned by SetEntry, which records
+	// its calls in entries.
+	logged   []habit.Logged
+	entryErr error
+	entries  *[]entryCall
+}
+
+type entryCall struct {
+	habitID int64
+	day     time.Time
+	value   int
 }
 
 func (f fakeStore) Ping(context.Context) error { return f.pingErr }
@@ -40,6 +51,17 @@ func (f fakeStore) CreateHabit(_ context.Context, in habit.Input, _ time.Time) (
 
 func (f fakeStore) ListHabits(context.Context, time.Time) ([]habit.Habit, []habit.Habit, error) {
 	return f.active, f.archived, nil
+}
+
+func (f fakeStore) DayHabits(context.Context, time.Time) ([]habit.Logged, error) {
+	return f.logged, nil
+}
+
+func (f fakeStore) SetEntry(_ context.Context, habitID int64, day time.Time, value int) error {
+	if f.entries != nil {
+		*f.entries = append(*f.entries, entryCall{habitID, day, value})
+	}
+	return f.entryErr
 }
 
 var testStatic = fstest.MapFS{
