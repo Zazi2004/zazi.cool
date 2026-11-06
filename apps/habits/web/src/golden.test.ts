@@ -1,0 +1,86 @@
+import { describe, expect, it } from "vitest";
+import habitGolden from "./golden/habit.json";
+import dayGolden from "./golden/day.json";
+import habitListGolden from "./golden/habit-list.json";
+import habitStatsGolden from "./golden/habit-stats.json";
+import statsGolden from "./golden/stats.json";
+import type {
+  Day,
+  DayHabit,
+  Habit,
+  HabitList,
+  HabitStats,
+  HabitSummary,
+  StatsOverview,
+} from "./types";
+
+// JSON imports widen string literals to `string`; this maps a type to that widened shape
+// so the golden files can be checked against the real types with `satisfies`.
+type Widen<T> = T extends string
+  ? string
+  : T extends number
+    ? number
+    : T extends boolean
+      ? boolean
+      : T extends null
+        ? null
+        : T extends readonly (infer U)[]
+          ? Widen<U>[]
+          : { [K in keyof T]: Widen<T[K]> };
+
+// Same keys on both sides: `satisfies` alone would accept a field the type lacks.
+type SameKeys<A, B> = [keyof A] extends [keyof B]
+  ? [keyof B] extends [keyof A]
+    ? true
+    : never
+  : never;
+const same = <A, B>(_: SameKeys<A, B>) => undefined;
+
+const habit = habitGolden satisfies Widen<Habit>;
+same<typeof habitGolden, Habit>(true);
+
+const habitList = habitListGolden satisfies Widen<HabitList>;
+same<typeof habitListGolden, HabitList>(true);
+same<(typeof habitListGolden.active)[number], Habit>(true);
+same<(typeof habitListGolden.archived)[number], Habit>(true);
+
+const day = dayGolden satisfies Widen<Day>;
+same<typeof dayGolden, Day>(true);
+same<(typeof dayGolden.groups)[number]["habits"][number], DayHabit>(true);
+same<(typeof dayGolden.groups)[number]["habits"][number]["habit"], Habit>(true);
+
+const stats = statsGolden satisfies Widen<StatsOverview>;
+same<typeof statsGolden, StatsOverview>(true);
+same<(typeof statsGolden.habits)[number], HabitSummary>(true);
+
+// The null-able fields are `null` in some golden entries, so the full shape is checked
+// on the keys (`same`) and on the values that are never null.
+same<typeof habitStatsGolden, HabitStats>(true);
+same<(typeof habitStatsGolden.days)[number], HabitStats["days"][number]>(true);
+same<(typeof habitStatsGolden.periods)[number], HabitStats["periods"][number]>(true);
+
+// The checks above are compile-time (tsc runs before vitest in `npm test`); these make
+// sure the files are loaded and carry what the screens rely on.
+describe("golden files", () => {
+  it("Habit", () => {
+    expect(habit.name).toBe("Vitamine D");
+    expect(habit.archivedOn).toBeNull();
+  });
+
+  it("Day", () => {
+    expect(day.groups[0]?.habits[0]?.complete).toBe(false);
+    expect(day.groups[0]?.habits.at(-1)?.complete).toBe(true);
+    expect(day.done).toBe(1);
+  });
+
+  it("stats", () => {
+    expect(stats.habits.length).toBeGreaterThan(0);
+    expect(habitStatsGolden.periods.map((p) => p.status)).toContain("interrupted");
+    expect(habitStatsGolden.days.some((d) => d.level === null)).toBe(true);
+  });
+
+  it("habit list", () => {
+    expect(habitList.active.length).toBeGreaterThan(0);
+    expect(habitList.archived[0]?.archivedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});

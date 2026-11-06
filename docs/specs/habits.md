@@ -1,257 +1,415 @@
-# Spec — Habit tracker (`habits.zazi.cool`)
+# Spec — Habit tracker v2 (`habits.zazi.cool`)
 
 | Champ          | Valeur |
 |----------------|--------|
-| Statut         | **Brouillon** — en attente des réponses de Noah aux décisions ouvertes |
-| Issue Multica  | ONBO-88 |
+| Statut         | **Validée** — cadrage et décisions D7–D10 validés par Noah le 2026-11-06 |
+| Version précédente | v1 (ONBO-88), déployée le 2026-10-30 ; texte dans l'historique git de ce fichier |
 | Application    | `apps/habits/` |
-| Auteur, valideur | Rédacteur de specs / Noah |
+| Prototype      | branche `proto/habits-redesign` (`apps/habits/prototype-web/`, verdict dans `VERDICT.md`) |
+| Auteur, valideur | Claude / Noah |
 
 ## 1. Contexte
 
-Noah veut un suivi d'habitudes personnel : chaque jour, cocher les habitudes faites, puis
-consulter le suivi par jour, semaine, mois et année. L'app est **privée** (un seul
-utilisateur) et pensée d'abord pour le **téléphone**, où l'on coche en quelques secondes.
-Rien n'existe encore dans le dépôt : pas de dossier `apps/habits/`, pas de manifests, pas
-de base. Le DNS wildcard `*.zazi.cool` couvre déjà le sous-domaine.
+La v1 fonctionne (cases à cocher par jour, jours concernés, vues semaine / mois / année) mais
+ne plaît pas à Noah, dans cet ordre : **l'apparence** est basique et pas assez « app mobile »
+(les effets inspirés de React Bits jurent avec le reste), **le modèle** est trop pauvre (oui/non
+à jours fixes seulement : impossible de suivre « 2 pilules par jour » ou « 150 séances de sport
+dans l'année »), et **l'usage** ne donne pas envie d'ouvrir l'app.
 
-L'authentification reprend le modèle déjà spécifié pour l'admin de l'accueil
-(`docs/specs/home.md`, F17–F20) : mot de passe unique, session par cookie.
+La v2 est une **refonte**, pas une réécriture : l'ossature Go est conservée (authentification,
+sessions, rate limiting, CSRF, migrations, `/healthz` `/readyz` `/version`, manifests, CI). Le
+modèle des habitudes et toute l'interface sont refaits. Les données d'habitudes de la v1 sont
+**abandonnées** (une semaine de recette, sans valeur à conserver).
+
+Inchangé : un seul utilisateur, privé, **mobile d'abord**, `habits.zazi.cool`.
 
 ## 2. Objectifs
 
-- **O1** — Cocher les habitudes du jour en moins de 10 secondes depuis un téléphone.
-- **O2** — Voir, pour n'importe quelle période (jour, semaine, mois, année), ce qui a été
-  fait et le taux de réussite.
-- **O3** — Les données de Noah ne sont lisibles que par Noah (aucune page publique).
-- **O4** — Le suivi est fiable : corriger un oubli sur un jour passé récent est possible,
-  et les statistiques ne changent pas si on renomme ou archive une habitude.
+- **O1** — Enregistrer ce qu'on a fait aujourd'hui en quelques touchers, sans formulaire.
+- **O2** — Exprimer toutes les habitudes réelles de Noah : oui/non, quantités, objectifs à la
+  semaine, au mois ou à l'année.
+- **O3** — Donner envie d'ouvrir l'app : progression visible, rythme, séries, célébration.
+- **O4** — Une interface moderne et cohérente, où les effets React Bits sont chez eux.
+- **O5** — Statistiques justes : modifier une habitude ne réécrit jamais le passé.
 
 ## 3. Périmètre
 
-### Inclus (MVP)
-- Habitudes quotidiennes : création, renommage, archivage.
-- Cases à cocher par jour (aujourd'hui et jours passés), annulables.
-- Habitudes **à jours choisis** (ex. lundi, mercredi, vendredi) en plus du « tous les jours » (D2).
-- Vues **jour**, **semaine**, **mois**, **année** avec taux de réussite.
-- Série en cours (« streak ») par habitude.
-- Connexion par mot de passe unique.
+### Inclus
+- Habitudes **oui/non** ou **en quantité** (cible + unité), sur une **période** (jour, semaine,
+  mois, année), avec **jours autorisés** optionnels.
+- Emoji, couleur (palette de 8), moment de la journée (Matin / Journée / Soir), ordre manuel.
+- Écran « Aujourd'hui » (direction visuelle **A « Anneaux »** du prototype), saisie par toucher et
+  appui long, glissement entre les jours, anneaux de progression, rythme, série, célébration.
+- **Note journalière** en texte brut.
+- Statistiques : vue d'ensemble + page par habitude.
+- Front **React + TypeScript + Vite**, embarqué dans le binaire Go ; API JSON.
+- App **installable** sur l'écran d'accueil (manifest + icônes).
 
 ### Hors périmètre
-- Plusieurs utilisateurs, inscription, réinitialisation de mot de passe par l'interface.
-- Rappels / notifications, export, import de données.
-- Habitudes quantitatives (« 8 verres d'eau ») : seule la case faite / pas faite existe.
-- Notes, catégories, graphiques complexes, application mobile native.
-- Mode hors ligne (PWA) : piste ultérieure.
+- Plusieurs utilisateurs ; notifications / rappels ; mode hors ligne (service worker).
+- Chronomètre intégré ; type « habitude à éviter » (on la formule en positif : « journée sans
+  sucre ») ; fréquence « tous les X jours » ; catégories libres ; note par habitude.
+- Bilans de semaine / mois mis en avant (piste ultérieure).
+- Migration des données v1.
 
-## 4. Exigences
+## 4. Modèle
+
+### Habitude
+
+| Attribut | Règle | Versionné |
+|----------|-------|-----------|
+| `name` | 1 à 60 caractères, unique parmi les habitudes actives | non |
+| `emoji` | un graphème | non |
+| `color` | une des 8 clés de palette : `amber`, `violet`, `blue`, `red`, `green`, `teal`, `slate`, `pink` | non |
+| `moment` | `morning` / `day` / `evening` | non |
+| `position` | ordre manuel au sein de son moment | non |
+| `unit` | vide (= oui/non si cible 1) ou 1 à 20 caractères (« pilules », « min ») | non |
+| `step` | incrément d'un toucher, entier ≥ 1, défaut 1 | non |
+| `period` | `day` / `week` / `month` / `year` | **oui** |
+| `target` | entier, 1 à 10 000 | **oui** |
+| `weekdays` | masque 7 bits (bit 0 = lundi), défaut tous les jours | **oui** |
+
+- Une habitude est **oui/non** quand `target = 1` et `unit` vide ; sinon c'est une **quantité**.
+- Les semaines vont du lundi au dimanche ; mois et années sont calendaires ; le « jour » est
+  celui de `TZ_NAME` (inchangé depuis la v1).
+- Exemples : complément `day` / 2 / « pilules » ; sport `year` / 150 / « séances » ;
+  course `week` / 3 / « sorties » ; méditation `day` / 1 ; « pas d'écran après 22 h » `day` / 1,
+  lundi → vendredi.
+
+### Règles versionnées (période, cible, jours)
+
+- Chaque changement de `period`, `target` ou `weekdays` crée une **version** effective à partir
+  du **début de la période en cours** (selon la nouvelle période). Les versions dont
+  `valid_from` est postérieur ou égal sont remplacées (une seconde modification dans la même
+  période remplace donc la précédente). Les périodes passées gardent leur règle : les
+  statistiques et les séries ne changent pas (O5).
+- La règle d'un jour = la dernière version dont `valid_from` ≤ ce jour. Une période est évaluée
+  avec la règle de son premier jour.
+- Si la **période** change, la dernière période de l'ancienne règle s'arrête la veille de
+  `valid_from` : elle est dite **interrompue** et ne compte ni comme réussie ni comme manquée
+  
+- Renommer, changer l'emoji, la couleur, le moment, l'ordre, l'unité ou le pas n'est pas
+  versionné.
+- Archiver (`archived_on`) retire l'habitude d'aujourd'hui et des jours suivants, sans toucher
+  à l'historique ; restaurer la fait réapparaître. Pas de suppression définitive.
+
+### Saisies
+
+- Une saisie = (habitude, jour, `value` entier ≥ 1). `value = 0` supprime la saisie.
+- On ne saisit que pour un jour **autorisé** par la règle du jour (sinon `422`).
+- La cible **peut être dépassée** (3 séances un jour, 10 verres sur 8).
+- Fenêtre d'édition : aujourd'hui et les **6 jours précédents** (`EDIT_WINDOW_DAYS = 7`),
+  jamais le futur. Au-delà : lecture seule.
+
+### Note journalière
+
+Une note par jour, texte brut, 0 à 1 000 caractères, même fenêtre d'édition. Vide = supprimée.
+
+### Calculs (Go, `internal/habit`, fonctions pures)
+
+- **Total de période** au jour J = somme des saisies du début de la période de J jusqu'à J.
+- **Progression** = min(1, total ÷ cible). **Réussie** quand total ≥ cible.
+- **Rythme** (périodes semaine / mois / année seulement) : attendu = cible × jours écoulés
+  (J inclus) ÷ jours de la période ; écart = total − attendu, arrondi à l'entier. Libellés :
+  « objectif atteint » si réussie, sinon « dans le rythme » (écart arrondi à 0),
+  « N d'avance », « N de retard ».
+- **Progression du jour** (grand anneau) = moyenne des progressions des habitudes **`day`**
+  autorisées ce jour-là. Les objectifs sur période n'y entrent pas (ils ont leur rythme).
+- **Journée complète** = toutes les habitudes `day` autorisées ce jour-là sont réussies (un jour
+  sans aucune habitude `day` n'est ni complet ni manqué).
+- **Série globale** = nombre de journées complètes consécutives se terminant aujourd'hui ;
+  aujourd'hui non encore complet ne casse pas la série (on compte depuis hier) ; un jour sans
+  habitude `day` est sauté.
+- **Série d'une habitude** = périodes réussies consécutives (jours concernés pour `day`,
+  semaines, mois). La période en cours non encore réussie ne casse pas la série ; un jour non
+  autorisé est sauté ; une période interrompue est sautée. **Pas de série pour `year`**.
+  Meilleure série = maximum historique.
+- **Taux de réussite** d'une habitude sur un intervalle = périodes réussies ÷ périodes
+  **closes** (+ la période en cours si elle est déjà réussie). « — » si aucune période ne compte.
+
+## 5. Interface
+
+Direction visuelle : **variante A « Anneaux »** du prototype (`proto/habits-redesign`).
+Thème clair conçu en premier, sombre via `prefers-color-scheme`. Police Inter, **auto-hébergée**
+(pas de Google Fonts, NF4).
+
+### Navigation
+Barre d'onglets flottante en bas (verre dépoli) : **Aujourd'hui** · **Stats** · **Habitudes**.
+Routes côté client : `/`, `/day/{AAAA-MM-JJ}`, `/stats`, `/stats/{id}`, `/habits`, `/login`.
+
+### Aujourd'hui (`/` et `/day/{date}`)
+- En-tête : libellé relatif (« Aujourd'hui », « Hier », « Il y a N jours »), date longue,
+  pastille de **série globale** (🔥).
+- Bande de la semaine : 7 jours, un mini-anneau de progression chacun ; toucher un jour l'ouvre ;
+  jours futurs inactifs.
+- **Grand anneau** du jour (dégradé) avec pourcentage animé et « N / M du jour ».
+- Groupes **Matin / Journée / Soir** (masqués s'ils sont vides) ; dans chaque groupe, ordre
+  manuel, habitudes **réussies grisées en bas** du groupe.
+- Ligne d'habitude : emoji sur pastille teintée, nom, sous-titre (« 1 / 2 pilules »,
+  « 132 / 150 séances cette année · 5 d'avance » en vert / rouge), bouton-anneau à droite.
+  Les objectifs sur période apparaissent chaque jour autorisé, même une fois atteints.
+- **Toucher** la ligne : oui/non → bascule ; quantité → + `step`. Étincelle à la couleur de
+  l'habitude.
+- **Appui long** (≈ 450 ms) : panneau du bas avec stepper −/+ et champ numérique pour saisir la
+  valeur exacte du jour ; glisser vers le bas pour fermer.
+- **Glisser** horizontalement : jour précédent / suivant (jamais au-delà d'aujourd'hui).
+- Hors fenêtre d'édition : bandeau « Lecture seule », touchers inactifs.
+- **Note du jour** en bas, enregistrée automatiquement (anti-rebond ~800 ms), compteur /1000.
+- **Célébration** (confettis) quand la journée devient complète par une action de l'utilisateur.
+
+### Habitudes (`/habits`)
+- Liste groupée par moment, réordonnable (glisser une poignée ; flèches haut / bas comme
+  alternative accessible). Section repliée « Archivées » avec « Restaurer ».
+- Bouton « + » flottant → panneau du bas de création ; toucher une habitude → même panneau en
+  modification : nom, emoji, couleur, moment, type (oui/non | quantité), cible, unité, pas,
+  période, jours autorisés. Un changement versionné affiche « s'applique à partir du <début de
+  la période> ». Bouton « Archiver ».
+
+### Stats (`/stats`, `/stats/{id}`)
+- **Vue d'ensemble** : une carte par habitude active (anneau de la période en cours, total /
+  cible, rythme, série en cours).
+- **Page d'habitude** : heatmap calendaire de l'année (intensité = progression du jour pour
+  `day`, valeur saisie sinon ; navigation par année), série en cours et meilleure série, taux
+  de réussite (30 derniers jours / année), pour `week`/`month`/`year` la liste des périodes avec
+  total et réussite.
+
+### Effets (React Bits)
+- Composants React Bits copiés dans le code (ils se distribuent en copier-coller) : CountUp,
+  ShinyText, GradientText, SpotlightCard, ClickSpark, et un fond Aurora discret sur l'en-tête si
+  le rendu le justifie. Animations via **Motion**. Un composant qui exigerait une autre
+  dépendance (ex. `ogl`, `gsap`) demande l'accord de Noah.
+- `prefers-reduced-motion` neutralise toutes les animations non essentielles (confettis,
+  étincelles, aurore, dégradés animés).
+
+## 6. Exigences
 
 ### Fonctionnelles
-
-**Habitudes**
-
-- **F1** — Créer une habitude : nom (1 à 60 caractères, unique parmi les habitudes
-  actives) et jours concernés (par défaut tous les jours, D2).
-- **F2** — Renommer une habitude ; changer ses jours concernés n'affecte que les jours
-  **à partir d'aujourd'hui** (l'historique garde ses règles passées, voir NF5).
-- **F3** — Archiver une habitude : elle disparaît de la vue du jour et des jours futurs
-  mais reste dans l'historique et les statistiques passées. Une habitude archivée peut
-  être restaurée. Pas de suppression définitive en MVP.
-
-**Suivi**
-
-- **F4** — La page d'accueil `/` affiche **aujourd'hui** : la liste des habitudes
-  concernées par ce jour, chacune avec une case. Cocher ou décocher enregistre
-  immédiatement (requête serveur, sans rechargement de page si JS disponible, sinon
-  formulaire).
-- **F5** — On peut ouvrir un **jour passé** et cocher / décocher ses habitudes, jusqu'à
-  `EDIT_WINDOW_DAYS` jours en arrière (défaut 14, D3). Les jours futurs ne sont pas
-  modifiables.
-- **F6** — Le « jour » est celui du fuseau `Europe/Paris` (variable `TZ_NAME`), pas celui
-  du serveur.
-
-**Statistiques**
-
-- **F7** — Vue **semaine** (lundi à dimanche) : grille habitudes × 7 jours (fait, pas
-  fait, non concerné) et taux de réussite par habitude et global.
-- **F8** — Vue **mois** : calendrier du mois, chaque jour coloré selon la part d'habitudes
-  faites ; taux par habitude sur le mois.
-- **F9** — Vue **année** : 12 mois, chacun avec son taux, plus une grille de
-  365 petits carrés (style « heatmap ») ; taux par habitude sur l'année.
-- **F10** — Taux de réussite = jours faits ÷ jours où l'habitude était **concernée et
-  existante** sur la période, jusqu'à aujourd'hui inclus (les jours futurs et ceux
-  d'avant la création de l'habitude ne comptent pas).
-- **F11** — Série en cours par habitude : nombre de jours concernés consécutifs faits,
-  en finissant à aujourd'hui (si aujourd'hui n'est pas encore coché, la série d'hier est
-  conservée). Les jours « non concernés » ne cassent pas la série.
-
-**Authentification**
-
-- **F12** — Toutes les pages (sauf `/login`, `/healthz`, `/readyz`, `/version`) exigent
-  une session ; sinon redirection `303` vers `/login`.
-- **F13** — Mot de passe unique : l'app ne connaît que son hash bcrypt
-  (`ADMIN_PASSWORD_HASH`). `POST /login` ouvre une session de 30 jours (jeton aléatoire
-  de 256 bits, seule l'empreinte SHA-256 est en base), cookie `HttpOnly`,
-  `SameSite=Strict`, `Secure` + préfixe `__Host-` en HTTPS. `POST /logout` la ferme.
-- **F14** — Tentatives de connexion limitées par IP (`RATE_LIMIT_LOGIN` par heure,
-  défaut 10, en mémoire) : au-delà, `429`, même avec le bon mot de passe.
-- **F15** — `GET /version` renvoie le SHA git de l'image (vérification des déploiements,
-  `docs/workflow/cycle-de-vie.md`).
+- **F1** — Créer, modifier, réordonner, archiver, restaurer une habitude (§4, §5).
+- **F2** — Versionner période / cible / jours (§4) ; les autres attributs s'appliquent partout.
+- **F3** — Saisir une valeur pour (habitude, jour) dans la fenêtre d'édition (toucher, appui long).
+- **F4** — Écran Aujourd'hui complet (§5) pour n'importe quel jour passé (lecture seule hors
+  fenêtre).
+- **F5** — Note journalière.
+- **F6** — Statistiques : vue d'ensemble et page d'habitude (§5), calculs du §4.
+- **F7** — Authentification inchangée sur le fond (mot de passe unique, sessions 30 jours,
+  rate limiting, CSRF) ; écran de connexion en React, endpoints en JSON.
+- **F8** — `GET /version`, `/healthz`, `/readyz` inchangés.
+- **F9** — Manifest web (`name`, `short_name`, icônes 192 / 512 / maskable, `display:
+  standalone`, couleurs) et `apple-touch-icon` : l'app s'ajoute à l'écran d'accueil.
 
 ### Non fonctionnelles
+- **NF1** — Le front est un build Vite **embarqué** (`embed`) : une seule image, pas de Node en
+  production. Toute URL hors `/api/`, `/assets/`, `/healthz`, `/readyz`, `/version` sert
+  `index.html` (routage client).
+- **NF2** — CSP stricte conservée : `default-src 'none'; script-src 'self'; style-src 'self';
+  img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self';
+  base-uri 'none'; form-action 'self'; frame-ancestors 'none'`. React et Motion écrivent les
+  styles via le CSSOM (autorisé) ; aucune balise `<style>` ni attribut `style` dans le HTML
+  servi. À vérifier dès ONBO-110 ; tout assouplissement est soumis à Noah.
+- **NF3** — CSRF inchangé (`Sec-Fetch-Site` / `Origin`) sur toutes les requêtes non `GET` de
+  l'API ; l'API ne lit que du JSON (`Content-Type: application/json`, sinon `415`).
+- **NF4** — Vie privée : aucune ressource tierce (polices et icônes servies par l'app), seul
+  cookie = session.
+- **NF5** — **Toute règle métier est calculée en Go** ; le front affiche ce que l'API renvoie
+  (progressions, rythme, séries, éditabilité). Les mises à jour sont **optimistes** côté front et
+  remplacées par la réponse du serveur (ou annulées avec un message en cas d'erreur).
+- **NF6** — Mobile d'abord : 360 px minimum, cibles ≥ 44 px, pas de défilement horizontal,
+  contraste AA en clair **et** en sombre, utilisable au clavier (toucher = Entrée / Espace,
+  appui long = bouton « Saisir une valeur » accessible).
+- **NF7** — Performance : bundle JS initial ≤ 200 Ko gzip ; `GET /api/days/{date}` en au plus
+  3 requêtes SQL ; page d'habitude en au plus 3 requêtes quelle que soit l'année.
+- **NF8** — Ressources : une réplique ; requests `10m` / `32Mi`, limits `200m` / `128Mi`
+  (inchangé, à remesurer).
+- **NF9** — Formats d'échange définis **uniquement** au §7 ; les types Go et TS restent alignés
+  par des fichiers JSON de référence (golden) produits par les tests Go et vérifiés par les
+  tests TS (`satisfies` sur les types).
 
-- **NF1** — Pages en rendu serveur (`html/template`), CSP stricte
-  (`default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self';
-  form-action 'self'; base-uri 'none'; frame-ancestors 'none'`), `nosniff`,
-  `X-Robots-Tag: noindex`. Un petit script embarqué (pas de TypeScript/Vite) envoie les
-  cases cochées sans recharger ; sans JS, tout fonctionne par formulaires.
-- **NF2** — **CSRF** : les `POST` sont refusés (`403`) si `Sec-Fetch-Site` vaut
-  `cross-site` ou si `Origin` ne correspond pas à `BASE_URL`.
-- **NF3** — **Mobile d'abord** : utilisable à partir de 360 px de large, cases de 44 px
-  au moins, contraste AA, mode clair / sombre selon le système, navigation clavier.
-- **NF4** — **Vie privée** : aucun pisteur ni ressource tierce ; le seul cookie est celui
-  de session ; l'IP n'est gardée qu'en mémoire.
-- **NF5** — **Historique stable** : les statistiques passées ne changent pas quand on
-  modifie une habitude (les jours concernés sont versionnés, voir Données).
-- **NF6** — Ressources : une seule réplique ; requests `10m` CPU / `32Mi`, limits
-  `200m` / `128Mi` (à ajuster après mesure). Les vues année exigent au plus 2 requêtes SQL.
+## 7. API
 
-### Interfaces
+JSON, sous `/api/`, session obligatoire (sinon `401 {"error":"unauthorized"}`). Erreurs :
+`{"error": "<code>", "message": "<texte FR>"}` avec `400` (JSON invalide), `403` (CSRF), `404`,
+`409` (nom pris), `415`, `422` (validation, jour hors fenêtre ou non autorisé), `429`.
+Dates `AAAA-MM-JJ`.
 
-| Méthode et chemin | Rôle | Réponses |
-|-------------------|------|----------|
-| `GET /` | Aujourd'hui (équivaut à `/day/<date du jour>`) | 200 ; 303 → `/login` |
-| `GET /day/{date}` | Un jour (`AAAA-MM-JJ`) | 200 ; 303 ; 400 date invalide |
-| `POST /day/{date}/toggle` | Formulaire `habit_id`, `done` (`0`/`1`) ; JSON si `Accept: application/json` | 200 / 303 ; 403 ; 404 ; 422 jour hors fenêtre ou futur |
-| `GET /week/{date}` | Semaine contenant la date | 200 ; 400 |
-| `GET /month/{AAAA-MM}` | Mois | 200 ; 400 |
-| `GET /year/{AAAA}` | Année | 200 ; 400 |
-| `GET /habits` | Gestion des habitudes (actives et archivées) | 200 |
-| `POST /habits` | Crée (`name`, `weekdays`) | 303 ; 403 ; 409 nom pris ; 422 |
-| `POST /habits/{id}` | Renomme / change les jours | 303 ; 403 ; 404 ; 409 ; 422 |
-| `POST /habits/{id}/archive`, `/restore` | Archive / restaure | 303 ; 403 ; 404 |
-| `GET /login`, `POST /login`, `POST /logout` | Session | 200 ; 303 ; 401 ; 403 ; 429 |
-| `GET /healthz`, `GET /readyz`, `GET /version` | Santé (readyz : base joignable), SHA | 200 ; 503 |
+| Méthode et chemin | Corps → réponse |
+|-------------------|-----------------|
+| `POST /api/login` | `{password}` → `204` + cookie ; `401` ; `429` |
+| `POST /api/logout` | → `204` |
+| `GET /api/session` | → `200 {authenticated: true}` (le front s'en sert au démarrage) |
+| `GET /api/days/{date}` | → `Day` |
+| `PUT /api/days/{date}/entries/{habitId}` | `{value}` → `Day` |
+| `PUT /api/days/{date}/note` | `{text}` → `204` |
+| `GET /api/habits` | → `{active: Habit[], archived: Habit[], ruleStarts: Record<Period, string>}` (`ruleStarts` : jour où prendrait effet, si on l'enregistrait aujourd'hui, un changement de période / cible / jours, selon la nouvelle période ; sert à annoncer « s'applique à partir du … ») |
+| `POST /api/habits` | `HabitInput` → `201 Habit` |
+| `PATCH /api/habits/{id}` | `HabitInput` partiel → `Habit` |
+| `POST /api/habits/{id}/archive`, `/restore` | → `Habit` |
+| `PUT /api/habits/order` | `{moment, ids: number[]}` → `204` |
+| `GET /api/stats` | → `{habits: HabitSummary[]}` |
+| `GET /api/stats/habits/{id}?year=AAAA` | → `HabitStats` |
 
-### Données
+```ts
+type Moment = "morning" | "day" | "evening";
+type Period = "day" | "week" | "month" | "year";
+type Color = "amber" | "violet" | "blue" | "red" | "green" | "teal" | "slate" | "pink";
 
-PostgreSQL, base `habits` et utilisateur dédié (Job `create-databases`, `infra/data`).
+interface Habit {
+  id: number; name: string; emoji: string; color: Color; moment: Moment; position: number;
+  unit: string; step: number; period: Period; target: number;
+  weekdays: number;          // masque 7 bits, bit 0 = lundi (règle en vigueur aujourd'hui)
+  archivedOn: string | null;
+}
+type HabitInput = Omit<Habit, "id" | "position" | "archivedOn">;
+
+interface Pace { expected: number; diff: number; label: string }   // label calculé en Go
+
+interface DayHabit {
+  habit: Habit;              // règle en vigueur ce jour-là
+  value: number;             // saisie du jour
+  total: number;             // total de la période jusqu'à ce jour
+  progress: number;          // 0..1
+  complete: boolean;
+  pace: Pace | null;         // null pour period = "day"
+}
+
+interface Day {
+  date: string; editable: boolean;
+  progress: number;          // grand anneau
+  done: number; total: number;   // habitudes `day` réussies / dues (« N / M du jour »)
+  complete: boolean;
+  streak: number;            // série globale
+  week: { date: string; progress: number }[];   // bande des 7 jours (lundi → dimanche)
+  groups: { moment: Moment; habits: DayHabit[] }[];   // ordre final (réussies en bas)
+  note: string;
+}
+
+interface HabitSummary {
+  habit: Habit; total: number; progress: number; complete: boolean;
+  pace: Pace | null; streak: number | null;   // null pour period = "year"
+}
+
+interface HabitStats extends HabitSummary {
+  year: number; bestStreak: number | null;
+  rate30: number | null; rateYear: number | null;   // null = « — »
+  days: { date: string; value: number; level: 0 | 1 | 2 | 3 | 4 | null }[]; // null = non autorisé
+  periods: { start: string; end: string; total: number; target: number;
+             status: "success" | "missed" | "current" | "interrupted" }[];  // vide pour "day"
+}
+```
+
+## 8. Données
+
+Base `habits` existante. Migration **`003_v2.sql`** : supprime `completions`,
+`habit_schedules`, `habits` (données v1 abandonnées), crée :
 
 | Table | Colonnes principales | Note |
 |-------|----------------------|------|
-| `habits` | `id` bigserial pk, `name` text, `created_on` date, `archived_on` date null | nom unique parmi `archived_on is null` (index unique partiel) |
-| `habit_schedules` | `habit_id`, `valid_from` date, `weekdays` smallint (masque 7 bits) | une ligne par changement de jours ; pk (`habit_id`, `valid_from`). Résout NF5 |
-| `completions` | `habit_id`, `day` date, `created_at` timestamptz | pk (`habit_id`, `day`) ; présence = fait, décocher = suppression de la ligne |
-| `sessions` | `token_hash` bytea pk, `password_hash_fp` bytea, `expires_at` timestamptz | comme `home` : changer le mot de passe invalide les sessions ; purge horaire |
+| `habits` | `id` bigserial pk, `name`, `emoji`, `color`, `moment`, `position` int, `unit`, `step` int, `created_on` date, `archived_on` date null | nom unique parmi les actives (index partiel) ; `check` sur `color`, `moment`, `step ≥ 1` |
+| `habit_rules` | `habit_id`, `valid_from` date, `period`, `target` int, `weekdays` smallint | pk (`habit_id`, `valid_from`) ; jamais réécrite pour le passé |
+| `entries` | `habit_id`, `day` date, `value` int > 0, `updated_at` | pk (`habit_id`, `day`) |
+| `day_notes` | `day` date pk, `text` (≤ 1 000), `updated_at` | |
+| `sessions` | inchangée | |
 
-Volume : quelques dizaines d'habitudes × 365 jours × des années = quelques milliers de
-lignes ; aucune purge de `completions`. Dates en `date` (pas d'heure) ; calcul du jour
-courant côté Go avec `TZ_NAME`.
+## 9. Configuration
 
-### Configuration
+Inchangée, sauf `EDIT_WINDOW_DAYS` dont le défaut passe à **`7`** (code, `.env.example`) et qui est
+posé explicitement à `7` dans l'overlay de production (`infra/apps/habits/overlays/prod`).
 
-| Variable | Rôle | Défaut |
-|----------|------|--------|
-| `PORT` | Port d'écoute | `8080` |
-| `DATABASE_URL` | Connexion PostgreSQL | — (obligatoire) |
-| `BASE_URL` | URL publique (CSRF, cookie) | `https://habits.zazi.cool` |
-| `ADMIN_PASSWORD_HASH` | Hash bcrypt du mot de passe (`make hash-password`) | — (obligatoire) |
-| `RATE_LIMIT_LOGIN` | Tentatives de connexion par IP et par heure | `10` |
-| `TZ_NAME` | Fuseau qui définit le « jour » | `Europe/Paris` |
-| `EDIT_WINDOW_DAYS` | Nombre de jours passés modifiables | `14` |
+## 10. Critères d'acceptation
 
-## 5. Critères d'acceptation
+- **CA1** (§4) — Une habitude « Vitamine D » `day` / 2 / pilules : deux touchers → 2 / 2,
+  réussie, grisée en bas de « Matin » ; un troisième → 3 / 2, toujours réussie.
+- **CA2** (§4) — « Sport » `year` / 150 avec 128 saisies au 6 novembre (310ᵉ jour d'une année de
+  365) : attendu 127,4, `pace.label` = « 1 d'avance ».
+- **CA3** (§4) — « Course » `week` / 3 : la série compte les semaines réussies consécutives ;
+  la semaine en cours à 1 / 3 ne la casse pas ; une semaine passée à 2 / 3 la remet à 0.
+- **CA4** (F2, O5) — Passer « Course » de 3 à 4 par semaine un jeudi : la semaine en cours est
+  évaluée sur 4, les semaines passées restent sur 3 (statuts et série inchangés).
+- **CA5** (D8) — Passer une habitude de `week` à `month` le 6 novembre : la version démarre le
+  1ᵉʳ novembre, la semaine du 26 au 31 octobre (ancienne règle, tronquée la veille) est
+  « interrupted » et n'entre ni dans la série ni dans le taux.
+- **CA6** (§4) — Une habitude lundi → vendredi n'apparaît pas un samedi ; une saisie pour un
+  samedi renvoie `422`.
+- **CA7** (§4) — Saisir aujourd'hui − 6 jours fonctionne ; aujourd'hui − 7 jours ou demain
+  renvoie `422` et ne modifie rien ; `Day.editable` vaut `false` pour aujourd'hui − 7.
+- **CA8** (§4) — Série globale : 12 journées complètes jusqu'à hier et aujourd'hui incomplet →
+  `streak = 12` ; aujourd'hui complet → 13.
+- **CA9** (§5) — Appui long sur « Boire de l'eau », saisie 6, « Enregistrer » → `value = 6` ;
+  `value = 0` supprime la saisie.
+- **CA10** (F5) — La note du jour persiste au rechargement ; 1 001 caractères → `422`.
+- **CA11** (§5) — La journée devient complète par un toucher → confettis une fois ; ouvrir un
+  jour déjà complet n'en déclenche pas ; avec `prefers-reduced-motion`, aucun confetti.
+- **CA12** (NF9) — Les fichiers golden de l'API (un par type du §7) sont générés par les tests
+  Go et compilent contre les types TS ; un champ renommé d'un seul côté fait échouer `make test`.
+- **CA13** (NF2) — Les en-têtes CSP du §6 sont servis et la console du navigateur ne signale
+  aucune violation sur les écrans Aujourd'hui, Habitudes, Stats et Connexion.
+- **CA14** (NF6) — À 360 px, aucun défilement horizontal ; cibles ≥ 44 px ; contraste AA en
+  clair et en sombre (revue manuelle sur téléphone).
+- **CA15** (F9) — Sur iOS (Safari) et Android (Chrome), « Ajouter à l'écran d'accueil » donne
+  une icône propre et une app sans barre d'adresse.
+- **CA16** (production) — Après déploiement : `/healthz`, `/readyz` → `200`, `/version` → SHA
+  déployé ; les anciennes tables v1 n'existent plus ; une session ouverte avant la bascule reste
+  valide.
 
-- **CA1** (F1) — Étant donné une habitude « Lire » créée, quand j'ouvre `/`, alors elle
-  apparaît non cochée ; une seconde « Lire » active est refusée (`409`).
-- **CA2** (F4) — Quand je coche « Lire » puis recharge la page, alors elle reste cochée ;
-  quand je la décoche, la ligne `completions` disparaît.
-- **CA3** (F5) — Cocher un jour d'il y a 3 jours fonctionne ; cocher un jour d'il y a
-  `EDIT_WINDOW_DAYS` + 1 jours ou un jour futur renvoie `422` et ne modifie rien.
-- **CA4** (F6) — Étant donné l'heure 23:30 UTC un 30 juin, quand j'ouvre `/`, alors le jour
-  affiché est le 1ᵉʳ juillet (Europe/Paris, test avec horloge injectée).
-- **CA5** (F2, NF5) — Étant donné une habitude faite tous les jours puis restreinte au
-  lundi à partir d'aujourd'hui, alors le taux et la grille de la semaine passée sont
-  inchangés.
-- **CA6** (F3) — Une habitude archivée n'apparaît plus sur `/` mais ses jours cochés
-  restent comptés dans les vues passées ; restaurée, elle réapparaît.
-- **CA7** (F7) — La vue semaine affiche, pour une habitude « lun / mer / ven », les autres
-  jours en « non concerné » et ne les compte pas dans le taux.
-- **CA8** (F8, F9) — Étant donné 3 habitudes dont 2 faites un jour donné, alors ce jour
-  est rendu à 67 % dans les vues mois et année.
-- **CA9** (F10) — Une habitude créée le 10 du mois n'a aucun jour compté avant le 10 ; les
-  jours futurs ne baissent pas le taux.
-- **CA10** (F11) — Étant donné une habitude faite les 3 derniers jours concernés, alors la
-  série vaut 3 ; si aujourd'hui n'est pas encore coché, elle vaut encore 3 ; un jour
-  concerné manqué la remet à 0.
-- **CA11** (F12, F13) — Sans session, `GET /` redirige vers `/login` ; avec un mauvais mot
-  de passe, `401` ; avec le bon, la session dure 30 jours et le cookie a les attributs
-  attendus. Changer `ADMIN_PASSWORD_HASH` invalide les sessions.
-- **CA12** (F14) — La 11ᵉ tentative depuis une même IP dans l'heure renvoie `429`, même
-  avec le bon mot de passe.
-- **CA13** (NF1, NF2) — Les en-têtes CSP / `nosniff` / `noindex` sont présents ; un `POST`
-  avec `Origin` étranger renvoie `403` ; un nom d'habitude contenant `<script>` s'affiche
-  comme du texte.
-- **CA14** (NF3) — À 360 px de large, la page du jour ne défile pas horizontalement et les
-  cases font au moins 44 px (revue manuelle sur téléphone).
-- **CA15** (F15, production) — `https://habits.zazi.cool/healthz` et `/readyz` répondent
-  `200`, `/version` renvoie le SHA déployé, `http://` redirige vers `https://`,
-  certificat valide.
-
-## 6. Risques et points d'attention
+## 11. Risques
 
 | Risque | Impact | Probabilité | Parade |
 |--------|--------|-------------|--------|
-| Erreurs de fuseau (jour décalé autour de minuit) | Moyen (cases au mauvais jour) | Moyenne | F6, horloge injectée dans les tests, CA4 |
-| Règles de calcul (jours concernés, série) mal comprises | Moyen | Moyenne | Fonctions pures testées en table (CA5–CA10), ticket dédié |
-| Données personnelles exposées | Moyen | Faible | Tout derrière la session, `noindex`, pas de page publique, sauvegarde `pg_dump` existante |
-| Perte de motivation si l'écran est lourd | Faible | — | MVP minimal : une page, des cases |
-| Réplique unique (limitation en mémoire) | Faible | — | Même compromis que `home` |
+| Règles de période / versionnement mal comprises | Moyen | Moyenne | §4 explicite, fonctions pures testées en table (CA2–CA8), ticket dédié avant tout écran |
+| CSP incompatible avec un composant (style inline) | Moyen | Moyenne | Vérifié dès ONBO-110 (CA13) ; on écarte le composant plutôt que d'assouplir la CSP sans accord |
+| Bundle trop lourd (React + Motion + effets) | Faible | Moyenne | NF7, import ciblé de Motion, pas de bibliothèque d'icônes complète |
+| Dérive des types Go / TS | Moyen | Moyenne | Golden files (NF9, CA12) |
+| Gestes en conflit (glisser / appui long / défilement) | Moyen | Moyenne | Déjà résolu dans le prototype (mouvement > 10 px annule l'appui) ; test manuel sur téléphone |
+| Perte des données v1 | Faible | Certaine | Acceptée par Noah (données de recette) |
 
-## 7. Décisions ouvertes
+## 12. Décisions
 
-- [ ] **D1** — Sous-domaine : `habits.zazi.cool`. **Proposition :** `habits.zazi.cool`
-  (bloque : T2, T7)
-- [ ] **D2** — Habitudes à jours choisis (ex. lun / mer / ven) dès le MVP, ou seulement
-  « tous les jours » ? **Proposition :** jours choisis inclus (déjà dans la spec) : sans
-  cela, les taux hebdo / mensuels sont faussés pour les habitudes non quotidiennes
-  (bloque : T3, T5)
-- [ ] **D3** — Combien de jours en arrière peut-on corriger ? **Proposition :** 14 jours,
-  réglable (`EDIT_WINDOW_DAYS`) (bloque : T4)
-- [ ] **D4** — Authentification : mot de passe unique comme l'admin de l'accueil, ou autre
-  (lien magique, passkey) ? **Proposition :** mot de passe unique, réutilise le modèle
-  existant (bloque : T2)
-- [ ] **D5** — Base `habits` dans `infra/data` : l'agent prépare la PR (mot de passe
-  chiffré par Noah avec `sops edit`), Noah l'applique. **Proposition :** même procédure
-  que pastebin (bloque : T7)
-- [ ] **D6** — Faut-il une vue « tous les jours en un coup d'œil » sur la page d'accueil
-  (mini-semaine) ? **Proposition :** non, vues séparées en MVP (bloque : rien)
+### Prises (2026-11-06, cadrage par questions)
+- Refonte (ossature Go conservée), données v1 abandonnées, un seul utilisateur, mobile d'abord.
+- Modèle période + cible + jours autorisés, oui/non ou quantité ; rythme au prorata ; série en
+  périodes consécutives, pas de série pour `year` ; versionnement à partir de la période en cours.
+- Habitudes à éviter formulées en positif ; moments fixes Matin / Journée / Soir ; emoji +
+  couleur de palette ; note journalière ; fenêtre d'édition de 7 jours.
+- React + TypeScript + Vite + Motion (dépendances approuvées par Noah), API JSON, golden files.
+- Leviers de motivation : anneaux, célébration, série et rythme visibles. Pas de notifications.
+- Direction visuelle **A « Anneaux »** ; thème clair d'abord ; trois onglets ; app installable.
 
-## 8. Découpage en tickets
+### Prises (2026-11-06, relecture de la spec)
+- [x] **D7** — Pas d'incrément par habitude (`step`, défaut 1).
+- [x] **D8** — Changer la **période** rend « interrompue » la période en cours de l'ancienne
+  règle (ni réussie ni manquée).
+- [x] **D9** — Composants React Bits limités à ceux qui ne demandent que React + Motion ;
+  l'aurore est faite en CSS.
+- [x] **D10** — Bascule en un bloc à la fin (ONBO-118) ; la v1 reste en ligne jusque-là.
 
-| # | Étape | Ticket | Exigences | Dépend de | Type |
-|---|-------|--------|-----------|-----------|------|
-| T1 | 1 | Squelette `apps/habits/` : `cmd/habits`, `/healthz` `/readyz` `/version`, arrêt propre, exécuteur de migrations, `Makefile`, `compose.yaml`, `Dockerfile`, `.env.example`, `README.md`, `CLAUDE.md` de l'app, workflow CI | F15, NF6 | — | dev + infra |
-| T2 | 1 | Manifests `infra/apps/habits/{base,overlays/prod}` (Deployment, Service, Ingress, Middlewares, secret SOPS) et base `habits` dans `infra/data` | NF6, D1, D5 | — | infra |
-| T3 | 2 | Authentification : sessions, `/login`, `/logout`, hash bcrypt, rate limiting, CSRF, en-têtes de sécurité, migration `sessions` | F12–F14, NF1, NF2, NF4 ; CA11–CA13 | T1 | dev |
-| T4 | 3 | Habitudes et suivi du jour : migrations `habits`, `habit_schedules`, `completions` ; CRUD / archivage ; vue jour, cases, jours passés, fuseau | F1–F6, NF5 ; CA1–CA6 | T3 | dev |
-| T5 | 4 | Statistiques : taux, série, vues semaine / mois / année | F7–F11 ; CA7–CA10 | T4 | dev |
-| T6 | 4 | Finitions mobile : cases 44 px, clair / sombre, script de cochage sans rechargement, accessibilité | NF1, NF3 ; CA14 | T4 | dev |
-| T7 | 5 | **Déployer habits `<sha7>`** : première mise en production (base, namespace, secret, `newTag`) selon la trajectoire de `docs/workflow/cycle-de-vie.md`, recette §9, ajout au service d'uptime, mise à jour du tableau du `CLAUDE.md` racine | CA15 | T1–T6 | déploiement |
+### Ouvertes
+Aucune.
 
-T5 et T6 peuvent avancer en parallèle sur des branches distinctes. T1 et T2 sont
-indépendants et peuvent démarrer ensemble. Un premier déploiement dès la fin de l'étape 3
-est possible (suivi du jour seul), les statistiques suivant avec leur propre déploiement.
+## 13. Découpage en tickets
 
-## 9. Recette après déploiement
+Issue parente **ONBO-109** (projet Multica Habits). Tranches verticales (schéma → API → écran →
+tests), toutes mergées dans la **branche d'intégration `feat/habits-redesign`** ; seule ONBO-118
+la merge dans `main` (habits est géré par Flux et la v2 se déploie d'un bloc, D10).
+
+| Étape | Issue | Tranche | Bloquée par |
+|-------|-------|---------|-------------|
+| 1 | ONBO-110 | Socle SPA et connexion (React embarqué, build / CI Go + TS, CSP, auth JSON, écran vide + onglets) | — |
+| 2 | ONBO-111 | Créer et lister des habitudes (migration 003, onglet Habitudes, golden files) | 110 |
+| 3 | ONBO-112 | Cocher les habitudes du jour (Aujourd'hui, toucher, grand anneau ; période `day`) | 111 |
+| 4 | ONBO-113 | Naviguer dans les jours, saisie exacte, série, célébration et note | 112 |
+| 4 | ONBO-114 | Objectifs sur une période (semaine / mois / année, rythme, jours autorisés) | 112 |
+| 5 | ONBO-115 | Modifier, réordonner, archiver (règles versionnées, période interrompue) | 111, 114 |
+| 6 | ONBO-116 | Statistiques : vue d'ensemble et page d'habitude | 114, 115 |
+| 7 | ONBO-117 | Effets React Bits, finitions (sombre, clavier, 360 px) et app installable | 113, 116 |
+| 8 | ONBO-118 | **Déployer habits v2 `<sha7>`** (merge dans `main`, recette §14) | toutes |
+
+## 14. Recette après déploiement
 
 - [ ] `curl -sI https://habits.zazi.cool/healthz` → `200` ; `/readyz` → `200` ;
       `curl -s https://habits.zazi.cool/version` → SHA déployé.
-- [ ] `curl -sI http://habits.zazi.cool/` → redirection vers `https://`.
-- [ ] Certificat Let's Encrypt valide pour `habits.zazi.cool`.
-- [ ] Sans session, `/` redirige vers `/login` ; mauvais mot de passe refusé.
-- [ ] Depuis un téléphone : se connecter, créer deux habitudes, cocher l'une, recharger,
-      vérifier qu'elle reste cochée.
-- [ ] Corriger un jour d'hier ; consulter les vues semaine, mois et année.
-- [ ] Créer une habitude « lun / mer / ven » et vérifier les jours « non concernés ».
-- [ ] Mettre à jour le tableau des projets du `CLAUDE.md` racine (statut « Production »).
+- [ ] La session ouverte avant la bascule est toujours valide.
+- [ ] Depuis le téléphone : installer l'app sur l'écran d'accueil ; créer les habitudes réelles
+      (complément 2 / jour, sport 150 / an, course 3 / semaine, une habitude lun → ven).
+- [ ] Toucher, appui long, glisser entre les jours, note ; compléter la journée → confettis.
+- [ ] Modifier la cible de « Course » et vérifier que la semaine passée n'a pas changé.
+- [ ] Vue d'ensemble et page d'habitude cohérentes avec les saisies.
+- [ ] Console sans violation CSP.

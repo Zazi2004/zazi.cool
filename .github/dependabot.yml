@@ -38,6 +38,13 @@ updates:
     commit-message:
       prefix: "chore(undercover)"
 
+  - package-ecosystem: npm
+    directory: /apps/habits/web
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(habits)"
+
   - package-ecosystem: docker
     directory: /apps/habits
     schedule:

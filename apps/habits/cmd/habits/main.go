@@ -27,6 +27,7 @@ import (
 	"zazi.cool/habits/internal/server"
 	"zazi.cool/habits/internal/store"
 	"zazi.cool/habits/migrations"
+	"zazi.cool/habits/web"
 )
 
 // version is the git SHA of the build, injected with -ldflags "-X main.version=<sha>".
@@ -73,14 +74,20 @@ func run(args []string) error {
 	sessions := auth.NewManager(cfg.passwordHash, st, strings.HasPrefix(cfg.baseURL, "https://"))
 	go cleanUp(ctx, sessions)
 
+	static, err := web.Dist()
+	if err != nil {
+		return fmt.Errorf("open embedded front: %w", err)
+	}
 	return serve(ctx, ":"+cfg.port, server.NewHandler(server.Config{
-		Store:          st,
-		Auth:           sessions,
-		Version:        version,
-		BaseURL:        cfg.baseURL,
-		TrustProxy:     cfg.trustProxy,
-		LoginLimit:     cfg.loginLimit,
-		Location:       cfg.location,
+		Store:      st,
+		Auth:       sessions,
+		Static:     static,
+		Version:    version,
+		BaseURL:    cfg.baseURL,
+		TrustProxy: cfg.trustProxy,
+		LoginLimit: cfg.loginLimit,
+		Location:   cfg.location,
+
 		EditWindowDays: cfg.editWindowDays,
 	}))
 }
@@ -152,7 +159,8 @@ type config struct {
 	baseURL      string
 	trustProxy   bool
 	loginLimit   int
-	// location defines the "day" (TZ_NAME); editWindowDays how far back days can be edited.
+	// location defines the "day" (TZ_NAME); editWindowDays how many days, today
+	// included, can be edited.
 	location       *time.Location
 	editWindowDays int
 }
@@ -191,7 +199,7 @@ func loadConfig() (config, error) {
 	if cfg.location, err = time.LoadLocation(getenv("TZ_NAME", "Europe/Paris")); err != nil {
 		return config{}, fmt.Errorf("TZ_NAME: %w", err)
 	}
-	if cfg.editWindowDays, err = strconv.Atoi(getenv("EDIT_WINDOW_DAYS", "14")); err != nil || cfg.editWindowDays < 0 {
+	if cfg.editWindowDays, err = strconv.Atoi(getenv("EDIT_WINDOW_DAYS", "7")); err != nil || cfg.editWindowDays < 0 {
 		return config{}, errors.New("EDIT_WINDOW_DAYS must be a non-negative integer")
 	}
 	return cfg, nil

@@ -6,277 +6,302 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"zazi.cool/habits/internal/habit"
 )
 
-// uniqueViolation is the PostgreSQL error code of a broken unique index.
+// uniqueViolation is the PostgreSQL error code of a violated unique index.
 const uniqueViolation = "23505"
 
-// currentSchedule is the weekday mask in force on the day $1 (the latest version
-// that started on or before it). Past days keep the rules they had (NF5).
-const currentSchedule = `(SELECT s.weekdays FROM habit_schedules s
-	WHERE s.habit_id = h.id AND s.valid_from <= $1 ORDER BY s.valid_from DESC LIMIT 1)`
-
-func isNameTaken(err error) bool {
+// CreateHabit stores a validated habit and its first rule, effective from today (the
+// civil day of creation). The habit goes last in its moment. It returns
+// habit.ErrNameTaken when another active habit has the same name.
+func (s *Store) CreateHabit(ctx context.Context, in habit.Input, today time.Time) (habit.Habit, error) {
+	h := habit.Habit{
+		Name: in.Name, Emoji: in.Emoji, Color: in.Color, Moment: in.Moment, Unit: in.Unit,
+		Step: in.Step, Period: in.Period, Target: in.Target, Weekdays: in.Weekdays,
+	}
+	// BeginFunc commits when the function returns nil and rolls back otherwise, so the
+	// habit never exists without its rule.
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		err := tx.QueryRow(ctx,
+			`INSERT INTO habits (name, emoji, color, moment, position, unit, step, created_on)
+			 VALUES ($1, $2, $3, $4,
+			         (SELECT COALESCE(MAX(position) + 1, 0) FROM habits WHERE moment = $4),
+			         $5, $6, $7)
+			 RETURNING id, position`,
+			in.Name, in.Emoji, string(in.Color), string(in.Moment), in.Unit, in.Step, today,
+		).Scan(&h.ID, &h.Position)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx,
+			`INSERT INTO habit_rules (habit_id, valid_from, period, target, weekdays)
+			 VALUES ($1, $2, $3, $4, $5)`,
+			h.ID, today, string(in.Period), in.Target, int16(in.Weekdays))
+		return err
+	})
 	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == uniqueViolation
+	if errors.As(err, &pgErr) && pgErr.Code == uniqueViolation {
+		return habit.Habit{}, habit.ErrNameTaken
+	}
+	if err != nil {
+		return habit.Habit{}, fmt.Errorf("create habit: %w", err)
+	}
+	return h, nil
 }
 
-// CreateHabit adds an active habit that exists from today on.
-func (s *Store) CreateHabit(ctx context.Context, name string, days habit.Weekdays, today time.Time) error {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin: %w", err)
-	}
-	// After Commit, Rollback is a no-op that returns an error nobody can act on.
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	var id int64
-	err = tx.QueryRow(ctx,
-		`INSERT INTO habits (name, created_on) VALUES ($1, $2) RETURNING id`, name, today).Scan(&id)
-	if isNameTaken(err) {
-		return habit.ErrNameTaken
-	}
-	if err != nil {
-		return fmt.Errorf("insert habit: %w", err)
-	}
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO habit_schedules (habit_id, valid_from, weekdays) VALUES ($1, $2, $3)`,
-		id, today, int16(days)); err != nil {
-		return fmt.Errorf("insert schedule: %w", err)
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit: %w", err)
-	}
-	return nil
-}
-
-// UpdateHabit renames a habit and, if the weekdays changed, starts a new schedule
-// version today: earlier days keep counting with the old one (F2).
-func (s *Store) UpdateHabit(ctx context.Context, id int64, name string, days habit.Weekdays, today time.Time) error {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin: %w", err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	tag, err := tx.Exec(ctx, `UPDATE habits SET name = $2 WHERE id = $1`, id, name)
-	if isNameTaken(err) {
-		return habit.ErrNameTaken
-	}
-	if err != nil {
-		return fmt.Errorf("update habit: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return habit.ErrNotFound
-	}
-
-	var current int16
-	err = tx.QueryRow(ctx,
-		`SELECT weekdays FROM habit_schedules WHERE habit_id = $1 AND valid_from <= $2
-		 ORDER BY valid_from DESC LIMIT 1`, id, today).Scan(&current)
-	if err != nil {
-		return fmt.Errorf("read schedule: %w", err)
-	}
-	if habit.Weekdays(current) != days {
-		// Upsert: editing twice on the same day replaces that day's version.
-		if _, err := tx.Exec(ctx,
-			`INSERT INTO habit_schedules (habit_id, valid_from, weekdays) VALUES ($1, $2, $3)
-			 ON CONFLICT (habit_id, valid_from) DO UPDATE SET weekdays = EXCLUDED.weekdays`,
-			id, today, int16(days)); err != nil {
-			return fmt.Errorf("write schedule: %w", err)
-		}
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit: %w", err)
-	}
-	return nil
-}
-
-// ArchiveHabit hides a habit from today on; archiving twice keeps the first date.
-func (s *Store) ArchiveHabit(ctx context.Context, id int64, today time.Time) error {
-	tag, err := s.pool.Exec(ctx,
-		`UPDATE habits SET archived_on = COALESCE(archived_on, $2) WHERE id = $1`, id, today)
-	if err != nil {
-		return fmt.Errorf("archive habit: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return habit.ErrNotFound
-	}
-	return nil
-}
-
-// RestoreHabit makes an archived habit active again. It fails with ErrNameTaken if
-// another active habit took its name meanwhile.
-func (s *Store) RestoreHabit(ctx context.Context, id int64) error {
-	tag, err := s.pool.Exec(ctx, `UPDATE habits SET archived_on = NULL WHERE id = $1`, id)
-	if isNameTaken(err) {
-		return habit.ErrNameTaken
-	}
-	if err != nil {
-		return fmt.Errorf("restore habit: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return habit.ErrNotFound
-	}
-	return nil
-}
-
-// ListHabits returns every habit, active ones first, with the weekdays in force today.
-func (s *Store) ListHabits(ctx context.Context, today time.Time) ([]habit.Habit, error) {
+// ListHabits returns the active and the archived habits as they are on day today
+// (each with the rule in force that day). Habits come in moment order, then manual
+// order.
+func (s *Store) ListHabits(ctx context.Context, today time.Time) (active, archived []habit.Habit, err error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT h.id, h.name, h.created_on, h.archived_on, `+currentSchedule+`
-		 FROM habits h ORDER BY h.archived_on IS NOT NULL, lower(h.name), h.id`, today)
+		`SELECT h.id, h.name, h.emoji, h.color, h.moment, h.position, h.unit, h.step,
+		        r.period, r.target, r.weekdays, h.archived_on
+		 FROM habits h
+		 JOIN LATERAL (
+		     SELECT period, target, weekdays FROM habit_rules
+		     WHERE habit_id = h.id AND valid_from <= $1
+		     ORDER BY valid_from DESC LIMIT 1
+		 ) r ON true
+		 ORDER BY CASE h.moment WHEN 'morning' THEN 0 WHEN 'day' THEN 1 ELSE 2 END,
+		          h.position, h.id`, today)
 	if err != nil {
-		return nil, fmt.Errorf("list habits: %w", err)
+		return nil, nil, fmt.Errorf("list habits: %w", err)
 	}
 	defer rows.Close()
 
-	var habits []habit.Habit
 	for rows.Next() {
-		var h habit.Habit
-		var days *int16
-		if err := rows.Scan(&h.ID, &h.Name, &h.CreatedOn, &h.ArchivedOn, &days); err != nil {
-			return nil, fmt.Errorf("scan habit: %w", err)
+		var (
+			h                     habit.Habit
+			color, moment, period string
+			weekdays              int16
+		)
+		err := rows.Scan(&h.ID, &h.Name, &h.Emoji, &color, &moment, &h.Position, &h.Unit, &h.Step,
+			&period, &h.Target, &weekdays, &h.ArchivedOn)
+		if err != nil {
+			return nil, nil, fmt.Errorf("scan habit: %w", err)
 		}
-		if days != nil {
-			h.Weekdays = habit.Weekdays(*days)
+		h.Color, h.Moment, h.Period, h.Weekdays = habit.Color(color), habit.Moment(moment), habit.Period(period), habit.Weekdays(weekdays)
+		if h.ArchivedOn != nil && !h.ArchivedOn.After(today) {
+			archived = append(archived, h)
+		} else {
+			active = append(active, h)
 		}
-		habits = append(habits, h)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list habits: %w", err)
+		return nil, nil, fmt.Errorf("list habits: %w", err)
 	}
-	return habits, nil
+	return active, archived, nil
 }
 
-// dayItemsSQL selects the habits that apply to day $1: created by then, not yet
-// archived, and scheduled on its weekday ($2, a mask bit position). $3 restricts the
-// result to one habit, or 0 for all.
-const dayItemsSQL = `SELECT h.id, h.name, c.habit_id IS NOT NULL
-	FROM habits h
-	LEFT JOIN completions c ON c.habit_id = h.id AND c.day = $1
-	WHERE h.created_on <= $1
-	  AND (h.archived_on IS NULL OR $1 < h.archived_on)
-	  AND (COALESCE(` + currentSchedule + `, 0) >> $2) & 1 = 1
-	  AND ($3 = 0 OR h.id = $3)
-	ORDER BY lower(h.name), h.id`
+// habitSelect reads a habit with the rule in force on day $2 (a lateral join, like
+// ListHabits); the caller appends the WHERE clause.
+const habitSelect = `SELECT h.id, h.name, h.emoji, h.color, h.moment, h.position, h.unit, h.step,
+		        r.period, r.target, r.weekdays, h.archived_on
+		 FROM habits h
+		 JOIN LATERAL (
+		     SELECT period, target, weekdays FROM habit_rules
+		     WHERE habit_id = h.id AND valid_from <= $2
+		     ORDER BY valid_from DESC LIMIT 1
+		 ) r ON true `
 
-func (s *Store) dayItems(ctx context.Context, day time.Time, habitID int64) ([]habit.DayItem, error) {
-	rows, err := s.pool.Query(ctx, dayItemsSQL, day, int32(habit.Bit(day.Weekday())), habitID)
+// lockHabit reads a habit as it is on today and locks its row until the end of the
+// transaction, so two concurrent edits do not interleave. habit.ErrNotFound when it
+// does not exist.
+func lockHabit(ctx context.Context, tx pgx.Tx, id int64, today time.Time) (habit.Habit, error) {
+	var (
+		h                     habit.Habit
+		color, moment, period string
+		weekdays              int16
+	)
+	err := tx.QueryRow(ctx, habitSelect+`WHERE h.id = $1 FOR UPDATE OF h`, id, today).Scan(
+		&h.ID, &h.Name, &h.Emoji, &color, &moment, &h.Position, &h.Unit, &h.Step,
+		&period, &h.Target, &weekdays, &h.ArchivedOn)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return habit.Habit{}, habit.ErrNotFound
+	}
 	if err != nil {
-		return nil, fmt.Errorf("list day habits: %w", err)
+		return habit.Habit{}, fmt.Errorf("read habit: %w", err)
 	}
-	defer rows.Close()
+	h.Color, h.Moment, h.Period, h.Weekdays = habit.Color(color), habit.Moment(moment), habit.Period(period), habit.Weekdays(weekdays)
+	return h, nil
+}
 
-	var items []habit.DayItem
-	for rows.Next() {
-		var it habit.DayItem
-		if err := rows.Scan(&it.HabitID, &it.Name, &it.Done); err != nil {
-			return nil, fmt.Errorf("scan day habit: %w", err)
+// isArchived reports whether the habit no longer applies on today.
+func isArchived(h habit.Habit, today time.Time) bool {
+	return h.ArchivedOn != nil && !h.ArchivedOn.After(today)
+}
+
+// nextPosition returns the position after the last habit of the moment.
+func nextPosition(ctx context.Context, tx pgx.Tx, moment habit.Moment) (int, error) {
+	var pos int
+	err := tx.QueryRow(ctx, `SELECT COALESCE(MAX(position) + 1, 0) FROM habits WHERE moment = $1`,
+		string(moment)).Scan(&pos)
+	return pos, err
+}
+
+// inTx runs fn in a transaction and turns a unique-index violation into habit.ErrNameTaken.
+func (s *Store) inTx(ctx context.Context, what string, fn func(tx pgx.Tx) error) error {
+	err := pgx.BeginFunc(ctx, s.pool, fn)
+	var pgErr *pgconn.PgError
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, habit.ErrNotFound), errors.As(err, new(*habit.ValidationError)):
+		return err
+	case errors.As(err, &pgErr) && pgErr.Code == uniqueViolation:
+		return habit.ErrNameTaken
+	}
+	return fmt.Errorf("%s: %w", what, err)
+}
+
+// UpdateHabit applies a patch to an active habit. A change of period, target or weekdays
+// writes a new rule version from the start of the current period (habit.PlanRuleChange);
+// every other attribute applies everywhere. A habit that changes moment goes last in the
+// new one. habit.ErrNotFound for an unknown or archived habit, a *habit.ValidationError
+// for an invalid result, habit.ErrNameTaken for a name used by another active habit.
+func (s *Store) UpdateHabit(ctx context.Context, id int64, p habit.Patch, today time.Time) (habit.Habit, error) {
+	var out habit.Habit
+	err := s.inTx(ctx, "update habit", func(tx pgx.Tx) error {
+		current, err := lockHabit(ctx, tx, id, today)
+		if err != nil {
+			return err
 		}
-		items = append(items, it)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list day habits: %w", err)
-	}
-	return items, nil
+		if isArchived(current, today) {
+			return habit.ErrNotFound
+		}
+		in, err := p.Apply(current).Validate()
+		if err != nil {
+			return err
+		}
+		position := current.Position
+		if in.Moment != current.Moment {
+			if position, err = nextPosition(ctx, tx, in.Moment); err != nil {
+				return err
+			}
+		}
+		_, err = tx.Exec(ctx,
+			`UPDATE habits SET name = $2, emoji = $3, color = $4, moment = $5, position = $6, unit = $7, step = $8
+			 WHERE id = $1`,
+			id, in.Name, in.Emoji, string(in.Color), string(in.Moment), position, in.Unit, in.Step)
+		if err != nil {
+			return err
+		}
+		if err := writeRule(ctx, tx, id, habit.Rule{Period: in.Period, Target: in.Target, Weekdays: in.Weekdays}, today); err != nil {
+			return err
+		}
+		out = habit.Habit{
+			ID: id, Name: in.Name, Emoji: in.Emoji, Color: in.Color, Moment: in.Moment, Position: position,
+			Unit: in.Unit, Step: in.Step, Period: in.Period, Target: in.Target, Weekdays: in.Weekdays,
+		}
+		return nil
+	})
+	return out, err
 }
 
-// DayHabits returns the habits that apply to day, with their state on that day.
-func (s *Store) DayHabits(ctx context.Context, day time.Time) ([]habit.DayItem, error) {
-	return s.dayItems(ctx, day, 0)
-}
-
-// SetDone checks or unchecks a habit on a day. It refuses a day the habit does not
-// apply to, so no completion is ever recorded for a day that does not count.
-func (s *Store) SetDone(ctx context.Context, habitID int64, day time.Time, done bool) error {
-	items, err := s.dayItems(ctx, day, habitID)
+// writeRule makes next the rule in force on today, as planned by habit.PlanRuleChange:
+// the versions from the start of the period on are replaced, earlier ones are not touched.
+func writeRule(ctx context.Context, tx pgx.Tx, id int64, next habit.Rule, today time.Time) error {
+	rows, err := tx.Query(ctx,
+		`SELECT valid_from, period, target, weekdays FROM habit_rules WHERE habit_id = $1 ORDER BY valid_from`, id)
 	if err != nil {
 		return err
 	}
-	if len(items) == 0 {
-		var exists bool
-		if err := s.pool.QueryRow(ctx,
-			`SELECT EXISTS (SELECT 1 FROM habits WHERE id = $1)`, habitID).Scan(&exists); err != nil {
-			return fmt.Errorf("check habit: %w", err)
-		}
-		if !exists {
-			return habit.ErrNotFound
-		}
-		return habit.ErrNotScheduled
-	}
-
-	if done {
-		_, err = s.pool.Exec(ctx,
-			`INSERT INTO completions (habit_id, day) VALUES ($1, $2) ON CONFLICT DO NOTHING`, habitID, day)
-	} else {
-		_, err = s.pool.Exec(ctx, `DELETE FROM completions WHERE habit_id = $1 AND day = $2`, habitID, day)
-	}
+	rules, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (habit.RuleVersion, error) {
+		var (
+			v        habit.RuleVersion
+			period   string
+			weekdays int16
+		)
+		err := row.Scan(&v.ValidFrom, &period, &v.Target, &weekdays)
+		v.Period, v.Weekdays = habit.Period(period), habit.Weekdays(weekdays)
+		return v, err
+	})
 	if err != nil {
-		return fmt.Errorf("set completion: %w", err)
+		return err
 	}
-	return nil
+	change := habit.PlanRuleChange(rules, next, today)
+	if change.None {
+		return nil
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM habit_rules WHERE habit_id = $1 AND valid_from >= $2`, id, change.From); err != nil {
+		return err
+	}
+	if !change.Insert {
+		return nil
+	}
+	_, err = tx.Exec(ctx,
+		`INSERT INTO habit_rules (habit_id, valid_from, period, target, weekdays) VALUES ($1, $2, $3, $4, $5)`,
+		id, change.From, string(next.Period), next.Target, int16(next.Weekdays))
+	return err
 }
 
-// History returns what the statistics need for the habits that existed at some point
-// of [from, to]: their schedule versions and the days they were done in that range.
-// It takes two queries whatever the range, so a year costs no more than a week (NF6).
-func (s *Store) History(ctx context.Context, from, to time.Time) ([]habit.History, error) {
-	rows, err := s.pool.Query(ctx,
-		`SELECT h.id, h.name, h.created_on, h.archived_on, s.valid_from, s.weekdays
-		 FROM habits h JOIN habit_schedules s ON s.habit_id = h.id
-		 WHERE h.created_on <= $2 AND (h.archived_on IS NULL OR h.archived_on > $1)
-		 ORDER BY lower(h.name), h.id, s.valid_from`, from, to)
-	if err != nil {
-		return nil, fmt.Errorf("list schedules: %w", err)
-	}
-	defer rows.Close()
+// ArchiveHabit retires a habit from today on (archived_on = today); its history is
+// untouched. Archiving an archived habit changes nothing.
+func (s *Store) ArchiveHabit(ctx context.Context, id int64, today time.Time) (habit.Habit, error) {
+	var h habit.Habit
+	err := s.inTx(ctx, "archive habit", func(tx pgx.Tx) error {
+		var err error
+		if h, err = lockHabit(ctx, tx, id, today); err != nil {
+			return err
+		}
+		if isArchived(h, today) {
+			return nil
+		}
+		h.ArchivedOn = &today
+		_, err = tx.Exec(ctx, `UPDATE habits SET archived_on = $2 WHERE id = $1`, id, today)
+		return err
+	})
+	return h, err
+}
 
-	var out []habit.History
-	byID := map[int64]int{}
-	for rows.Next() {
-		var h habit.History
-		var v habit.ScheduleVersion
-		var days int16
-		if err := rows.Scan(&h.ID, &h.Name, &h.CreatedOn, &h.ArchivedOn, &v.ValidFrom, &days); err != nil {
-			return nil, fmt.Errorf("scan schedule: %w", err)
+// RestoreHabit brings an archived habit back, last in its moment. habit.ErrNameTaken when
+// an active habit has taken its name meanwhile.
+func (s *Store) RestoreHabit(ctx context.Context, id int64, today time.Time) (habit.Habit, error) {
+	var h habit.Habit
+	err := s.inTx(ctx, "restore habit", func(tx pgx.Tx) error {
+		var err error
+		if h, err = lockHabit(ctx, tx, id, today); err != nil {
+			return err
 		}
-		v.Weekdays = habit.Weekdays(days)
-		// Rows come grouped by habit: the first one creates the entry.
-		i, seen := byID[h.ID]
-		if !seen {
-			h.Done = map[time.Time]bool{}
-			out = append(out, h)
-			i = len(out) - 1
-			byID[h.ID] = i
+		if !isArchived(h, today) {
+			return nil
 		}
-		out[i].Schedules = append(out[i].Schedules, v)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("list schedules: %w", err)
-	}
+		if h.Position, err = nextPosition(ctx, tx, h.Moment); err != nil {
+			return err
+		}
+		h.ArchivedOn = nil
+		_, err = tx.Exec(ctx, `UPDATE habits SET archived_on = NULL, position = $2 WHERE id = $1`, id, h.Position)
+		return err
+	})
+	return h, err
+}
 
-	done, err := s.pool.Query(ctx,
-		`SELECT habit_id, day FROM completions WHERE day BETWEEN $1 AND $2`, from, to)
-	if err != nil {
-		return nil, fmt.Errorf("list completions: %w", err)
-	}
-	defer done.Close()
-	for done.Next() {
-		var id int64
-		var day time.Time
-		if err := done.Scan(&id, &day); err != nil {
-			return nil, fmt.Errorf("scan completion: %w", err)
+// ReorderHabits sets the manual order of the active habits of a moment: ids must list
+// each of them exactly once (*habit.ValidationError otherwise, and nothing changes).
+func (s *Store) ReorderHabits(ctx context.Context, moment habit.Moment, ids []int64, today time.Time) error {
+	return s.inTx(ctx, "reorder habits", func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx,
+			`SELECT id FROM habits WHERE moment = $1 AND (archived_on IS NULL OR archived_on > $2)
+			 ORDER BY id FOR UPDATE`, string(moment), today)
+		if err != nil {
+			return err
 		}
-		if i, ok := byID[id]; ok {
-			out[i].Done[day] = true
+		current, err := pgx.CollectRows(rows, pgx.RowTo[int64])
+		if err != nil {
+			return err
 		}
-	}
-	if err := done.Err(); err != nil {
-		return nil, fmt.Errorf("list completions: %w", err)
-	}
-	return out, nil
+		if err := habit.ValidateOrder(current, ids); err != nil {
+			return err
+		}
+		for position, id := range ids {
+			if _, err := tx.Exec(ctx, `UPDATE habits SET position = $2 WHERE id = $1`, id, position); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

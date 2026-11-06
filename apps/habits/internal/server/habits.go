@@ -3,148 +3,244 @@ package server
 import (
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"zazi.cool/habits/internal/habit"
 )
 
-var isoWeekdayLabels = [...]string{"lun", "mar", "mer", "jeu", "ven", "sam", "dim"}
-
-// dayBox is one weekday check box of the habit forms; Value is the ISO number (1 = Monday).
-type dayBox struct {
-	Value   int
-	Label   string
-	Checked bool
+// habitJSON is the Habit of the spec (§7). Its field names are the contract with the
+// front: the golden files check them against the TypeScript types.
+type habitJSON struct {
+	ID         int64   `json:"id"`
+	Name       string  `json:"name"`
+	Emoji      string  `json:"emoji"`
+	Color      string  `json:"color"`
+	Moment     string  `json:"moment"`
+	Position   int     `json:"position"`
+	Unit       string  `json:"unit"`
+	Step       int     `json:"step"`
+	Period     string  `json:"period"`
+	Target     int     `json:"target"`
+	Weekdays   int     `json:"weekdays"`
+	ArchivedOn *string `json:"archivedOn"`
 }
 
-func weekdayBoxes(days habit.Weekdays) []dayBox {
-	boxes := make([]dayBox, len(isoWeekdayLabels))
-	for i, label := range isoWeekdayLabels {
-		boxes[i] = dayBox{Value: i + 1, Label: label, Checked: days&(1<<i) != 0}
+func toHabitJSON(h habit.Habit) habitJSON {
+	out := habitJSON{
+		ID: h.ID, Name: h.Name, Emoji: h.Emoji, Color: string(h.Color), Moment: string(h.Moment),
+		Position: h.Position, Unit: h.Unit, Step: h.Step, Period: string(h.Period),
+		Target: h.Target, Weekdays: int(h.Weekdays),
 	}
-	return boxes
+	if h.ArchivedOn != nil {
+		day := habit.FormatDay(*h.ArchivedOn)
+		out.ArchivedOn = &day
+	}
+	return out
 }
 
-type habitRow struct {
-	ID   int64
-	Name string
-	Days []dayBox
+// habitListJSON is the answer of GET /api/habits.
+type habitListJSON struct {
+	Active   []habitJSON `json:"active"`
+	Archived []habitJSON `json:"archived"`
+	// RuleStarts gives, for each period, the day a change of period, target or weekdays
+	// would take effect if saved today (the start of the current period). The form shows it
+	// before saving; the rule stays computed in Go (NF5).
+	RuleStarts map[string]string `json:"ruleStarts"`
 }
 
-type habitsView struct {
-	Active, Archived []habitRow
-	// NewDays is the check box set of the creation form (every day checked).
-	NewDays []dayBox
-	// Error is shown above the forms; NewName keeps what was typed in the creation form.
-	Error   string
-	NewName string
+func toHabitsJSON(habits []habit.Habit) []habitJSON {
+	// Never nil: an empty list must be [] in JSON, not null.
+	out := make([]habitJSON, 0, len(habits))
+	for _, h := range habits {
+		out = append(out, toHabitJSON(h))
+	}
+	return out
 }
 
-// renderHabits shows the management page with the given status (200, or an error status
-// when a form was refused and the page is shown again with its message).
-func (h *handler) renderHabits(w http.ResponseWriter, r *http.Request, status int, msg, newName string) {
-	habits, err := h.cfg.Store.ListHabits(r.Context(), h.today())
+func (h *handler) listHabits(w http.ResponseWriter, r *http.Request) {
+	active, archived, err := h.cfg.Store.ListHabits(r.Context(), h.today())
 	if err != nil {
 		h.internalError(w, r, err)
 		return
 	}
-	page := habitsView{NewDays: weekdayBoxes(habit.AllDays), Error: msg, NewName: newName}
-	for _, hb := range habits {
-		row := habitRow{ID: hb.ID, Name: hb.Name, Days: weekdayBoxes(hb.Weekdays)}
-		if hb.Archived() {
-			page.Archived = append(page.Archived, row)
-		} else {
-			page.Active = append(page.Active, row)
-		}
+	today := h.today()
+	starts := make(map[string]string, len(habit.Periods))
+	for _, p := range habit.Periods {
+		starts[string(p)] = habit.FormatDay(habit.PeriodStart(p, today))
 	}
-	h.render(w, r, status, "habits", page)
+	writeJSON(w, http.StatusOK, habitListJSON{
+		Active: toHabitsJSON(active), Archived: toHabitsJSON(archived), RuleStarts: starts,
+	})
 }
 
-func (h *handler) habitsIndex(w http.ResponseWriter, r *http.Request) {
-	h.renderHabits(w, r, http.StatusOK, "", "")
+// habitInputJSON is the HabitInput of the spec (§7).
+type habitInputJSON struct {
+	Name     string `json:"name"`
+	Emoji    string `json:"emoji"`
+	Color    string `json:"color"`
+	Moment   string `json:"moment"`
+	Unit     string `json:"unit"`
+	Step     int    `json:"step"`
+	Period   string `json:"period"`
+	Target   int    `json:"target"`
+	Weekdays int    `json:"weekdays"`
 }
 
-// createHabit adds a habit (F1). With no weekday ticked, it applies every day.
 func (h *handler) createHabit(w http.ResponseWriter, r *http.Request) {
-	if !parseForm(w, r) {
+	var req habitInputJSON
+	if !decodeJSON(w, r, &req) {
 		return
 	}
-	name, err := habit.ValidateName(r.PostForm.Get("name"))
+	in, err := habit.Input{
+		Name: req.Name, Emoji: req.Emoji, Color: habit.Color(req.Color), Moment: habit.Moment(req.Moment),
+		Unit: req.Unit, Step: req.Step, Period: habit.Period(req.Period), Target: req.Target,
+		// A mask outside 0..255 would wrap in the uint8 conversion: map it to an invalid one.
+		Weekdays: weekdaysFrom(req.Weekdays),
+	}.Validate()
 	if err != nil {
-		h.renderHabits(w, r, http.StatusUnprocessableEntity, "Le nom doit faire de 1 à 60 caractères, sans retour à la ligne.", r.PostForm.Get("name"))
-		return
-	}
-	days := habit.AllDays
-	if values := r.PostForm["weekdays"]; len(values) > 0 {
-		if days, err = habit.ParseWeekdays(values); err != nil {
-			h.renderHabits(w, r, http.StatusUnprocessableEntity, "Jours invalides.", name)
+		var ve *habit.ValidationError
+		if errors.As(err, &ve) {
+			writeError(w, http.StatusUnprocessableEntity, "invalid_habit", ve.Message)
 			return
 		}
+		h.internalError(w, r, err)
+		return
 	}
-	err = h.cfg.Store.CreateHabit(r.Context(), name, days, h.today())
+	created, err := h.cfg.Store.CreateHabit(r.Context(), in, h.today())
 	if errors.Is(err, habit.ErrNameTaken) {
-		h.renderHabits(w, r, http.StatusConflict, "Une habitude active porte déjà ce nom.", name)
+		writeError(w, http.StatusConflict, "name_taken", "Une habitude active porte déjà ce nom.")
 		return
 	}
 	if err != nil {
 		h.internalError(w, r, err)
 		return
 	}
-	http.Redirect(w, r, "/habits", http.StatusSeeOther)
+	writeJSON(w, http.StatusCreated, toHabitJSON(created))
 }
 
-// updateHabit renames a habit and changes its weekdays from today on (F2).
-func (h *handler) updateHabit(w http.ResponseWriter, r *http.Request) {
-	id, ok := habitID(w, r)
-	if !ok || !parseForm(w, r) {
-		return
+func weekdaysFrom(mask int) habit.Weekdays {
+	if mask < 0 || mask > int(habit.AllDays) {
+		return 0
 	}
-	name, err := habit.ValidateName(r.PostForm.Get("name"))
-	if err != nil {
-		h.renderHabits(w, r, http.StatusUnprocessableEntity, "Le nom doit faire de 1 à 60 caractères, sans retour à la ligne.", "")
-		return
-	}
-	days, err := habit.ParseWeekdays(r.PostForm["weekdays"])
-	if err != nil {
-		h.renderHabits(w, r, http.StatusUnprocessableEntity, "Choisissez au moins un jour.", "")
-		return
-	}
-	err = h.cfg.Store.UpdateHabit(r.Context(), id, name, days, h.today())
-	h.habitResult(w, r, err)
+	return habit.Weekdays(mask)
 }
 
-func (h *handler) archiveHabit(w http.ResponseWriter, r *http.Request) {
-	if id, ok := habitID(w, r); ok {
-		h.habitResult(w, r, h.cfg.Store.ArchiveHabit(r.Context(), id, h.today()))
-	}
+// habitPatchJSON is the partial HabitInput of PATCH /api/habits/{id}: an absent field
+// keeps its value.
+type habitPatchJSON struct {
+	Name     *string `json:"name"`
+	Emoji    *string `json:"emoji"`
+	Color    *string `json:"color"`
+	Moment   *string `json:"moment"`
+	Unit     *string `json:"unit"`
+	Step     *int    `json:"step"`
+	Period   *string `json:"period"`
+	Target   *int    `json:"target"`
+	Weekdays *int    `json:"weekdays"`
 }
 
-func (h *handler) restoreHabit(w http.ResponseWriter, r *http.Request) {
-	if id, ok := habitID(w, r); ok {
-		h.habitResult(w, r, h.cfg.Store.RestoreHabit(r.Context(), id))
+func (p habitPatchJSON) toPatch() habit.Patch {
+	out := habit.Patch{Name: p.Name, Emoji: p.Emoji, Unit: p.Unit, Step: p.Step, Target: p.Target}
+	if p.Color != nil {
+		c := habit.Color(*p.Color)
+		out.Color = &c
 	}
+	if p.Moment != nil {
+		m := habit.Moment(*p.Moment)
+		out.Moment = &m
+	}
+	if p.Period != nil {
+		per := habit.Period(*p.Period)
+		out.Period = &per
+	}
+	if p.Weekdays != nil {
+		wd := weekdaysFrom(*p.Weekdays)
+		out.Weekdays = &wd
+	}
+	return out
 }
 
-// habitResult turns the outcome of a habit change into a response.
-func (h *handler) habitResult(w http.ResponseWriter, r *http.Request, err error) {
-	switch {
-	case errors.Is(err, habit.ErrNotFound):
-		http.Error(w, "Habitude introuvable.", http.StatusNotFound)
-	case errors.Is(err, habit.ErrNameTaken):
-		h.renderHabits(w, r, http.StatusConflict, "Une habitude active porte déjà ce nom.", "")
-	case err != nil:
-		h.internalError(w, r, err)
-	default:
-		http.Redirect(w, r, "/habits", http.StatusSeeOther)
-	}
-}
-
-// habitID reads the {id} of the path; a malformed one is a habit that does not exist.
+// habitID reads the {id} of the path; it answers 404 itself when it is not a number.
 func habitID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		http.Error(w, "Habitude introuvable.", http.StatusNotFound)
+	if err != nil || id < 1 {
+		apiNotFound(w, r)
 		return 0, false
 	}
 	return id, true
+}
+
+// writeHabitResult answers a habit-changing request: the habit, or the error of the
+// store mapped to its HTTP status.
+func (h *handler) writeHabitResult(w http.ResponseWriter, r *http.Request, out habit.Habit, err error) {
+	var ve *habit.ValidationError
+	switch {
+	case errors.As(err, &ve):
+		writeError(w, http.StatusUnprocessableEntity, "invalid_habit", ve.Message)
+	case errors.Is(err, habit.ErrNotFound):
+		writeError(w, http.StatusNotFound, "not_found", "Cette habitude n'existe pas ou est archivée.")
+	case errors.Is(err, habit.ErrNameTaken):
+		writeError(w, http.StatusConflict, "name_taken", "Une habitude active porte déjà ce nom.")
+	case err != nil:
+		h.internalError(w, r, err)
+	default:
+		writeJSON(w, http.StatusOK, toHabitJSON(out))
+	}
+}
+
+func (h *handler) updateHabit(w http.ResponseWriter, r *http.Request) {
+	id, ok := habitID(w, r)
+	if !ok {
+		return
+	}
+	var req habitPatchJSON
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	out, err := h.cfg.Store.UpdateHabit(r.Context(), id, req.toPatch(), h.today())
+	h.writeHabitResult(w, r, out, err)
+}
+
+func (h *handler) archiveHabit(w http.ResponseWriter, r *http.Request) {
+	id, ok := habitID(w, r)
+	if !ok {
+		return
+	}
+	out, err := h.cfg.Store.ArchiveHabit(r.Context(), id, h.today())
+	h.writeHabitResult(w, r, out, err)
+}
+
+func (h *handler) restoreHabit(w http.ResponseWriter, r *http.Request) {
+	id, ok := habitID(w, r)
+	if !ok {
+		return
+	}
+	out, err := h.cfg.Store.RestoreHabit(r.Context(), id, h.today())
+	h.writeHabitResult(w, r, out, err)
+}
+
+func (h *handler) reorderHabits(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Moment string  `json:"moment"`
+		IDs    []int64 `json:"ids"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	moment := habit.Moment(req.Moment)
+	if !slices.Contains(habit.Moments, moment) {
+		writeError(w, http.StatusUnprocessableEntity, "invalid_order", "Moment inconnu.")
+		return
+	}
+	err := h.cfg.Store.ReorderHabits(r.Context(), moment, req.IDs, h.today())
+	var ve *habit.ValidationError
+	switch {
+	case errors.As(err, &ve):
+		writeError(w, http.StatusUnprocessableEntity, "invalid_order", ve.Message)
+	case err != nil:
+		h.internalError(w, r, err)
+	default:
+		w.WriteHeader(http.StatusNoContent)
+	}
 }

@@ -1,0 +1,54 @@
+{
+  "active": [
+    {
+      "id": 1,
+      "name": "Vitamine D",
+      "emoji": "💊",
+      "color": "amber",
+      "moment": "morning",
+      "position": 0,
+      "unit": "pilules",
+      "step": 1,
+      "period": "day",
+      "target": 2,
+      "weekdays": 127,
+      "archivedOn": null
+    },
+    {
+      "id": 2,
+      "name": "Course",
+      "emoji": "🏃",
+      "color": "green",
+      "moment": "evening",
+      "position": 0,
+      "unit": "",
+      "step": 1,
+      "period": "week",
+      "target": 3,
+      "weekdays": 31,
+      "archivedOn": null
+    }
+  ],
+  "archived": [
+    {
+      "id": 3,
+      "name": "Piano",
+      "emoji": "🎹",
+      "color": "violet",
+      "moment": "day",
+      "position": 0,
+      "unit": "min",
+      "step": 5,
+      "period": "day",
+      "target": 20,
+      "weekdays": 127,
+      "archivedOn": "2026-10-12"
+    }
+  ],
+  "ruleStarts": {
+    "day": "2026-11-06",
+    "month": "2026-11-01",
+    "week": "2026-11-02",
+    "year": "2026-01-01"
+  }
+}

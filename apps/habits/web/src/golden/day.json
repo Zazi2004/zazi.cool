@@ -1,0 +1,145 @@
+{
+  "date": "2026-11-06",
+  "editable": true,
+  "progress": 0.5,
+  "done": 1,
+  "total": 3,
+  "complete": false,
+  "streak": 3,
+  "week": [
+    {
+      "date": "2026-11-02",
+      "progress": 0
+    },
+    {
+      "date": "2026-11-03",
+      "progress": 1
+    },
+    {
+      "date": "2026-11-04",
+      "progress": 1
+    },
+    {
+      "date": "2026-11-05",
+      "progress": 1
+    },
+    {
+      "date": "2026-11-06",
+      "progress": 0.5
+    },
+    {
+      "date": "2026-11-07",
+      "progress": 0
+    },
+    {
+      "date": "2026-11-08",
+      "progress": 0
+    }
+  ],
+  "groups": [
+    {
+      "moment": "morning",
+      "habits": [
+        {
+          "habit": {
+            "id": 4,
+            "name": "Étirements",
+            "emoji": "🧘",
+            "color": "teal",
+            "moment": "morning",
+            "position": 1,
+            "unit": "",
+            "step": 1,
+            "period": "day",
+            "target": 1,
+            "weekdays": 127,
+            "archivedOn": null
+          },
+          "value": 0,
+          "total": 0,
+          "progress": 0,
+          "complete": false,
+          "pace": null
+        },
+        {
+          "habit": {
+            "id": 1,
+            "name": "Vitamine D",
+            "emoji": "💊",
+            "color": "amber",
+            "moment": "morning",
+            "position": 0,
+            "unit": "pilules",
+            "step": 1,
+            "period": "day",
+            "target": 2,
+            "weekdays": 127,
+            "archivedOn": null
+          },
+          "value": 2,
+          "total": 2,
+          "progress": 1,
+          "complete": true,
+          "pace": null
+        }
+      ]
+    },
+    {
+      "moment": "day",
+      "habits": [
+        {
+          "habit": {
+            "id": 6,
+            "name": "Sport",
+            "emoji": "🏋️",
+            "color": "red",
+            "moment": "day",
+            "position": 0,
+            "unit": "séances",
+            "step": 1,
+            "period": "year",
+            "target": 150,
+            "weekdays": 127,
+            "archivedOn": null
+          },
+          "value": 1,
+          "total": 128,
+          "progress": 0.8533333333333334,
+          "complete": false,
+          "pace": {
+            "expected": 127.3972602739726,
+            "diff": 1,
+            "label": "1 d'avance"
+          }
+        }
+      ]
+    },
+    {
+      "moment": "evening",
+      "habits": [
+        {
+          "habit": {
+            "id": 5,
+            "name": "Lecture",
+            "emoji": "📖",
+            "color": "blue",
+            "moment": "evening",
+            "position": 0,
+            "unit": "pages",
+            "step": 5,
+            "period": "day",
+            "target": 20,
+            "weekdays": 127,
+            "archivedOn": null
+          },
+          "value": 10,
+          "total": 10,
+          "progress": 0.5,
+          "complete": false,
+          "pace": null
+        }
+      ]
+    }
+  ],
+  "note": "Bonne journée"
+}
