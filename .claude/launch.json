@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "habits-prototype",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "apps/habits/prototype-web", "run", "dev"],
+      "port": 5199
+    }
+  ]
+}
