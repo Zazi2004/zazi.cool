@@ -18,6 +18,10 @@ import { momentLabels, type Day, type DayHabit } from "../types";
 import { Confetti } from "./Confetti";
 import { DayNote } from "./DayNote";
 import { EntrySheet } from "./EntrySheet";
+import { ClickSpark } from "./effects/ClickSpark";
+import { CountUp } from "./effects/CountUp";
+import { prefersReducedMotion } from "./effects/motion";
+import { ShinyText } from "./effects/ShinyText";
 import { MiniRing } from "./MiniRing";
 import { useLongPress } from "./useLongPress";
 
@@ -28,10 +32,6 @@ const fallback = "Impossible de charger la journée.";
 
 function dayPath(date: string, today: string): string {
   return date === today ? "/" : `/day/${date}`;
-}
-
-function prefersReducedMotion(): boolean {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 /** `date` is the day of the route; null means today. The screen is keyed by date. */
@@ -122,7 +122,7 @@ export function Today({ date: routeDate }: { date: string | null }) {
             className="streak"
             aria-label={`Série de ${day.streak} jour${day.streak > 1 ? "s" : ""}`}
           >
-            <span aria-hidden="true">🔥</span> {day.streak}
+            <span aria-hidden="true">🔥</span> <ShinyText>{day.streak}</ShinyText>
           </p>
         )}
       </header>
@@ -140,12 +140,14 @@ export function Today({ date: routeDate }: { date: string | null }) {
               Lecture seule
             </p>
           )}
-          <DayView
-            day={day}
-            wording={date === today ? "aujourd'hui" : "ce jour-là"}
-            onTap={(item) => save(item.habit.id, tapValue(item))}
-            onEnter={setEntering}
-          />
+          <ClickSpark>
+            <DayView
+              day={day}
+              wording={date === today ? "aujourd'hui" : "ce jour-là"}
+              onTap={(item) => save(item.habit.id, tapValue(item))}
+              onEnter={setEntering}
+            />
+          </ClickSpark>
           <DayNote date={date} initial={day.note} editable={day.editable} />
           <nav className="day-nav" aria-label="Changer de jour">
             <button
@@ -335,7 +337,9 @@ function Ring({ progress, done, total }: { progress: number; done: number; total
         />
       </svg>
       <div className="ring-label" aria-hidden="true">
-        <strong>{percent} %</strong>
+        <strong>
+          <CountUp to={percent} suffix=" %" />
+        </strong>
         <span>
           {done} / {total} du jour
         </span>

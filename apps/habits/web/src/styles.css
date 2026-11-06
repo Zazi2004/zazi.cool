@@ -1043,3 +1043,96 @@ button.danger {
 .period-interrupted .period-status {
   color: var(--muted);
 }
+
+/* Effects (spec §5): aurora in CSS, shiny text, spotlight card, click sparks. */
+.today-header {
+  position: relative;
+  isolation: isolate;
+}
+
+.today-header::before {
+  position: absolute;
+  z-index: -1;
+  inset: -2rem -1.25rem -1rem;
+  background:
+    radial-gradient(
+      40% 70% at 20% 30%,
+      color-mix(in srgb, var(--ring-from) 28%, transparent),
+      transparent
+    ),
+    radial-gradient(
+      40% 70% at 80% 20%,
+      color-mix(in srgb, var(--ring-to) 24%, transparent),
+      transparent
+    );
+  background-size: 140% 140%;
+  content: "";
+  animation: aurora 14s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes aurora {
+  to {
+    background-position: 100% 60%;
+  }
+}
+
+.shiny {
+  background: linear-gradient(110deg, var(--text) 40%, var(--ring-from) 50%, var(--text) 60%);
+  background-clip: text;
+  background-size: 250% 100%;
+  color: transparent;
+  animation: shiny 3s linear infinite;
+}
+
+@keyframes shiny {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+.spotlight {
+  position: relative;
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.spotlight::after {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    10rem circle at var(--spot-x, -100%) var(--spot-y, -100%),
+    color-mix(in srgb, var(--tone, var(--accent)) 16%, transparent),
+    transparent
+  );
+  content: "";
+  pointer-events: none;
+}
+
+.click-spark {
+  position: fixed;
+  z-index: 30;
+  inset: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .today-header::before,
+  .shiny {
+    animation: none;
+  }
+
+  .shiny {
+    background: none;
+    color: inherit;
+  }
+
+  .click-spark {
+    display: none;
+  }
+}

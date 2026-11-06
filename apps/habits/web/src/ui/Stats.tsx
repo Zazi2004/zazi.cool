@@ -5,6 +5,7 @@ import { formatStreak, totalLine } from "../stats";
 import { paceClass } from "./paceClass";
 import type { HabitSummary } from "../types";
 import { MiniRing } from "./MiniRing";
+import { SpotlightCard } from "./effects/SpotlightCard";
 
 type State =
   | { status: "loading" }
@@ -62,37 +63,39 @@ function SummaryCard({ summary }: { summary: HabitSummary }) {
   const href = `/stats/${h.id}`;
   return (
     <li className={`habit color-${h.color}`}>
-      <a
-        className="habit-tap"
-        href={href}
-        onClick={(e) => {
-          if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-          e.preventDefault();
-          navigate(href);
-        }}
-      >
-        <span className="habit-emoji" aria-hidden="true">
-          {h.emoji}
-        </span>
-        <span className="habit-text">
-          <span className="habit-name">{h.name}</span>
-          <span className="habit-rule muted">
-            {totalLine(summary)}
-            {summary.pace && (
-              <>
-                {" · "}
-                <span className={paceClass(summary)}>{summary.pace.label}</span>
-              </>
+      <SpotlightCard>
+        <a
+          className="habit-tap"
+          href={href}
+          onClick={(e) => {
+            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            e.preventDefault();
+            navigate(href);
+          }}
+        >
+          <span className="habit-emoji" aria-hidden="true">
+            {h.emoji}
+          </span>
+          <span className="habit-text">
+            <span className="habit-name">{h.name}</span>
+            <span className="habit-rule muted">
+              {totalLine(summary)}
+              {summary.pace && (
+                <>
+                  {" · "}
+                  <span className={paceClass(summary)}>{summary.pace.label}</span>
+                </>
+              )}
+            </span>
+            {summary.streak !== null && (
+              <span className="habit-rule muted">
+                <span aria-hidden="true">🔥</span> Série : {formatStreak(h.period, summary.streak)}
+              </span>
             )}
           </span>
-          {summary.streak !== null && (
-            <span className="habit-rule muted">
-              <span aria-hidden="true">🔥</span> Série : {formatStreak(h.period, summary.streak)}
-            </span>
-          )}
-        </span>
-        <MiniRing progress={summary.progress} />
-      </a>
+          <MiniRing progress={summary.progress} />
+        </a>
+      </SpotlightCard>
     </li>
   );
 }

@@ -135,9 +135,10 @@ func (f fakeStore) HabitHistory(_ context.Context, id int64, _ time.Time) (habit
 }
 
 var testStatic = fstest.MapFS{
-	"index.html":        {Data: []byte("<!doctype html><title>app</title>")},
-	"favicon.svg":       {Data: []byte("<svg/>")},
-	"assets/index-a.js": {Data: []byte("console.log(1)")},
+	"index.html":           {Data: []byte("<!doctype html><title>app</title>")},
+	"favicon.svg":          {Data: []byte("<svg/>")},
+	"manifest.webmanifest": {Data: []byte("{}")},
+	"assets/index-a.js":    {Data: []byte("console.log(1)")},
 }
 
 func get(t *testing.T, h http.Handler, method, path string) *httptest.ResponseRecorder {
