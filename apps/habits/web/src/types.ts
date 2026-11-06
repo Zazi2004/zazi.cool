@@ -27,6 +27,8 @@ export type HabitInput = Omit<Habit, "id" | "position" | "archivedOn">;
 export interface HabitList {
   active: Habit[];
   archived: Habit[];
+  /** Per period, the day a change of period, target or weekdays would start today. */
+  ruleStarts: Record<Period, string>;
 }
 
 export const moments: readonly Moment[] = ["morning", "day", "evening"];

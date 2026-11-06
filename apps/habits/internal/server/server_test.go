@@ -31,6 +31,16 @@ type fakeStore struct {
 	stats []habit.DayStat
 	note  string
 	notes *[]noteCall
+	// editErr is returned by UpdateHabit, ArchiveHabit, RestoreHabit and ReorderHabits;
+	// patches and orders record the requests they received.
+	editErr error
+	patches *[]habit.Patch
+	orders  *[]orderCall
+}
+
+type orderCall struct {
+	moment habit.Moment
+	ids    []int64
 }
 
 type noteCall struct {
@@ -61,6 +71,28 @@ func (f fakeStore) CreateHabit(_ context.Context, in habit.Input, _ time.Time) (
 
 func (f fakeStore) ListHabits(context.Context, time.Time) ([]habit.Habit, []habit.Habit, error) {
 	return f.active, f.archived, nil
+}
+
+func (f fakeStore) UpdateHabit(_ context.Context, id int64, p habit.Patch, _ time.Time) (habit.Habit, error) {
+	if f.patches != nil {
+		*f.patches = append(*f.patches, p)
+	}
+	return habit.Habit{ID: id, Name: "Course", Period: habit.PeriodWeek, Target: 4}, f.editErr
+}
+
+func (f fakeStore) ArchiveHabit(_ context.Context, id int64, today time.Time) (habit.Habit, error) {
+	return habit.Habit{ID: id, Name: "Course", ArchivedOn: &today}, f.editErr
+}
+
+func (f fakeStore) RestoreHabit(_ context.Context, id int64, _ time.Time) (habit.Habit, error) {
+	return habit.Habit{ID: id, Name: "Course"}, f.editErr
+}
+
+func (f fakeStore) ReorderHabits(_ context.Context, moment habit.Moment, ids []int64, _ time.Time) error {
+	if f.orders != nil {
+		*f.orders = append(*f.orders, orderCall{moment, ids})
+	}
+	return f.editErr
 }
 
 func (f fakeStore) DayHabits(context.Context, time.Time) ([]habit.Logged, error) {
