@@ -87,6 +87,8 @@ func run(args []string) error {
 		TrustProxy: cfg.trustProxy,
 		LoginLimit: cfg.loginLimit,
 		Location:   cfg.location,
+
+		EditWindowDays: cfg.editWindowDays,
 	}))
 }
 
@@ -157,8 +159,8 @@ type config struct {
 	baseURL      string
 	trustProxy   bool
 	loginLimit   int
-	// location defines the "day" (TZ_NAME); editWindowDays how far back days can be edited
-	// (read by the day API of the following tickets).
+	// location defines the "day" (TZ_NAME); editWindowDays how many days, today
+	// included, can be edited.
 	location       *time.Location
 	editWindowDays int
 }
@@ -197,7 +199,7 @@ func loadConfig() (config, error) {
 	if cfg.location, err = time.LoadLocation(getenv("TZ_NAME", "Europe/Paris")); err != nil {
 		return config{}, fmt.Errorf("TZ_NAME: %w", err)
 	}
-	if cfg.editWindowDays, err = strconv.Atoi(getenv("EDIT_WINDOW_DAYS", "14")); err != nil || cfg.editWindowDays < 0 {
+	if cfg.editWindowDays, err = strconv.Atoi(getenv("EDIT_WINDOW_DAYS", "7")); err != nil || cfg.editWindowDays < 0 {
 		return config{}, errors.New("EDIT_WINDOW_DAYS must be a non-negative integer")
 	}
 	return cfg, nil

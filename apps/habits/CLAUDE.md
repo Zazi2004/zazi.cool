@@ -51,8 +51,8 @@ Variables d'environnement (voir `.env.example`) : `DATABASE_URL` et `ADMIN_PASSW
 (`https://habits.zazi.cool` : contrôle d'`Origin`, cookie `Secure`/`__Host-` et HSTS si
 `https://`), `TRUST_PROXY` (`false` ; `true` derrière Traefik pour lire l'IP dans
 `X-Forwarded-For`), `RATE_LIMIT_LOGIN` (`10` par IP et par heure). `TZ_NAME`
-(`Europe/Paris` : fuseau qui définit le « jour ») et `EDIT_WINDOW_DAYS` (`14` : jours passés
-modifiables, aujourd'hui inclus dans la fenêtre, le futur jamais).
+(`Europe/Paris` : fuseau qui définit le « jour ») et `EDIT_WINDOW_DAYS` (`7` : nombre de jours
+modifiables, aujourd'hui inclus donc aujourd'hui − 6 au plus loin ; le futur jamais).
 
 ## Commandes
 
@@ -103,8 +103,8 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   ni attribut `style` dans le HTML, polices et icônes servies par l'app (Inter latin en variable,
   `web/src/fonts/`, licence OFL jointe), `assetsInlineLimit: 0` pour ne produire aucune URL `data:`
   de police.
-- `EDIT_WINDOW_DAYS` reste lu par `cmd/habits`, mais rien ne l'utilise tant que l'API des jours
-  (ONBO-112) n'est pas là ; `TZ_NAME` définit le jour de `server.Config.Location`.
+- `EDIT_WINDOW_DAYS` (défaut 7) alimente `server.Config.EditWindowDays` ; `TZ_NAME` définit le jour de
+  `server.Config.Location`.
 - Ce qui suit (statistiques, interface T6) décrit la v1 : les pages HTML sont supprimées de cette
   branche et ces sections seront réécrites avec les tickets qui les remplacent.
 
@@ -153,6 +153,31 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   message. Seule la réponse du dernier toucher est appliquée. Le jour demandé est la date locale
   de l'appareil.
 - Golden `day.json` ajouté (`TestGoldenFiles`, `golden.test.ts`).
+
+## Jours, saisie exacte, série et note (v2, ONBO-113)
+
+- `GET /api/days/{date}` accepte tout jour jusqu'à aujourd'hui (le futur donne `422`
+  `day_in_future`) ; `editable` vient de `habit.Editable(day, today, EditWindowDays)`. Les écritures
+  (`PUT …/entries/{id}`, `PUT …/note`) refusent un jour hors fenêtre ou futur en `422`
+  `day_not_editable` **avant** tout accès au store : rien n'est modifié.
+- Note : `PUT /api/days/{date}/note` `{text}` → `204` ; vide = supprimée, plus de 1 000 caractères
+  (points de code) → `422` `invalid_note`. `Day.note` la renvoie.
+- Série globale et bande de la semaine viennent d'**une seule** requête, `Store.DayStats` (somme par
+  jour des habitudes `day` : dues, faites, progression), depuis la plus ancienne habitude jusqu'à
+  aujourd'hui ou au dimanche affiché. `habit.Streak` (pure, testée en table) compte les journées
+  complètes jusqu'à aujourd'hui : aujourd'hui incomplet ne casse pas la série, un jour sans habitude
+  `day` est sauté. `GET /api/days/{date}` fait 3 requêtes (NF7) : `DayHabits`, `DayStats`, `DayNote`.
+  La série est toujours celle d'aujourd'hui, même sur un jour passé.
+- Front : `/day/{date}` (`/` = aujourd'hui) ; `Today` est monté avec `key` = date. Gestes dans
+  `web/src/today.ts` (pur : `swipeTarget`, `cancelsHold`, seuils 60 px / 10 px / 450 ms) et
+  `ui/useLongPress.ts`. Un mouvement de plus de 10 px annule l'appui long ; `touch-action: pan-y` sur
+  la page laisse le défilement vertical au navigateur. Le bouton « Saisir une valeur » est l'alternative
+  clavier à l'appui long.
+- Confettis (`ui/Confetti.tsx`, CSS seul, sans dépendance) : seulement quand la réponse du serveur à
+  une action passe `complete` de faux à vrai (`shouldCelebrate`) ; jamais à l'ouverture d'un jour ni
+  avec `prefers-reduced-motion`.
+- Note : `ui/DayNote.tsx`, enregistrement 800 ms après la dernière frappe, envoi immédiat du texte non
+  enregistré en quittant le jour.
 
 ## Objectifs sur période (v2, ONBO-114)
 

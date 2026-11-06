@@ -27,7 +27,7 @@ func TestLoadConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cfg.port != "8080" || cfg.baseURL != "https://habits.zazi.cool" || cfg.trustProxy || cfg.loginLimit != 10 ||
-		cfg.location.String() != "Europe/Paris" || cfg.editWindowDays != 14 {
+		cfg.location.String() != "Europe/Paris" || cfg.editWindowDays != 7 {
 		t.Errorf("defaults = %+v", cfg)
 	}
 

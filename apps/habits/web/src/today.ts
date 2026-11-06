@@ -65,3 +65,88 @@ export function paceTone(item: DayHabit): "done" | "ahead" | "behind" | "on" | n
   if (item.complete) return "done";
   return pace.diff > 0 ? "ahead" : pace.diff < 0 ? "behind" : "on";
 }
+
+const dayMs = 24 * 60 * 60 * 1000;
+
+function parseDate(date: string): Date {
+  const [y = 0, m = 1, d = 1] = date.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** The civil date `n` days after `date` (before when negative), both as YYYY-MM-DD. */
+export function addDays(date: string, n: number): string {
+  const d = parseDate(date);
+  d.setDate(d.getDate() + n);
+  return localDate(d);
+}
+
+/** « Aujourd'hui », « Hier », « Il y a N jours ». */
+export function relativeLabel(date: string, today: string): string {
+  const days = Math.round((parseDate(today).getTime() - parseDate(date).getTime()) / dayMs);
+  if (days <= 0) return "Aujourd'hui";
+  if (days === 1) return "Hier";
+  return `Il y a ${days} jours`;
+}
+
+const longFormat = new Intl.DateTimeFormat("fr-FR", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+});
+
+/** « vendredi 6 novembre ». */
+export function longDate(date: string): string {
+  return longFormat.format(parseDate(date));
+}
+
+/** One-letter weekday of the week strip: L M M J V S D. */
+export function weekdayInitial(date: string): string {
+  return "LMMJVSD"[(parseDate(date).getDay() + 6) % 7] ?? "";
+}
+
+/** Horizontal travel (px) that turns a drag into a day change. */
+export const swipeDistance = 60;
+/** A press that moves farther than this (px) is a drag, not a long press. */
+export const holdTolerance = 10;
+/** How long (ms) a press must last to open the exact-value sheet. */
+export const holdDelay = 450;
+
+/** -1 for the previous day, 1 for the next one, 0 when the drag is short or mostly vertical. */
+export function swipeStep(dx: number, dy: number): -1 | 0 | 1 {
+  if (Math.abs(dx) < swipeDistance || Math.abs(dx) < 1.5 * Math.abs(dy)) return 0;
+  return dx < 0 ? 1 : -1;
+}
+
+/** Whether a pointer that moved by (dx, dy) cancels a pending long press. */
+export function cancelsHold(dx: number, dy: number): boolean {
+  return Math.hypot(dx, dy) > holdTolerance;
+}
+
+/** The day a swipe leads to, or null: never past today. */
+export function swipeTarget(date: string, today: string, dx: number, dy: number): string | null {
+  const step = swipeStep(dx, dy);
+  if (step === 0) return null;
+  const target = addDays(date, step);
+  return target > today ? null : target;
+}
+
+export const maxValue = 100000;
+
+/** A whole number from the exact-value field, or null when it is not valid. */
+export function parseValue(text: string): number | null {
+  if (!/^\d+$/.test(text.trim())) return null;
+  const n = Number(text);
+  return n <= maxValue ? n : null;
+}
+
+/** Number of characters as the server counts them (code points, not UTF-16 units). */
+export function noteLength(text: string): number {
+  return Array.from(text).length;
+}
+
+export const noteLimit = 1000;
+
+/** Confetti only when an action turned an incomplete day into a complete one. */
+export function shouldCelebrate(wasComplete: boolean, day: Day): boolean {
+  return !wasComplete && day.complete;
+}

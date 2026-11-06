@@ -82,3 +82,7 @@ export function getDay(date: string): Promise<Day> {
 export function putEntry(date: string, habitId: number, value: number): Promise<Day> {
   return request("PUT", `/api/days/${date}/entries/${habitId}`, { value });
 }
+
+export function putNote(date: string, text: string): Promise<void> {
+  return request("PUT", `/api/days/${date}/note`, { text });
+}
