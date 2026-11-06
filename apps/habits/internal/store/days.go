@@ -13,11 +13,15 @@ import (
 
 // DayHabits returns the habits that apply on day (active, with the rule in force that
 // day and a weekday that allows it) with the value entered for each, in moment then
-// manual order. One query.
+// manual order, with the total of each period up to day. One query.
 func (s *Store) DayHabits(ctx context.Context, day time.Time) ([]habit.Logged, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT h.id, h.name, h.emoji, h.color, h.moment, h.position, h.unit, h.step,
-		        r.period, r.target, r.weekdays, COALESCE(e.value, 0)
+		        r.period, r.target, r.weekdays, COALESCE(e.value, 0),
+		        COALESCE((SELECT sum(value) FROM entries
+		                  WHERE habit_id = h.id AND day <= $1 AND day >=
+		                      CASE r.period WHEN 'week' THEN $3::date WHEN 'month' THEN $4::date
+		                                    WHEN 'year' THEN $5::date ELSE $1 END), 0)
 		 FROM habits h
 		 JOIN LATERAL (
 		     SELECT period, target, weekdays FROM habit_rules
@@ -28,7 +32,9 @@ func (s *Store) DayHabits(ctx context.Context, day time.Time) ([]habit.Logged, e
 		 WHERE h.created_on <= $1 AND (h.archived_on IS NULL OR h.archived_on > $1)
 		   AND (r.weekdays & (1 << $2::int)) <> 0
 		 ORDER BY CASE h.moment WHEN 'morning' THEN 0 WHEN 'day' THEN 1 ELSE 2 END,
-		          h.position, h.id`, day, habit.Bit(day.Weekday()))
+		          h.position, h.id`, day, habit.Bit(day.Weekday()),
+		habit.PeriodStart(habit.PeriodWeek, day), habit.PeriodStart(habit.PeriodMonth, day),
+		habit.PeriodStart(habit.PeriodYear, day))
 	if err != nil {
 		return nil, fmt.Errorf("day habits: %w", err)
 	}
@@ -43,7 +49,7 @@ func (s *Store) DayHabits(ctx context.Context, day time.Time) ([]habit.Logged, e
 		)
 		h := &l.Habit
 		err := rows.Scan(&h.ID, &h.Name, &h.Emoji, &color, &moment, &h.Position, &h.Unit, &h.Step,
-			&period, &h.Target, &weekdays, &l.Value)
+			&period, &h.Target, &weekdays, &l.Value, &l.Total)
 		if err != nil {
 			return nil, fmt.Errorf("scan day habit: %w", err)
 		}

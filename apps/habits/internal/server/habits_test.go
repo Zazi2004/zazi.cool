@@ -132,7 +132,7 @@ func TestGoldenFiles(t *testing.T) {
 
 	// The Day golden: a morning habit done (2 / 2) and one pending, plus an evening one.
 	logged := []habit.Logged{
-		{Habit: active[0], Value: 2},
+		{Habit: active[0], Value: 2, Total: 2},
 		{Habit: habit.Habit{
 			ID: 4, Name: "Étirements", Emoji: "🧘", Color: "teal", Moment: habit.Morning, Position: 1,
 			Step: 1, Period: habit.PeriodDay, Target: 1, Weekdays: habit.AllDays,
@@ -140,7 +140,11 @@ func TestGoldenFiles(t *testing.T) {
 		{Habit: habit.Habit{
 			ID: 5, Name: "Lecture", Emoji: "📖", Color: "blue", Moment: habit.Evening, Position: 0,
 			Unit: "pages", Step: 5, Period: habit.PeriodDay, Target: 20, Weekdays: habit.AllDays,
-		}, Value: 10},
+		}, Value: 10, Total: 10},
+		{Habit: habit.Habit{
+			ID: 6, Name: "Sport", Emoji: "🏋️", Color: "red", Moment: habit.Day, Position: 0,
+			Unit: "séances", Step: 1, Period: habit.PeriodYear, Target: 150, Weekdays: habit.AllDays,
+		}, Value: 1, Total: 128},
 	}
 	dh := habitsHandler(fakeStore{logged: logged})
 	writeGolden(t, "day", apiRequest(dh, http.MethodGet, "/api/days/2026-11-06", ""))

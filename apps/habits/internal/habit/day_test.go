@@ -3,6 +3,7 @@ package habit
 import (
 	"math"
 	"testing"
+	"time"
 )
 
 func TestProgress(t *testing.T) {
@@ -28,8 +29,10 @@ func TestProgress(t *testing.T) {
 	}
 }
 
+var testDay = time.Date(2026, time.November, 6, 0, 0, 0, 0, time.UTC)
+
 func logged(id int64, moment Moment, pos int, period Period, target, value int) Logged {
-	return Logged{Habit: Habit{ID: id, Moment: moment, Position: pos, Period: period, Target: target}, Value: value}
+	return Logged{Habit: Habit{ID: id, Moment: moment, Position: pos, Period: period, Target: target}, Value: value, Total: value}
 }
 
 func TestDayProgress(t *testing.T) {
@@ -56,7 +59,7 @@ func TestDayProgress(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var items []DayHabit
 			for _, l := range tt.items {
-				items = append(items, NewDayHabit(l))
+				items = append(items, NewDayHabit(l, testDay))
 			}
 			if got := DayProgress(items); math.Abs(got-tt.want) > 1e-9 {
 				t.Errorf("DayProgress = %v, want %v", got, tt.want)
@@ -74,10 +77,10 @@ func TestDayProgress(t *testing.T) {
 
 func TestGroupByMoment(t *testing.T) {
 	items := []DayHabit{
-		NewDayHabit(logged(1, Evening, 0, PeriodDay, 1, 0)),
-		NewDayHabit(logged(2, Morning, 0, PeriodDay, 2, 2)), // complete: goes last
-		NewDayHabit(logged(3, Morning, 1, PeriodDay, 1, 0)),
-		NewDayHabit(logged(4, Morning, 2, PeriodDay, 1, 0)),
+		NewDayHabit(logged(1, Evening, 0, PeriodDay, 1, 0), testDay),
+		NewDayHabit(logged(2, Morning, 0, PeriodDay, 2, 2), testDay), // complete: goes last
+		NewDayHabit(logged(3, Morning, 1, PeriodDay, 1, 0), testDay),
+		NewDayHabit(logged(4, Morning, 2, PeriodDay, 1, 0), testDay),
 	}
 	groups := GroupByMoment(items)
 	if len(groups) != 2 || groups[0].Moment != Morning || groups[1].Moment != Evening {
