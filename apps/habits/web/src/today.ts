@@ -13,23 +13,28 @@ export function tapValue(item: DayHabit): number {
   return isBinary(h) ? (item.value ? 0 : 1) : item.value + (h.step || 1);
 }
 
+/**
+ * One row with the day's value changed: the period total moves by the same amount. The pace
+ * keeps the server's figures until its answer replaces it.
+ */
+function patched(it: DayHabit, value: number): DayHabit {
+  const total = Math.max(0, it.total + value - it.value);
+  return {
+    ...it,
+    value,
+    total,
+    progress: Math.min(1, total / it.habit.target),
+    complete: total >= it.habit.target,
+  };
+}
+
 /** Shows `value` on one row right away; the server answer replaces the whole day. */
 export function withValue(day: Day, habitId: number, value: number): Day {
   return {
     ...day,
     groups: day.groups.map((g) => ({
       ...g,
-      habits: g.habits.map((it) =>
-        it.habit.id === habitId
-          ? {
-              ...it,
-              value,
-              total: value,
-              progress: Math.min(1, value / it.habit.target),
-              complete: value >= it.habit.target,
-            }
-          : it,
-      ),
+      habits: g.habits.map((it) => (it.habit.id === habitId ? patched(it, value) : it)),
     })),
   };
 }
@@ -40,10 +45,25 @@ export function localDate(now: Date): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
-/** « 1 / 2 pilules », « 1 / 1 » for a yes/no habit shows nothing more than the state. */
+const periodSuffix = {
+  day: "",
+  week: " cette semaine",
+  month: " ce mois-ci",
+  year: " cette année",
+};
+
+/** « 1 / 2 pilules », « 132 / 150 séances cette année ». */
 export function subtitle(item: DayHabit): string {
   const unit = item.habit.unit ? ` ${item.habit.unit}` : "";
-  return `${item.total} / ${item.habit.target}${unit}`;
+  return `${item.total} / ${item.habit.target}${unit}${periodSuffix[item.habit.period]}`;
+}
+
+/** The pace label of a period habit and its tone; the label is computed by the server. */
+export function paceTone(item: DayHabit): "done" | "ahead" | "behind" | "on" | null {
+  const pace = item.pace;
+  if (!pace) return null;
+  if (item.complete) return "done";
+  return pace.diff > 0 ? "ahead" : pace.diff < 0 ? "behind" : "on";
 }
 
 const dayMs = 24 * 60 * 60 * 1000;

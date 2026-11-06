@@ -16,7 +16,7 @@ func loggedHabit(id int64, name string, moment habit.Moment, pos, target, value 
 			ID: id, Name: name, Emoji: "💊", Color: "amber", Moment: moment, Position: pos,
 			Step: 1, Period: habit.PeriodDay, Target: target, Weekdays: habit.AllDays,
 		},
-		Value: value,
+		Value: value, Total: value,
 	}
 }
 

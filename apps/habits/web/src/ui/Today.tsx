@@ -5,6 +5,7 @@ import {
   addDays,
   localDate,
   longDate,
+  paceTone,
   relativeLabel,
   shouldCelebrate,
   subtitle,
@@ -278,7 +279,15 @@ function Row({
         </span>
         <span className="habit-text">
           <span className="habit-name">{h.name}</span>
-          <span className="habit-rule muted">{subtitle(item)}</span>
+          <span className="habit-rule muted">
+            {subtitle(item)}
+            {item.pace && (
+              <>
+                {" · "}
+                <span className={`pace pace-${paceTone(item)}`}>{item.pace.label}</span>
+              </>
+            )}
+          </span>
         </span>
         <MiniRing progress={item.progress} />
       </button>

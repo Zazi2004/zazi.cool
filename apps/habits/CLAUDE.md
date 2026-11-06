@@ -139,8 +139,8 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
 
 - `GET /api/days/{date}` et `PUT /api/days/{date}/entries/{habitId}` (`{value}`, `0` supprime la
   saisie) répondent tous deux par le `Day`. Pour l'instant **seul le jour courant** est accepté
-  (`422` sinon) et seules les habitudes `day` sont calculées ; série, bande de la semaine, rythme
-  et note sont neutres (`0`, `[]`, `null`, `""`) jusqu'aux tickets suivants. `Day` porte en plus
+  (`422` sinon) ; série, bande de la semaine et note sont neutres (`0`, `[]`, `""`) jusqu'aux
+  tickets suivants. `Day` porte en plus
   `done` / `total` (« N / M du jour »), ajoutés au §7 de la spec.
 - Règles pures dans `internal/habit/day.go` (`Progress`, `Complete`, `DayProgress`, `DayCounts`,
   `GroupByMoment` : réussies grisées en bas, ordre manuel conservé), testées en table. Le store
@@ -178,6 +178,22 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   avec `prefers-reduced-motion`.
 - Note : `ui/DayNote.tsx`, enregistrement 800 ms après la dernière frappe, envoi immédiat du texte non
   enregistré en quittant le jour.
+
+## Objectifs sur période (v2, ONBO-114)
+
+- `internal/habit/period.go` : `PeriodStart` (lundi de la semaine, 1ᵉʳ du mois, 1ᵉʳ janvier),
+  `PeriodDays` et `NewPace` (rythme : attendu = cible × jours écoulés ÷ jours de la période, écart
+  arrondi, libellé « N d'avance » / « N de retard » / « dans le rythme » / « objectif atteint »),
+  testés en table (années bissextiles, semaines à cheval sur deux mois / deux années). `Pace.Expected`
+  est un flottant (127,4 en CA2) ; `pace` vaut `null` pour `day`.
+- `Store.DayHabits` calcule `Logged.Total` (somme des saisies du début de la période au jour demandé)
+  dans la même requête ; les débuts de période sont calculés en Go et passés en paramètres.
+- Les habitudes semaine / mois / année apparaissent chaque jour autorisé, même une fois atteintes
+  (grisées en bas du groupe, toujours incrémentables) ; elles n'entrent ni dans le grand anneau ni
+  dans `done` / `total`. Un jour non autorisé : absente de `Day`, saisie refusée (`422`).
+- Front : `subtitle` ajoute la période (« cette année »), `paceTone` donne la teinte (`.pace-ahead`
+  vert, `.pace-behind` rouge) ; la mise à jour optimiste déplace le total de la période du même écart
+  que la valeur du jour.
 
 ## Statistiques
 

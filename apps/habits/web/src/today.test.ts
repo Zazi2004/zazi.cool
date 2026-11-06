@@ -7,6 +7,7 @@ import {
   localDate,
   longDate,
   noteLength,
+  paceTone,
   parseValue,
   relativeLabel,
   shouldCelebrate,
@@ -64,12 +65,50 @@ describe("withValue", () => {
   });
 });
 
+describe("withValue on a period habit", () => {
+  it("moves the period total by the change of the day value", () => {
+    const sport: DayHabit = {
+      ...item({ target: 3, unit: "sorties", period: "week" }, 1),
+      total: 3,
+      complete: true,
+      progress: 1,
+    };
+    const base: Day = { ...day, groups: [{ moment: "day", habits: [sport] }] };
+    const next = withValue(base, sport.habit.id, 2).groups[0]!.habits[0]!;
+    expect(next).toMatchObject({ value: 2, total: 4, complete: true, progress: 1 });
+    const back = withValue(base, sport.habit.id, 0).groups[0]!.habits[0]!;
+    expect(back).toMatchObject({ value: 0, total: 2, complete: false });
+  });
+});
+
 describe("display", () => {
   it("subtitle", () => {
     expect(subtitle({ ...item({ target: 2, unit: "pilules" }, 1), total: 1 })).toBe(
       "1 / 2 pilules",
     );
     expect(subtitle({ ...item({ target: 1, unit: "" }, 0), total: 0 })).toBe("0 / 1");
+  });
+
+  it("subtitle names the period", () => {
+    const sport = { ...item({ target: 150, unit: "séances", period: "year" }, 1), total: 132 };
+    expect(subtitle(sport)).toBe("132 / 150 séances cette année");
+    expect(subtitle({ ...sport, habit: { ...sport.habit, period: "week" } })).toContain(
+      "cette semaine",
+    );
+  });
+
+  it("paceTone", () => {
+    const pace = { expected: 10, label: "x" };
+    const row = (diff: number, complete = false) => ({
+      ...item({ period: "year" }, 0),
+      complete,
+      pace: { ...pace, diff },
+    });
+    expect(paceTone(row(2))).toBe("ahead");
+    expect(paceTone(row(-2))).toBe("behind");
+    expect(paceTone(row(0))).toBe("on");
+    expect(paceTone(row(-2, true))).toBe("done");
+    expect(paceTone({ ...row(0), pace: null })).toBeNull();
   });
 
   it("localDate pads", () => {
