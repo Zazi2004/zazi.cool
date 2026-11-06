@@ -1,19 +1,14 @@
 package habit
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
 )
 
 func TestWeekdays(t *testing.T) {
-	w, err := ParseWeekdays([]string{"1", "3", "5"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if w != 0b0010101 {
-		t.Errorf("mask = %07b, want 0010101", w)
-	}
+	w := Weekdays(0b0010101) // Monday, Wednesday, Friday
 	want := map[time.Weekday]bool{
 		time.Monday: true, time.Tuesday: false, time.Wednesday: true, time.Thursday: false,
 		time.Friday: true, time.Saturday: false, time.Sunday: false,
@@ -23,16 +18,8 @@ func TestWeekdays(t *testing.T) {
 			t.Errorf("Has(%v) = %v, want %v", d, w.Has(d), has)
 		}
 	}
-	if sunday, _ := ParseWeekdays([]string{"7"}); !sunday.Has(time.Sunday) || sunday != 0b1000000 {
-		t.Errorf("Sunday mask = %07b", sunday)
-	}
-}
-
-func TestParseWeekdaysRejects(t *testing.T) {
-	for _, values := range [][]string{nil, {"0"}, {"8"}, {"x"}, {""}} {
-		if _, err := ParseWeekdays(values); err == nil {
-			t.Errorf("ParseWeekdays(%q): want an error", values)
-		}
+	if !Weekdays(0b1000000).Has(time.Sunday) {
+		t.Error("bit 6 should be Sunday")
 	}
 }
 
@@ -58,6 +45,62 @@ func TestValidateName(t *testing.T) {
 	}
 }
 
+func validInput() Input {
+	return Input{
+		Name: "Vitamine D", Emoji: "💊", Color: "amber", Moment: Morning,
+		Unit: "pilules", Step: 1, Period: PeriodDay, Target: 2, Weekdays: AllDays,
+	}
+}
+
+func TestInputValidate(t *testing.T) {
+	tests := []struct {
+		name   string
+		change func(*Input)
+		ok     bool
+	}{
+		{"valid", func(*Input) {}, true},
+		{"yes/no habit", func(in *Input) { in.Unit, in.Target = "", 1 }, true},
+		{"empty name", func(in *Input) { in.Name = "" }, false},
+		{"unknown color", func(in *Input) { in.Color = "mauve" }, false},
+		{"unknown moment", func(in *Input) { in.Moment = "night" }, false},
+		{"unknown period", func(in *Input) { in.Period = "decade" }, false},
+		{"empty emoji", func(in *Input) { in.Emoji = "" }, false},
+		{"letters as emoji", func(in *Input) { in.Emoji = "ab" }, false},
+		{"family emoji", func(in *Input) { in.Emoji = "👨‍👩‍👧‍👦" }, true},
+		{"target 0", func(in *Input) { in.Target = 0 }, false},
+		{"target 10000", func(in *Input) { in.Target = 10000 }, true},
+		{"target 10001", func(in *Input) { in.Target = 10001 }, false},
+		{"step 0", func(in *Input) { in.Step = 0 }, false},
+		{"unit of 20", func(in *Input) { in.Unit = strings.Repeat("é", 20) }, true},
+		{"unit of 21", func(in *Input) { in.Unit = strings.Repeat("é", 21) }, false},
+		{"no weekday", func(in *Input) { in.Weekdays = 0 }, false},
+		{"bit 7 set", func(in *Input) { in.Weekdays = 0b10000000 }, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in := validInput()
+			tt.change(&in)
+			_, err := in.Validate()
+			if (err == nil) != tt.ok {
+				t.Fatalf("Validate() error = %v, want ok=%v", err, tt.ok)
+			}
+			var ve *ValidationError
+			if err != nil && !errors.As(err, &ve) {
+				t.Errorf("error %T is not a *ValidationError", err)
+			}
+		})
+	}
+}
+
+func TestInputValidateTrims(t *testing.T) {
+	in := validInput()
+	in.Name, in.Unit = "  Vitamine D ", " pilules "
+	got, err := in.Validate()
+	if err != nil || got.Name != "Vitamine D" || got.Unit != "pilules" {
+		t.Errorf("Validate() = %+v, %v", got, err)
+	}
+}
+
 func TestParseDay(t *testing.T) {
 	if _, err := ParseDay("2026-10-30"); err != nil {
 		t.Errorf("valid day: %v", err)
@@ -69,7 +112,7 @@ func TestParseDay(t *testing.T) {
 	}
 }
 
-// CA4: 23:30 UTC on 30 June is 1 July in Paris.
+// 23:30 UTC on 30 June is 1 July in Paris.
 func TestTodayUsesTheConfiguredZone(t *testing.T) {
 	paris, err := time.LoadLocation("Europe/Paris")
 	if err != nil {
@@ -81,26 +124,5 @@ func TestTodayUsesTheConfiguredZone(t *testing.T) {
 	}
 	if got := FormatDay(Today(now, time.UTC)); got != "2026-06-30" {
 		t.Errorf("Today in UTC = %s, want 2026-06-30", got)
-	}
-}
-
-// CA3: the window is inclusive; the day after it and the future are refused.
-func TestEditable(t *testing.T) {
-	today, _ := ParseDay("2026-10-30")
-	tests := []struct {
-		day  string
-		want bool
-	}{
-		{"2026-10-30", true},
-		{"2026-10-27", true},
-		{"2026-10-16", true},  // today - 14
-		{"2026-10-15", false}, // today - 15
-		{"2026-10-31", false},
-	}
-	for _, tt := range tests {
-		day, _ := ParseDay(tt.day)
-		if got := Editable(day, today, 14); got != tt.want {
-			t.Errorf("Editable(%s) = %v, want %v", tt.day, got, tt.want)
-		}
 	}
 }

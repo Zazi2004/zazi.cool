@@ -1,6 +1,8 @@
 // Client of the JSON API (spec §7). Errors carry the code and the French message
 // sent by the server, so screens can show `message` as is.
 
+import type { Habit, HabitInput, HabitList } from "./types";
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -63,4 +65,12 @@ export function login(password: string): Promise<void> {
 
 export function logout(): Promise<void> {
   return request("POST", "/api/logout");
+}
+
+export function listHabits(): Promise<HabitList> {
+  return request("GET", "/api/habits");
+}
+
+export function createHabit(input: HabitInput): Promise<Habit> {
+  return request("POST", "/api/habits", input);
 }

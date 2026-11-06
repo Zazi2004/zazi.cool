@@ -103,11 +103,37 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   ni attribut `style` dans le HTML, polices et icônes servies par l'app (Inter latin en variable,
   `web/src/fonts/`, licence OFL jointe), `assetsInlineLimit: 0` pour ne produire aucune URL `data:`
   de police.
-- `EDIT_WINDOW_DAYS` et `TZ_NAME` restent lus par `cmd/habits`, mais rien ne les utilise tant que
-  l'API des jours (ONBO-112) n'est pas là. Les paquets `internal/habit` et `internal/store` (modèle
-  v1) sont remplacés par ONBO-111.
+- `EDIT_WINDOW_DAYS` reste lu par `cmd/habits`, mais rien ne l'utilise tant que l'API des jours
+  (ONBO-112) n'est pas là ; `TZ_NAME` définit le jour de `server.Config.Location`.
 - Ce qui suit (statistiques, interface T6) décrit la v1 : les pages HTML sont supprimées de cette
   branche et ces sections seront réécrites avec les tickets qui les remplacent.
+
+## Habitudes (v2, ONBO-111)
+
+- Migration `003_v2.sql` : supprime les tables v1 (`completions`, `habit_schedules`, `habits`) et crée
+  tout le schéma v2 (`habits`, `habit_rules`, `entries`, `day_notes`) ; `sessions` est intacte. Elle
+  est testée sur une base vide et sur une base v1 avec données (`migrations/migrations_test.go`).
+- `internal/habit` : types du domaine (`Habit`, `Input`, `Moment`, `Period`, `Color`, `Weekdays`) et
+  `Input.Validate` (erreurs `*ValidationError` au message français, affiché tel quel par le front).
+  Un emoji = 1 à 10 points de code sans lettre, espace ni caractère de contrôle (la bibliothèque
+  standard ne sait pas compter les graphèmes).
+- `internal/store/habits.go` : `CreateHabit` écrit l'habitude et sa première règle
+  (`valid_from` = jour de création) dans une transaction, en dernière position de son moment ;
+  `ListHabits` lit la règle en vigueur ce jour-là. Un nom pris (index unique partiel, erreur
+  PostgreSQL `23505`) devient `habit.ErrNameTaken` → `409`.
+- API : `GET /api/habits`, `POST /api/habits` (`201`, `409` nom pris, `422` validation, code
+  `invalid_habit`). Tous les champs de `HabitInput` sont obligatoires (pas de valeur par défaut côté
+  serveur : le front envoie tout). Les DTO JSON (`internal/server/habits.go`) sont distincts des
+  types du domaine : `archivedOn` y est une date `AAAA-MM-JJ`.
+- **Golden files (NF9)** : `TestGoldenFiles` (`internal/server/habits_test.go`) écrit, à chaque
+  `go test`, la réponse réelle des handlers dans `web/src/golden/*.json` (à committer). Côté front,
+  `web/src/golden.test.ts` les vérifie contre `web/src/types.ts` (`satisfies` + mêmes clés) ;
+  `npm test` lance `tsc --noEmit` avant Vitest, donc un champ renommé d'un seul côté fait échouer
+  `make test`. Chaque nouveau type de réponse ajoute son golden et sa vérification.
+- Front : `web/src/ui/Habits.tsx` (liste groupée par moment) et `HabitSheet.tsx` (panneau du bas,
+  `<dialog>` natif) ; `web/src/habits.ts` ne contient que des fonctions d'affichage / de mise en
+  forme du formulaire, aucune règle métier. Les couleurs de la palette sont des classes
+  `.color-<clé>` qui posent `--tone`.
 
 ## Statistiques
 

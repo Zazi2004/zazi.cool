@@ -1,6 +1,7 @@
 import type { Route } from "../router";
+import { Habits } from "./Habits";
 
-// The three tabs are empty for now: the following tickets fill them in.
+// Today and Stats are empty for now: the following tickets fill them in.
 export function Screen({ route }: { route: Route }) {
   switch (route.name) {
     case "today":
@@ -9,7 +10,7 @@ export function Screen({ route }: { route: Route }) {
     case "statsHabit":
       return <Page title="Stats" />;
     case "habits":
-      return <Page title="Habitudes" />;
+      return <Habits />;
     default:
       return <Page title="Page introuvable" />;
   }

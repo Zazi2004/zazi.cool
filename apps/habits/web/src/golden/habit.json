@@ -1,0 +1,14 @@
+{
+  "id": 7,
+  "name": "Vitamine D",
+  "emoji": "💊",
+  "color": "amber",
+  "moment": "morning",
+  "position": 0,
+  "unit": "pilules",
+  "step": 1,
+  "period": "day",
+  "target": 2,
+  "weekdays": 127,
+  "archivedOn": null
+}
