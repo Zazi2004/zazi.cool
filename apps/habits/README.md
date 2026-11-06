@@ -3,13 +3,14 @@
 Suivi d'habitudes personnel (un seul utilisateur, pensé pour le téléphone). Spécification :
 [`docs/specs/habits.md`](../../docs/specs/habits.md) ; contexte : [`CLAUDE.md`](CLAUDE.md).
 
-Pour l'instant : `/healthz`, `/readyz`, `/version`, la connexion (`/login`, `/logout`), le suivi
-du jour (`/`, `/day/AAAA-MM-JJ`) et la gestion des habitudes (`/habits`) ; les statistiques et
-les finitions mobile arrivent avec les tickets suivants de la spec (§8).
+Pour l'instant (refonte v2, branche `feat/habits-redesign`) : `/healthz`, `/readyz`, `/version`,
+la connexion en JSON (`/api/login`, `/api/logout`, `/api/session`) et le front React embarqué
+(écran de connexion, écran « Aujourd'hui » vide, onglets) ; le reste arrive avec les tickets
+suivants de la spec (§13).
 
 ## Prérequis
 
-Docker (Compose v2), `make` et Go 1.27+.
+Docker (Compose v2), `make`, Go 1.27+ et Node 24+ (front dans `web/`).
 
 ## Démarrage rapide
 
@@ -27,10 +28,11 @@ curl localhost:8080/version   # « local » en Compose, le SHA git avec `make bu
 ## Développement
 
 ```sh
-make dev       # PostgreSQL dans Docker, serveur Go sur la machine
-make test      # tests Go (dont intégration PostgreSQL)
-make lint      # gofmt + go vet
-make fmt       # formate le code
+make dev       # PostgreSQL dans Docker, serveur Go sur la machine, Vite sur http://localhost:5173
+make test      # tests Go (dont intégration PostgreSQL) et tests du front (Vitest)
+make lint      # gofmt + go vet, puis tsc + Prettier
+make fmt       # formate le code Go et le front
+make web-build # construit le front dans web/dist (embarqué dans le binaire)
 make build     # image Docker taguée avec le SHA git (injecté dans /version)
 make migrate   # applique les migrations sur DATABASE_URL
 make down      # arrête les conteneurs (le volume de la base est conservé)

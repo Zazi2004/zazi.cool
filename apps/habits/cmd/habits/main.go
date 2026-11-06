@@ -27,6 +27,7 @@ import (
 	"zazi.cool/habits/internal/server"
 	"zazi.cool/habits/internal/store"
 	"zazi.cool/habits/migrations"
+	"zazi.cool/habits/web"
 )
 
 // version is the git SHA of the build, injected with -ldflags "-X main.version=<sha>".
@@ -73,15 +74,18 @@ func run(args []string) error {
 	sessions := auth.NewManager(cfg.passwordHash, st, strings.HasPrefix(cfg.baseURL, "https://"))
 	go cleanUp(ctx, sessions)
 
+	static, err := web.Dist()
+	if err != nil {
+		return fmt.Errorf("open embedded front: %w", err)
+	}
 	return serve(ctx, ":"+cfg.port, server.NewHandler(server.Config{
-		Store:          st,
-		Auth:           sessions,
-		Version:        version,
-		BaseURL:        cfg.baseURL,
-		TrustProxy:     cfg.trustProxy,
-		LoginLimit:     cfg.loginLimit,
-		Location:       cfg.location,
-		EditWindowDays: cfg.editWindowDays,
+		Store:      st,
+		Auth:       sessions,
+		Static:     static,
+		Version:    version,
+		BaseURL:    cfg.baseURL,
+		TrustProxy: cfg.trustProxy,
+		LoginLimit: cfg.loginLimit,
 	}))
 }
 
@@ -153,6 +157,7 @@ type config struct {
 	trustProxy   bool
 	loginLimit   int
 	// location defines the "day" (TZ_NAME); editWindowDays how far back days can be edited.
+	// The v2 day API (following tickets) reads them; the v1 pages that did are gone.
 	location       *time.Location
 	editWindowDays int
 }

@@ -7,16 +7,19 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"testing/fstest"
 )
 
-// fakeStore answers the probes only. The embedded nil Store makes any habit call
-// panic, which is what we want in tests that must not reach it.
-type fakeStore struct {
-	Store
-	pingErr error
-}
+// fakeStore answers the probes, the only thing the handlers ask of the store for now.
+type fakeStore struct{ pingErr error }
 
 func (f fakeStore) Ping(context.Context) error { return f.pingErr }
+
+var testStatic = fstest.MapFS{
+	"index.html":        {Data: []byte("<!doctype html><title>app</title>")},
+	"favicon.svg":       {Data: []byte("<svg/>")},
+	"assets/index-a.js": {Data: []byte("console.log(1)")},
+}
 
 func get(t *testing.T, h http.Handler, method, path string) *httptest.ResponseRecorder {
 	t.Helper()
@@ -41,7 +44,7 @@ func TestProbesAndVersion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewHandler(Config{Store: fakeStore{pingErr: tt.pingErr}, Version: "abc1234"})
+			h := NewHandler(Config{Store: fakeStore{pingErr: tt.pingErr}, Static: testStatic, Version: "abc1234"})
 			rec := get(t, h, http.MethodGet, tt.path)
 			if rec.Code != tt.wantCode {
 				t.Errorf("status = %d, want %d", rec.Code, tt.wantCode)
@@ -57,7 +60,7 @@ func TestProbesAndVersion(t *testing.T) {
 }
 
 func TestOnlyGetIsAllowedOnProbes(t *testing.T) {
-	h := NewHandler(Config{Store: fakeStore{}, Version: "abc1234"})
+	h := NewHandler(Config{Store: fakeStore{}, Static: testStatic, Version: "abc1234"})
 	if rec := get(t, h, http.MethodPost, "/healthz"); rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("POST /healthz = %d, want 405", rec.Code)
 	}

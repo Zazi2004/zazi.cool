@@ -1,7 +1,9 @@
 package server
 
 import (
+	"encoding/json"
 	"errors"
+	"mime"
 	"net"
 	"net/http"
 	"strings"
@@ -10,31 +12,31 @@ import (
 	"zazi.cool/habits/internal/ratelimit"
 )
 
-// pageCSP is the policy of NF1: only the app's own files, no inline script or style,
+// pageCSP is the policy of NF2: only the app's own files, no inline script or style,
 // so even a name that slipped into a page unescaped could not run a script.
-const pageCSP = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; " +
-	"form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+const pageCSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; " +
+	"font-src 'self'; connect-src 'self'; manifest-src 'self'; base-uri 'none'; " +
+	"form-action 'self'; frame-ancestors 'none'"
 
-type loginPage struct{ Error string }
-
-func (h *handler) loginForm(w http.ResponseWriter, r *http.Request) {
-	h.render(w, r, http.StatusOK, "login", loginPage{})
+type loginRequest struct {
+	Password string `json:"password"`
 }
 
 func (h *handler) login(w http.ResponseWriter, r *http.Request) {
-	if !parseForm(w, r) {
+	var req loginRequest
+	if !decodeJSON(w, r, &req) {
 		return
 	}
-	err := h.cfg.Auth.Login(r.Context(), w, r.PostForm.Get("password"))
+	err := h.cfg.Auth.Login(r.Context(), w, req.Password)
 	if errors.Is(err, auth.ErrBadPassword) {
-		h.render(w, r, http.StatusUnauthorized, "login", loginPage{Error: "Mot de passe incorrect."})
+		writeError(w, http.StatusUnauthorized, "bad_password", "Mot de passe incorrect.")
 		return
 	}
 	if err != nil {
 		h.internalError(w, r, err)
 		return
 	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *handler) logout(w http.ResponseWriter, r *http.Request) {
@@ -42,10 +44,18 @@ func (h *handler) logout(w http.ResponseWriter, r *http.Request) {
 		h.internalError(w, r, err)
 		return
 	}
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
+	w.WriteHeader(http.StatusNoContent)
 }
 
-// requireSession redirects to the login page when the request has no valid session (F12).
+// session lets the front know, at startup, whether it must show the login screen.
+// It is only reached with a valid session (see requireSession).
+func (h *handler) session(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, struct {
+		Authenticated bool `json:"authenticated"`
+	}{true})
+}
+
+// requireSession answers 401 when the request has no valid session (F7).
 func (h *handler) requireSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ok, err := h.cfg.Auth.Authenticated(r)
@@ -54,7 +64,7 @@ func (h *handler) requireSession(next http.Handler) http.Handler {
 			return
 		}
 		if !ok {
-			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			writeError(w, http.StatusUnauthorized, "unauthorized", "Connexion requise.")
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -79,16 +89,16 @@ func (h *handler) securityHeaders(next http.Handler) http.Handler {
 	})
 }
 
-// sameOrigin rejects POSTs sent by other sites (CSRF, NF2). Browsers set
-// Sec-Fetch-Site and Origin on every form POST; the SameSite=Strict cookie is a
-// second line of defence. Requests without these headers (curl) pass: they carry
-// no cookie from a victim's browser.
+// sameOrigin rejects unsafe requests sent by other sites (CSRF, NF3). Browsers set
+// Sec-Fetch-Site and Origin on every fetch that is not a GET; the SameSite=Strict
+// cookie is a second line of defence. Requests without these headers (curl) pass: they
+// carry no cookie from a victim's browser.
 func (h *handler) sameOrigin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost {
+		if !isSafeMethod(r.Method) {
 			origin := r.Header.Get("Origin")
 			if r.Header.Get("Sec-Fetch-Site") == "cross-site" || (origin != "" && origin != h.cfg.BaseURL) {
-				http.Error(w, "Requête d'une autre origine refusée.", http.StatusForbidden)
+				writeError(w, http.StatusForbidden, "forbidden", "Requête d'une autre origine refusée.")
 				return
 			}
 		}
@@ -96,12 +106,32 @@ func (h *handler) sameOrigin(next http.Handler) http.Handler {
 	})
 }
 
+// jsonOnly refuses a request body that is not declared as JSON (NF3). A request
+// without a body, such as the logout, needs no Content-Type.
+func (h *handler) jsonOnly(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !isSafeMethod(r.Method) && r.ContentLength != 0 {
+			mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+			if err != nil || mediaType != "application/json" {
+				writeError(w, http.StatusUnsupportedMediaType, "unsupported_media_type",
+					"Le corps de la requête doit être du JSON.")
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func isSafeMethod(method string) bool {
+	return method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions
+}
+
 // rateLimited answers 429 once the client IP has used its budget, before the
-// password is even checked: the right password does not get through either (F14).
+// password is even checked: the right password does not get through either (F7).
 func (h *handler) rateLimited(l *ratelimit.Limiter, next http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !l.Allow(clientIP(r, h.cfg.TrustProxy)) {
-			http.Error(w, "Trop de tentatives, réessayez plus tard.", http.StatusTooManyRequests)
+			writeError(w, http.StatusTooManyRequests, "too_many_attempts", "Trop de tentatives, réessayez plus tard.")
 			return
 		}
 		next(w, r)
@@ -125,20 +155,20 @@ func clientIP(r *http.Request, trustProxy bool) string {
 	return host
 }
 
-// maxFormBody bounds every form: a few short fields and nothing else.
-const maxFormBody = 16 << 10
+// maxBody bounds every JSON body: a few short fields and nothing else.
+const maxBody = 16 << 10
 
-// parseForm reads the POST body into r.PostForm. On failure it has already answered
-// and returns false.
-func parseForm(w http.ResponseWriter, r *http.Request) bool {
-	r.Body = http.MaxBytesReader(w, r.Body, maxFormBody)
-	if err := r.ParseForm(); err != nil {
+// decodeJSON reads the request body into v. On failure it has already answered and
+// returns false.
+func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err, &tooLarge) {
-			http.Error(w, "Requête trop volumineuse.", http.StatusRequestEntityTooLarge)
+			writeError(w, http.StatusRequestEntityTooLarge, "too_large", "Requête trop volumineuse.")
 			return false
 		}
-		http.Error(w, "Formulaire invalide.", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "invalid_json", "JSON invalide.")
 		return false
 	}
 	return true
