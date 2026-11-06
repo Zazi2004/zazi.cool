@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"zazi.cool/habits/internal/habit"
 	"zazi.cool/habits/internal/ratelimit"
 )
 
@@ -21,6 +22,8 @@ const readyTimeout = 2 * time.Second
 // it, and tests pass a fake.
 type Store interface {
 	Ping(ctx context.Context) error
+	CreateHabit(ctx context.Context, in habit.Input, today time.Time) (habit.Habit, error)
+	ListHabits(ctx context.Context, today time.Time) (active, archived []habit.Habit, err error)
 }
 
 // Authenticator checks the password and handles sessions. *auth.Manager satisfies it.
@@ -45,6 +48,10 @@ type Config struct {
 	TrustProxy bool
 	// LoginLimit is the number of login attempts allowed per IP and per hour.
 	LoginLimit int
+	// Now is the clock (time.Now when nil) and Location the time zone that defines the
+	// civil day (UTC when nil); both are injected so tests control the day.
+	Now      func() time.Time
+	Location *time.Location
 }
 
 type handler struct {
@@ -53,6 +60,12 @@ type handler struct {
 
 // NewHandler returns the HTTP handler of the application.
 func NewHandler(cfg Config) http.Handler {
+	if cfg.Now == nil {
+		cfg.Now = time.Now
+	}
+	if cfg.Location == nil {
+		cfg.Location = time.UTC
+	}
 	h := &handler{cfg: cfg}
 	loginLimiter := ratelimit.New(cfg.LoginLimit, time.Hour)
 
@@ -64,6 +77,8 @@ func NewHandler(cfg Config) http.Handler {
 	mux.Handle("POST /api/login", h.rateLimited(loginLimiter, h.login))
 	mux.HandleFunc("POST /api/logout", h.logout)
 	mux.Handle("GET /api/session", h.requireSession(http.HandlerFunc(h.session)))
+	mux.Handle("GET /api/habits", h.requireSession(http.HandlerFunc(h.listHabits)))
+	mux.Handle("POST /api/habits", h.requireSession(http.HandlerFunc(h.createHabit)))
 	// Any other /api/ URL answers JSON, never the front: 401 without a session (so an
 	// unknown URL does not reveal which routes exist), 404 with one.
 	mux.Handle("/api/", h.requireSession(http.HandlerFunc(apiNotFound)))
@@ -133,4 +148,9 @@ func (h *handler) internalError(w http.ResponseWriter, r *http.Request, err erro
 
 func isHTTPS(baseURL string) bool {
 	return strings.HasPrefix(baseURL, "https://")
+}
+
+// today is the civil day now, in the configured time zone.
+func (h *handler) today() time.Time {
+	return habit.Today(h.cfg.Now(), h.cfg.Location)
 }

@@ -86,6 +86,7 @@ func run(args []string) error {
 		BaseURL:    cfg.baseURL,
 		TrustProxy: cfg.trustProxy,
 		LoginLimit: cfg.loginLimit,
+		Location:   cfg.location,
 	}))
 }
 
@@ -156,8 +157,8 @@ type config struct {
 	baseURL      string
 	trustProxy   bool
 	loginLimit   int
-	// location defines the "day" (TZ_NAME); editWindowDays how far back days can be edited.
-	// The v2 day API (following tickets) reads them; the v1 pages that did are gone.
+	// location defines the "day" (TZ_NAME); editWindowDays how far back days can be edited
+	// (read by the day API of the following tickets).
 	location       *time.Location
 	editWindowDays int
 }

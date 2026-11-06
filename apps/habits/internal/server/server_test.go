@@ -8,12 +8,39 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
+
+	"zazi.cool/habits/internal/habit"
 )
 
-// fakeStore answers the probes, the only thing the handlers ask of the store for now.
-type fakeStore struct{ pingErr error }
+// fakeStore answers the probes and keeps habits in memory.
+type fakeStore struct {
+	pingErr error
+	// createErr is returned by CreateHabit; active and archived are what ListHabits returns.
+	createErr        error
+	active, archived []habit.Habit
+	// created records the inputs CreateHabit received (a pointer: the fake is passed by value).
+	created *[]habit.Input
+}
 
 func (f fakeStore) Ping(context.Context) error { return f.pingErr }
+
+func (f fakeStore) CreateHabit(_ context.Context, in habit.Input, _ time.Time) (habit.Habit, error) {
+	if f.createErr != nil {
+		return habit.Habit{}, f.createErr
+	}
+	if f.created != nil {
+		*f.created = append(*f.created, in)
+	}
+	return habit.Habit{
+		ID: 7, Name: in.Name, Emoji: in.Emoji, Color: in.Color, Moment: in.Moment, Position: 0,
+		Unit: in.Unit, Step: in.Step, Period: in.Period, Target: in.Target, Weekdays: in.Weekdays,
+	}, nil
+}
+
+func (f fakeStore) ListHabits(context.Context, time.Time) ([]habit.Habit, []habit.Habit, error) {
+	return f.active, f.archived, nil
+}
 
 var testStatic = fstest.MapFS{
 	"index.html":        {Data: []byte("<!doctype html><title>app</title>")},
