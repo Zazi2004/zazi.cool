@@ -239,7 +239,7 @@ Dates `AAAA-MM-JJ`.
 | `GET /api/days/{date}` | → `Day` |
 | `PUT /api/days/{date}/entries/{habitId}` | `{value}` → `Day` |
 | `PUT /api/days/{date}/note` | `{text}` → `204` |
-| `GET /api/habits` | → `{active: Habit[], archived: Habit[]}` |
+| `GET /api/habits` | → `{active: Habit[], archived: Habit[], ruleStarts: Record<Period, string>}` (`ruleStarts` : jour où prendrait effet, si on l'enregistrait aujourd'hui, un changement de période / cible / jours, selon la nouvelle période ; sert à annoncer « s'applique à partir du … ») |
 | `POST /api/habits` | `HabitInput` → `201 Habit` |
 | `PATCH /api/habits/{id}` | `HabitInput` partiel → `Habit` |
 | `POST /api/habits/{id}/archive`, `/restore` | → `Habit` |

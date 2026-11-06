@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ApiError, createHabit } from "../api";
+import { ApiError, archiveHabit, createHabit, updateHabit } from "../api";
 import {
+  changesRule,
   emptyForm,
+  formatDayMonth,
+  formFromHabit,
   hasWeekday,
   toggleWeekday,
   toInput,
+  toPatch,
   weekdayNames,
   type HabitForm,
 } from "../habits";
@@ -16,17 +20,23 @@ import {
   periodLabels,
   periods,
   type Habit,
+  type Period,
 } from "../types";
 
 interface Props {
+  /** The habit to edit; absent to create one. */
+  habit?: Habit;
+  /** Where a rule change would start, per period (from the server). */
+  ruleStarts: Record<Period, string>;
   onClose: () => void;
-  onCreated: (habit: Habit) => void;
+  onSaved: (habit: Habit) => void;
+  onArchived: (habit: Habit) => void;
 }
 
-/** Bottom sheet to create a habit. A native <dialog> gives focus handling and Escape. */
-export function HabitSheet({ onClose, onCreated }: Props) {
+/** Bottom sheet to create or edit a habit. A native <dialog> gives focus handling and Escape. */
+export function HabitSheet({ habit, ruleStarts, onClose, onSaved, onArchived }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [form, setForm] = useState<HabitForm>(emptyForm);
+  const [form, setForm] = useState<HabitForm>(habit ? formFromHabit(habit) : emptyForm);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -44,14 +54,32 @@ export function HabitSheet({ onClose, onCreated }: Props) {
     setPending(true);
     setError(null);
     try {
-      onCreated(await createHabit(toInput(form)));
+      onSaved(habit ? await updateHabit(habit.id, patch) : await createHabit(toInput(form)));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Une erreur est survenue, réessayez.");
-      setPending(false);
+      fail(err);
     }
   }
 
+  async function archive() {
+    if (!habit) return;
+    setPending(true);
+    setError(null);
+    try {
+      onArchived(await archiveHabit(habit.id));
+    } catch (err) {
+      fail(err);
+    }
+  }
+
+  function fail(err: unknown) {
+    setError(err instanceof ApiError ? err.message : "Une erreur est survenue, réessayez.");
+    setPending(false);
+  }
+
   const quantity = form.kind === "quantity";
+  const patch = habit ? toPatch(habit, form) : {};
+  // A new version starts at the beginning of the period it is saved in, under the new period.
+  const versionStart = habit && changesRule(patch) ? ruleStarts[form.period] : null;
 
   return (
     <dialog
@@ -63,7 +91,7 @@ export function HabitSheet({ onClose, onCreated }: Props) {
     >
       <form onSubmit={submit}>
         <header className="sheet-header">
-          <h2 id="sheet-title">Nouvelle habitude</h2>
+          <h2 id="sheet-title">{habit ? "Modifier l'habitude" : "Nouvelle habitude"}</h2>
           <button type="button" className="ghost" onClick={() => dialog.current?.close()}>
             Fermer
           </button>
@@ -85,7 +113,7 @@ export function HabitSheet({ onClose, onCreated }: Props) {
               id="habit-name"
               value={form.name}
               maxLength={60}
-              autoFocus
+              autoFocus={!habit}
               required
               onChange={(e) => set("name", e.target.value)}
             />
@@ -196,14 +224,25 @@ export function HabitSheet({ onClose, onCreated }: Props) {
           </div>
         </fieldset>
 
+        {versionStart && (
+          <p className="rule-note" role="status">
+            S'applique à partir du {formatDayMonth(versionStart)} : les périodes passées gardent
+            leur règle.
+          </p>
+        )}
         {error && (
           <p className="error" role="alert">
             {error}
           </p>
         )}
         <button type="submit" className="primary" disabled={pending}>
-          Créer l'habitude
+          {habit ? "Enregistrer" : "Créer l'habitude"}
         </button>
+        {habit && (
+          <button type="button" className="ghost danger" disabled={pending} onClick={archive}>
+            Archiver
+          </button>
+        )}
       </form>
     </dialog>
   );

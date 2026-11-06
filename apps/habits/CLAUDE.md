@@ -195,6 +195,27 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   vert, `.pace-behind` rouge) ; la mise à jour optimiste déplace le total de la période du même écart
   que la valeur du jour.
 
+## Modifier, réordonner, archiver (v2, ONBO-115)
+
+- `PATCH /api/habits/{id}` (champs partiels), `POST /api/habits/{id}/archive` et `/restore` répondent
+  par l'`Habit` ; `PUT /api/habits/order` `{moment, ids}` → `204`, `ids` = toutes les habitudes actives
+  du moment, une fois chacune (sinon `422` `invalid_order`, rien ne change). Une habitude inconnue ou
+  déjà archivée donne `404` à l'édition ; restaurer un nom repris par une active donne `409`.
+- Versionnement : `habit.PlanRuleChange` (pure, testée en table) décide quoi écrire ; `writeRule`
+  (`internal/store/habits.go`) l'applique dans la transaction de `UpdateHabit` : `valid_from` = début
+  de la période en cours **selon la nouvelle période**, les versions de `valid_from` ≥ celui-ci sont
+  remplacées, aucune version passée n'est touchée ; règle inchangée = aucune écriture ; modification
+  annulée dans la même période = version supprimée. Le statut « interrompue » (D8) n'est pas stocké :
+  les statistiques (ONBO-116) le déduisent du `valid_from` de la version suivante.
+- Nom, emoji, couleur, unité, pas : non versionnés. Changer de moment place l'habitude en dernier du
+  nouveau moment ; restaurer la place en dernier de son moment ; l'ordre posé par `order` est celui
+  de l'écran Aujourd'hui (avant le tri « réussies en bas »).
+- `GET /api/habits` renvoie aussi `ruleStarts` (par période) : le panneau l'affiche avant
+  l'enregistrement (« s'applique à partir du 2 novembre ») sans recalculer de règle côté front.
+- Front : `HabitSheet` sert à créer et modifier (le PATCH n'envoie que les champs changés, `toPatch`) ;
+  `Habits.tsx` réordonne par poignée (événements pointeur, aperçu local puis `PUT` au relâchement,
+  retour à l'ordre précédent en cas d'erreur) ou par les flèches ↑ ↓ ; section repliée « Archivées ».
+
 ## Statistiques
 
 - Les règles de calcul sont pures et testées en table dans `internal/habit/stats.go`

@@ -24,6 +24,10 @@ type Store interface {
 	Ping(ctx context.Context) error
 	CreateHabit(ctx context.Context, in habit.Input, today time.Time) (habit.Habit, error)
 	ListHabits(ctx context.Context, today time.Time) (active, archived []habit.Habit, err error)
+	UpdateHabit(ctx context.Context, id int64, p habit.Patch, today time.Time) (habit.Habit, error)
+	ArchiveHabit(ctx context.Context, id int64, today time.Time) (habit.Habit, error)
+	RestoreHabit(ctx context.Context, id int64, today time.Time) (habit.Habit, error)
+	ReorderHabits(ctx context.Context, moment habit.Moment, ids []int64, today time.Time) error
 	DayHabits(ctx context.Context, day time.Time) ([]habit.Logged, error)
 	SetEntry(ctx context.Context, habitID int64, day time.Time, value int) error
 	DayStats(ctx context.Context, from, to time.Time) ([]habit.DayStat, error)
@@ -86,6 +90,10 @@ func NewHandler(cfg Config) http.Handler {
 	mux.Handle("GET /api/session", h.requireSession(http.HandlerFunc(h.session)))
 	mux.Handle("GET /api/habits", h.requireSession(http.HandlerFunc(h.listHabits)))
 	mux.Handle("POST /api/habits", h.requireSession(http.HandlerFunc(h.createHabit)))
+	mux.Handle("PUT /api/habits/order", h.requireSession(http.HandlerFunc(h.reorderHabits)))
+	mux.Handle("PATCH /api/habits/{id}", h.requireSession(http.HandlerFunc(h.updateHabit)))
+	mux.Handle("POST /api/habits/{id}/archive", h.requireSession(http.HandlerFunc(h.archiveHabit)))
+	mux.Handle("POST /api/habits/{id}/restore", h.requireSession(http.HandlerFunc(h.restoreHabit)))
 	mux.Handle("GET /api/days/{date}", h.requireSession(http.HandlerFunc(h.getDay)))
 	mux.Handle("PUT /api/days/{date}/entries/{habitId}", h.requireSession(http.HandlerFunc(h.putEntry)))
 	mux.Handle("PUT /api/days/{date}/note", h.requireSession(http.HandlerFunc(h.putNote)))

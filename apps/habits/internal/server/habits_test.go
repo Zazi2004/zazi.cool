@@ -100,9 +100,96 @@ func TestCreateHabitInvalid(t *testing.T) {
 	}
 }
 
+func TestUpdateHabit(t *testing.T) {
+	var patches []habit.Patch
+	h := habitsHandler(fakeStore{patches: &patches})
+	rec := apiRequest(h, http.MethodPatch, "/api/habits/3", `{"target":4}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d (%s)", rec.Code, rec.Body.String())
+	}
+	if len(patches) != 1 || patches[0].Target == nil || *patches[0].Target != 4 || patches[0].Name != nil {
+		t.Errorf("patch = %+v, want only the target", patches)
+	}
+	var got habitJSON
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil || got.ID != 3 || got.Target != 4 {
+		t.Errorf("body = %s", rec.Body.String())
+	}
+}
+
+func TestHabitEditErrors(t *testing.T) {
+	tests := []struct {
+		name         string
+		err          error
+		method, path string
+		body         string
+		status       int
+		code         string
+	}{
+		{"update unknown", habit.ErrNotFound, http.MethodPatch, "/api/habits/3", `{}`, 404, "not_found"},
+		{"update invalid", &habit.ValidationError{Message: "Cible"}, http.MethodPatch, "/api/habits/3", `{}`, 422, "invalid_habit"},
+		{"update name taken", habit.ErrNameTaken, http.MethodPatch, "/api/habits/3", `{}`, 409, "name_taken"},
+		{"restore name taken", habit.ErrNameTaken, http.MethodPost, "/api/habits/3/restore", "", 409, "name_taken"},
+		{"archive unknown", habit.ErrNotFound, http.MethodPost, "/api/habits/3/archive", "", 404, "not_found"},
+		{"bad id", nil, http.MethodPatch, "/api/habits/abc", `{}`, 404, "not_found"},
+		{"order invalid", &habit.ValidationError{Message: "Ordre"}, http.MethodPut, "/api/habits/order", `{"moment":"day","ids":[1]}`, 422, "invalid_order"},
+		{"order unknown moment", nil, http.MethodPut, "/api/habits/order", `{"moment":"night","ids":[1]}`, 422, "invalid_order"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := apiRequest(habitsHandler(fakeStore{editErr: tt.err}), tt.method, tt.path, tt.body)
+			if rec.Code != tt.status || errorCode(t, rec) != tt.code {
+				t.Errorf("= %d %s, want %d %s", rec.Code, rec.Body.String(), tt.status, tt.code)
+			}
+		})
+	}
+}
+
+func TestArchiveAndRestoreHabit(t *testing.T) {
+	h := habitsHandler(fakeStore{})
+	var archived habitJSON
+	rec := apiRequest(h, http.MethodPost, "/api/habits/3/archive", "")
+	if err := json.Unmarshal(rec.Body.Bytes(), &archived); err != nil || rec.Code != 200 ||
+		archived.ArchivedOn == nil || *archived.ArchivedOn != "2026-11-06" {
+		t.Errorf("archive = %d %s", rec.Code, rec.Body.String())
+	}
+	var restored habitJSON
+	rec = apiRequest(h, http.MethodPost, "/api/habits/3/restore", "")
+	if err := json.Unmarshal(rec.Body.Bytes(), &restored); err != nil || rec.Code != 200 || restored.ArchivedOn != nil {
+		t.Errorf("restore = %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestReorderHabits(t *testing.T) {
+	var orders []orderCall
+	h := habitsHandler(fakeStore{orders: &orders})
+	rec := apiRequest(h, http.MethodPut, "/api/habits/order", `{"moment":"morning","ids":[3,1,2]}`)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d (%s)", rec.Code, rec.Body.String())
+	}
+	if len(orders) != 1 || orders[0].moment != habit.Morning || len(orders[0].ids) != 3 || orders[0].ids[0] != 3 {
+		t.Errorf("orders = %+v", orders)
+	}
+}
+
+func TestEditRoutesRequireSession(t *testing.T) {
+	h := habitsHandler(fakeStore{})
+	for _, r := range [][2]string{
+		{http.MethodPatch, "/api/habits/3"}, {http.MethodPost, "/api/habits/3/archive"},
+		{http.MethodPost, "/api/habits/3/restore"}, {http.MethodPut, "/api/habits/order"},
+	} {
+		req := httptest.NewRequest(r[0], r[1], strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("%s %s without session = %d, want 401", r[0], r[1], rec.Code)
+		}
+	}
+}
+
 func TestListHabitsEmptyListsAreArrays(t *testing.T) {
 	rec := apiRequest(habitsHandler(fakeStore{}), http.MethodGet, "/api/habits", "")
-	if got := strings.TrimSpace(rec.Body.String()); got != `{"active":[],"archived":[]}` {
+	if got := strings.TrimSpace(rec.Body.String()); got != `{"active":[],"archived":[],"ruleStarts":{"day":"2026-11-06","month":"2026-11-01","week":"2026-11-02","year":"2026-01-01"}}` {
 		t.Errorf("body = %s", got)
 	}
 }

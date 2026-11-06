@@ -1,7 +1,7 @@
 // Client of the JSON API (spec §7). Errors carry the code and the French message
 // sent by the server, so screens can show `message` as is.
 
-import type { Day, Habit, HabitInput, HabitList } from "./types";
+import type { Day, Habit, HabitInput, HabitList, Moment } from "./types";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -73,6 +73,23 @@ export function listHabits(): Promise<HabitList> {
 
 export function createHabit(input: HabitInput): Promise<Habit> {
   return request("POST", "/api/habits", input);
+}
+
+export function updateHabit(id: number, patch: Partial<HabitInput>): Promise<Habit> {
+  return request("PATCH", `/api/habits/${id}`, patch);
+}
+
+export function archiveHabit(id: number): Promise<Habit> {
+  return request("POST", `/api/habits/${id}/archive`);
+}
+
+export function restoreHabit(id: number): Promise<Habit> {
+  return request("POST", `/api/habits/${id}/restore`);
+}
+
+/** Sets the manual order of the active habits of a moment (all of them, once each). */
+export function reorderHabits(moment: Moment, ids: number[]): Promise<void> {
+  return request("PUT", "/api/habits/order", { moment, ids });
 }
 
 export function getDay(date: string): Promise<Day> {

@@ -49,6 +49,66 @@ export const emptyForm: HabitForm = {
   weekdays: allDays,
 };
 
+/** Fills the form from an existing habit. */
+export function formFromHabit(h: Habit): HabitForm {
+  const quantity = h.target !== 1 || h.unit !== "";
+  return {
+    name: h.name,
+    emoji: h.emoji,
+    color: h.color,
+    moment: h.moment,
+    kind: quantity ? "quantity" : "binary",
+    target: String(h.target),
+    unit: h.unit,
+    step: String(h.step),
+    period: h.period,
+    weekdays: h.weekdays,
+  };
+}
+
+/** The fields of the form that differ from the habit: the body of a PATCH. */
+export function toPatch(h: Habit, form: HabitForm): Partial<HabitInput> {
+  const next = toInput(form);
+  const patch: Partial<HabitInput> = {};
+  for (const key of Object.keys(next) as (keyof HabitInput)[]) {
+    if (next[key] !== h[key]) Object.assign(patch, { [key]: next[key] });
+  }
+  return patch;
+}
+
+/** True when the patch touches a versioned field: it then starts a new rule version. */
+export function changesRule(patch: Partial<HabitInput>): boolean {
+  return "period" in patch || "target" in patch || "weekdays" in patch;
+}
+
+/** "2 novembre" from an AAAA-MM-JJ day, in French. */
+export function formatDayMonth(day: string): string {
+  const [y = 0, m = 1, d = 1] = day.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  });
+}
+
+/** The ids with `id` moved to index `to` (clamped); unchanged when `id` is absent. */
+export function moveId(ids: number[], id: number, to: number): number[] {
+  const from = ids.indexOf(id);
+  if (from < 0) return ids;
+  const target = Math.max(0, Math.min(ids.length - 1, to));
+  const next = ids.filter((x) => x !== id);
+  next.splice(target, 0, id);
+  return next;
+}
+
+/** Replaces a habit by its updated version, keeping moment then position order. */
+export function replaceHabit(habits: Habit[], updated: Habit): Habit[] {
+  return withHabit(
+    habits.filter((h) => h.id !== updated.id),
+    updated,
+  );
+}
+
 /** Builds the request body. A yes/no habit is a target of 1 with no unit. */
 export function toInput(form: HabitForm): HabitInput {
   const quantity = form.kind === "quantity";

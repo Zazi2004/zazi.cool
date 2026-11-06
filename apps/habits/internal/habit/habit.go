@@ -200,3 +200,62 @@ func Today(now time.Time, loc *time.Location) time.Time {
 	y, m, d := now.In(loc).Date()
 	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
 }
+
+// Patch is a partial update of a habit: nil fields keep their value.
+type Patch struct {
+	Name     *string
+	Emoji    *string
+	Color    *Color
+	Moment   *Moment
+	Unit     *string
+	Step     *int
+	Period   *Period
+	Target   *int
+	Weekdays *Weekdays
+}
+
+// Apply returns the input that results from applying the patch to h; the caller
+// validates it like any other input.
+func (p Patch) Apply(h Habit) Input {
+	in := Input{
+		Name: h.Name, Emoji: h.Emoji, Color: h.Color, Moment: h.Moment, Unit: h.Unit, Step: h.Step,
+		Period: h.Period, Target: h.Target, Weekdays: h.Weekdays,
+	}
+	set(&in.Name, p.Name)
+	set(&in.Emoji, p.Emoji)
+	set(&in.Color, p.Color)
+	set(&in.Moment, p.Moment)
+	set(&in.Unit, p.Unit)
+	set(&in.Step, p.Step)
+	set(&in.Period, p.Period)
+	set(&in.Target, p.Target)
+	set(&in.Weekdays, p.Weekdays)
+	return in
+}
+
+// set overwrites *dst with *src when src is not nil.
+func set[T any](dst, src *T) {
+	if src != nil {
+		*dst = *src
+	}
+}
+
+// ValidateOrder checks that ids lists each active habit of a moment exactly once.
+func ValidateOrder(current []int64, ids []int64) error {
+	if len(ids) != len(current) {
+		return invalid("L'ordre doit contenir toutes les habitudes du moment.")
+	}
+	seen := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		seen[id] = true
+	}
+	for _, id := range current {
+		if !seen[id] {
+			return invalid("L'ordre doit contenir toutes les habitudes du moment.")
+		}
+	}
+	if len(seen) != len(ids) {
+		return invalid("L'ordre contient une habitude en double.")
+	}
+	return nil
+}
