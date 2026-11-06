@@ -9,40 +9,18 @@ Suivi d'habitudes personnel : cocher chaque jour les habitudes faites, consulter
 par jour, semaine, mois et année. Privé (un seul utilisateur), mobile d'abord. La spec
 `docs/specs/habits.md` (v2) fait foi ; la v1 est dans son historique git.
 
-**Statut : premier déploiement (2026-10-30), recette en cours.** Le squelette (ONBO-90, T1) est en place : `GET /healthz`
-(liveness, sans base), `GET /readyz` (base jointe), `GET /version` (SHA git), arrêt propre,
-exécuteur de migrations. L'authentification (ONBO-92, T3) l'est aussi : `/login`, `/logout`,
-sessions en base, rate limiting, CSRF, en-têtes de sécurité. Les habitudes et le suivi du jour
-(ONBO-93, T4) le sont aussi : `/` et `/day/{date}` (cases à cocher, jours passés dans la
-fenêtre `EDIT_WINDOW_DAYS`), `POST /day/{date}/toggle`, `/habits` (création, renommage, jours,
-archivage, restauration). Les statistiques (ONBO-94, T5) le sont aussi : `/week/{date}`,
-`/month/{AAAA-MM}`, `/year/{AAAA}` (et `/week`, `/month`, `/year` qui redirigent vers la période
-courante). Les finitions mobile (ONBO-95, T6) le sont aussi : feuille de style et script de cochage. Les manifests (`infra/apps/habits/`, T2) sont en place et le
-premier déploiement (T7) est en cours.
+**Statut : v2 (refonte ONBO-109) remplace la v1 en production** (bascule en un bloc, migration
+`003_v2.sql` qui supprime les données v1, perte acceptée). La recette est le §14 de la spec.
 
-## Refonte v2 (cadrée le 2026-11-06)
+Modèle : période (jour / semaine / mois / année) + cible + jours autorisés, oui/non ou quantité ;
+période, cible et jours **versionnés** à partir de la période en cours ; emoji, couleur, moment
+(Matin / Journée / Soir), ordre manuel ; note journalière.
 
-La v1 décrite ci-dessous est en production mais va être remplacée. **La spec v2
-(`docs/specs/habits.md`) fait foi** pour tout nouveau travail ; elle prime sur les règles v1 de
-ce fichier en cas de conflit. En résumé :
-
-- Modèle : période (jour / semaine / mois / année) + cible + jours autorisés, oui/non ou
-  quantité ; période, cible et jours **versionnés** à partir de la période en cours ; emoji,
-  couleur, moment (Matin / Journée / Soir), ordre manuel ; note journalière. Données v1
-  abandonnées (migration `003_v2.sql`).
-- Front **React + TypeScript + Vite + Motion** dans `web/`, embarqué ; Go devient une API JSON
-  sous `/api/`. Ces dépendances sont approuvées ; les règles « pas de TypeScript » et « aucune
-  dépendance au-delà de `pgx` » de la v1 ne s'appliquent plus au front.
-- Toute règle métier reste calculée en Go (`internal/habit`) ; formats d'échange définis au
-  §7 de la spec, alignés par des golden files.
-- Direction visuelle : variante A « Anneaux » du prototype (branche `proto/habits-redesign`,
-  jamais fusionnée).
-- `EDIT_WINDOW_DAYS` passe à 7.
-- Issue parente ONBO-109, sous-issues ONBO-110 → ONBO-118 (spec §13), mergées dans la branche
-  d'intégration `feat/habits-redesign` ; toutes les décisions sont prises (spec §12), dont un pas
-  d'incrément par habitude (`step`) et une bascule en un bloc à la fin (V7).
-
-La recette v1 (T7) est abandonnée au profit de la recette v2 (spec §14).
+Front **React + TypeScript + Vite + Motion** dans `web/`, embarqué dans le binaire ; Go est une API
+JSON sous `/api/` et sert aussi `GET /healthz` (liveness, sans base), `GET /readyz` (base jointe) et
+`GET /version` (SHA git). Toute règle métier est calculée en Go (`internal/habit`) ; les formats
+d'échange sont définis au §7 de la spec et alignés par des golden files. Direction visuelle :
+variante A « Anneaux » du prototype (branche `proto/habits-redesign`, jamais fusionnée).
 
 ## Configuration
 
@@ -266,7 +244,3 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   `/etc/mime.types`.
 - Recette manuelle restante (CA14, CA15) : revue sur téléphone du contraste, du 360 px et de l'ajout à
   l'écran d'accueil iOS (Safari) / Android (Chrome).
-
-## Décisions
-
-- [x] D1–D6 de la spec : propositions appliquées (ticket ONBO-90).
