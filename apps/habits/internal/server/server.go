@@ -33,6 +33,8 @@ type Store interface {
 	DayStats(ctx context.Context, from, to time.Time) ([]habit.DayStat, error)
 	DayNote(ctx context.Context, day time.Time) (string, error)
 	SetNote(ctx context.Context, day time.Time, text string) error
+	ActiveHistories(ctx context.Context, today time.Time) ([]habit.History, error)
+	HabitHistory(ctx context.Context, id int64, today time.Time) (habit.History, error)
 }
 
 // Authenticator checks the password and handles sessions. *auth.Manager satisfies it.
@@ -97,6 +99,8 @@ func NewHandler(cfg Config) http.Handler {
 	mux.Handle("GET /api/days/{date}", h.requireSession(http.HandlerFunc(h.getDay)))
 	mux.Handle("PUT /api/days/{date}/entries/{habitId}", h.requireSession(http.HandlerFunc(h.putEntry)))
 	mux.Handle("PUT /api/days/{date}/note", h.requireSession(http.HandlerFunc(h.putNote)))
+	mux.Handle("GET /api/stats", h.requireSession(http.HandlerFunc(h.getStats)))
+	mux.Handle("GET /api/stats/habits/{id}", h.requireSession(http.HandlerFunc(h.getHabitStats)))
 	// Any other /api/ URL answers JSON, never the front: 401 without a session (so an
 	// unknown URL does not reveal which routes exist), 404 with one.
 	mux.Handle("/api/", h.requireSession(http.HandlerFunc(apiNotFound)))

@@ -1,7 +1,7 @@
 // Client of the JSON API (spec §7). Errors carry the code and the French message
 // sent by the server, so screens can show `message` as is.
 
-import type { Day, Habit, HabitInput, HabitList, Moment } from "./types";
+import type { Day, Habit, HabitInput, HabitList, HabitStats, Moment, StatsOverview } from "./types";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -102,4 +102,12 @@ export function putEntry(date: string, habitId: number, value: number): Promise<
 
 export function putNote(date: string, text: string): Promise<void> {
   return request("PUT", `/api/days/${date}/note`, { text });
+}
+
+export function getStats(): Promise<StatsOverview> {
+  return request("GET", "/api/stats");
+}
+
+export function getHabitStats(id: number, year: number): Promise<HabitStats> {
+  return request("GET", `/api/stats/habits/${id}?year=${year}`);
 }

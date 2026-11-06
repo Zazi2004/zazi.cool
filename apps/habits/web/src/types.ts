@@ -97,3 +97,31 @@ export interface Day {
   groups: { moment: Moment; habits: DayHabit[] }[];
   note: string;
 }
+
+export interface HabitSummary {
+  habit: Habit;
+  total: number;
+  progress: number;
+  complete: boolean;
+  pace: Pace | null;
+  /** Consecutive successful periods; null for a yearly habit, which has none. */
+  streak: number | null;
+}
+
+export interface StatsOverview {
+  habits: HabitSummary[];
+}
+
+export type PeriodStatus = "success" | "missed" | "current" | "interrupted";
+
+export interface HabitStats extends HabitSummary {
+  year: number;
+  bestStreak: number | null;
+  /** Success rates, 0..1; null when no period counts (shown as « — »). */
+  rate30: number | null;
+  rateYear: number | null;
+  /** Every day of the year; level null = the habit does not apply that day. */
+  days: { date: string; value: number; level: 0 | 1 | 2 | 3 | 4 | null }[];
+  /** Newest first; empty for a daily habit. */
+  periods: { start: string; end: string; total: number; target: number; status: PeriodStatus }[];
+}

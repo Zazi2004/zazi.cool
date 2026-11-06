@@ -243,6 +243,11 @@ func TestGoldenFiles(t *testing.T) {
 	stats = append(stats, habit.DayStat{Day: today, Total: 3, Done: 1, ProgressSum: 1.5})
 	dh := habitsHandler(fakeStore{logged: logged, stats: stats, note: "Bonne journée"})
 	writeGolden(t, "day", apiRequest(dh, http.MethodGet, "/api/days/2026-11-06", ""))
+
+	// The stats goldens: the weekly habit switched to monthly shows every status.
+	sh := habitsHandler(fakeStore{histories: statsHistories()})
+	writeGolden(t, "stats", apiRequest(sh, http.MethodGet, "/api/stats", ""))
+	writeGolden(t, "habit-stats", apiRequest(sh, http.MethodGet, "/api/stats/habits/2", ""))
 }
 
 func writeGolden(t *testing.T, name string, rec *httptest.ResponseRecorder) {

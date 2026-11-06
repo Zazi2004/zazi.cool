@@ -20,6 +20,19 @@ func PeriodStart(p Period, d time.Time) time.Time {
 	return d
 }
 
+// PeriodEnd returns the last civil day of the period that starts on start.
+func PeriodEnd(p Period, start time.Time) time.Time {
+	switch p {
+	case PeriodWeek:
+		return start.AddDate(0, 0, 6)
+	case PeriodMonth:
+		return start.AddDate(0, 1, -1)
+	case PeriodYear:
+		return start.AddDate(1, 0, -1)
+	}
+	return start
+}
+
 // PeriodDays returns how many days the period of d lasts (366 in a leap year).
 func PeriodDays(p Period, d time.Time) int {
 	start := PeriodStart(p, d)
