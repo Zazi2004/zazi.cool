@@ -274,6 +274,7 @@ interface DayHabit {
 interface Day {
   date: string; editable: boolean;
   progress: number;          // grand anneau
+  done: number; total: number;   // habitudes `day` réussies / dues (« N / M du jour »)
   complete: boolean;
   streak: number;            // série globale
   week: { date: string; progress: number }[];   // bande des 7 jours (lundi → dimanche)

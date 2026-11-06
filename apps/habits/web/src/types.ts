@@ -65,3 +65,33 @@ export const colorLabels: Record<Color, string> = {
   slate: "Ardoise",
   pink: "Rose",
 };
+
+export interface Pace {
+  expected: number;
+  diff: number;
+  label: string;
+}
+
+export interface DayHabit {
+  habit: Habit;
+  value: number;
+  total: number;
+  progress: number;
+  complete: boolean;
+  pace: Pace | null;
+}
+
+export interface Day {
+  date: string;
+  editable: boolean;
+  /** The big ring, 0..1. */
+  progress: number;
+  /** Complete / total `day` habits, for the « N / M du jour » label. */
+  done: number;
+  total: number;
+  complete: boolean;
+  streak: number;
+  week: { date: string; progress: number }[];
+  groups: { moment: Moment; habits: DayHabit[] }[];
+  note: string;
+}

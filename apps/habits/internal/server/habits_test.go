@@ -129,6 +129,21 @@ func TestGoldenFiles(t *testing.T) {
 
 	writeGolden(t, "habit", apiRequest(h, http.MethodPost, "/api/habits", vitaminD))
 	writeGolden(t, "habit-list", apiRequest(h, http.MethodGet, "/api/habits", ""))
+
+	// The Day golden: a morning habit done (2 / 2) and one pending, plus an evening one.
+	logged := []habit.Logged{
+		{Habit: active[0], Value: 2},
+		{Habit: habit.Habit{
+			ID: 4, Name: "Étirements", Emoji: "🧘", Color: "teal", Moment: habit.Morning, Position: 1,
+			Step: 1, Period: habit.PeriodDay, Target: 1, Weekdays: habit.AllDays,
+		}},
+		{Habit: habit.Habit{
+			ID: 5, Name: "Lecture", Emoji: "📖", Color: "blue", Moment: habit.Evening, Position: 0,
+			Unit: "pages", Step: 5, Period: habit.PeriodDay, Target: 20, Weekdays: habit.AllDays,
+		}, Value: 10},
+	}
+	dh := habitsHandler(fakeStore{logged: logged})
+	writeGolden(t, "day", apiRequest(dh, http.MethodGet, "/api/days/2026-11-06", ""))
 }
 
 func writeGolden(t *testing.T, name string, rec *httptest.ResponseRecorder) {

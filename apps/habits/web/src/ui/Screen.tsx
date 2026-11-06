@@ -1,11 +1,12 @@
 import type { Route } from "../router";
 import { Habits } from "./Habits";
+import { Today } from "./Today";
 
-// Today and Stats are empty for now: the following tickets fill them in.
+// Stats is empty for now: the following tickets fill it in.
 export function Screen({ route }: { route: Route }) {
   switch (route.name) {
     case "today":
-      return <Page title="Aujourd'hui" />;
+      return <Today />;
     case "stats":
     case "statsHabit":
       return <Page title="Stats" />;

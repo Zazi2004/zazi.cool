@@ -135,6 +135,25 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   forme du formulaire, aucune règle métier. Les couleurs de la palette sont des classes
   `.color-<clé>` qui posent `--tone`.
 
+## Aujourd'hui (v2, ONBO-112)
+
+- `GET /api/days/{date}` et `PUT /api/days/{date}/entries/{habitId}` (`{value}`, `0` supprime la
+  saisie) répondent tous deux par le `Day`. Pour l'instant **seul le jour courant** est accepté
+  (`422` sinon) et seules les habitudes `day` sont calculées ; série, bande de la semaine, rythme
+  et note sont neutres (`0`, `[]`, `null`, `""`) jusqu'aux tickets suivants. `Day` porte en plus
+  `done` / `total` (« N / M du jour »), ajoutés au §7 de la spec.
+- Règles pures dans `internal/habit/day.go` (`Progress`, `Complete`, `DayProgress`, `DayCounts`,
+  `GroupByMoment` : réussies grisées en bas, ordre manuel conservé), testées en table. Le store
+  (`internal/store/days.go`) lit le jour en une requête (`DayHabits`) et `SetEntry` refuse une
+  habitude absente ce jour-là (`ErrNotFound`, `404`) ou un jour exclu par `weekdays`
+  (`ErrDayNotAllowed`, `422`).
+- Front : `web/src/ui/Today.tsx` ; `web/src/today.ts` décide ce qu'un toucher envoie (`tapValue` :
+  oui/non bascule, quantité + `step`, cible dépassable) et applique la mise à jour optimiste d'une
+  ligne ; la réponse du serveur remplace tout le jour, une erreur restaure l'état et affiche le
+  message. Seule la réponse du dernier toucher est appliquée. Le jour demandé est la date locale
+  de l'appareil.
+- Golden `day.json` ajouté (`TestGoldenFiles`, `golden.test.ts`).
+
 ## Statistiques
 
 - Les règles de calcul sont pures et testées en table dans `internal/habit/stats.go`

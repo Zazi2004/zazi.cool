@@ -16,6 +16,8 @@
   --error: #b3261e;
   --border: #dedce8;
   --glass: rgb(255 255 255 / 0.72);
+  --ring-from: #7c5cf0;
+  --ring-to: #2f7cf6;
   color-scheme: light dark;
 }
 
@@ -30,6 +32,8 @@
     --error: #ff8a80;
     --border: #35324a;
     --glass: rgb(31 29 40 / 0.72);
+    --ring-from: #9d8cff;
+    --ring-to: #5aa0ff;
   }
 }
 
@@ -459,4 +463,120 @@ button.primary {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--on-accent);
+}
+
+/* Today screen. */
+.ring {
+  position: relative;
+  width: 12rem;
+  margin: 1rem auto 0;
+}
+
+.ring svg {
+  display: block;
+  width: 100%;
+  transform: rotate(-90deg);
+}
+
+.ring-track,
+.mini-track {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 12;
+}
+
+.ring-value {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 12;
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+.ring-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+}
+
+.ring-label strong {
+  font-size: 2rem;
+}
+
+.ring-label span {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.habit-tap {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  padding: 0;
+  gap: 0.75rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.habit:has(.habit-tap) {
+  padding: 0;
+}
+
+.habit-tap {
+  padding: 0.5rem 0.75rem;
+}
+
+.habit-tap .habit-text {
+  flex: 1;
+}
+
+.habit.is-done {
+  opacity: 0.55;
+}
+
+.mini-ring {
+  width: 2.25rem;
+  flex: none;
+  transform: rotate(-90deg);
+}
+
+.mini-track {
+  stroke-width: 4;
+}
+
+.mini-value {
+  fill: none;
+  stroke: var(--tone);
+  stroke-linecap: round;
+  stroke-width: 4;
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.toast {
+  position: fixed;
+  right: 1rem;
+  bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  left: 1rem;
+  max-width: 26rem;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+  border-radius: 1rem;
+  background: var(--error);
+  color: var(--bg);
+}
+
+.toast[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring-value,
+  .mini-value {
+    transition: none;
+  }
 }
