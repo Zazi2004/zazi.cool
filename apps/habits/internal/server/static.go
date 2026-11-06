@@ -2,10 +2,19 @@ package server
 
 import (
 	"io/fs"
+	"mime"
 	"net/http"
 	"path"
 	"strings"
 )
+
+func init() {
+	// The distroless image has no /etc/mime.types and Go knows no .webmanifest:
+	// without this the manifest would be sniffed as text/plain and browsers ignore it.
+	if err := mime.AddExtensionType(".webmanifest", "application/manifest+json"); err != nil {
+		panic(err)
+	}
+}
 
 // staticHandler serves the built front (NF1). A path that is a file of the build
 // (favicon, manifest…) is served as is; any other path is a client-side route

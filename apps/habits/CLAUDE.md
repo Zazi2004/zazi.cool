@@ -105,8 +105,6 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   de police.
 - `EDIT_WINDOW_DAYS` (défaut 7) alimente `server.Config.EditWindowDays` ; `TZ_NAME` définit le jour de
   `server.Config.Location`.
-- La section « Interface (T6) » ci-dessous décrit la v1 : les pages HTML sont supprimées de cette
-  branche et elle sera réécrite avec ONBO-117.
 
 ## Habitudes (v2, ONBO-111)
 
@@ -246,23 +244,28 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   en forme seulement). La heatmap est une grille CSS (semaines en colonnes, `row-N` place le 1ᵉʳ janvier),
   sans style en ligne.
 
-## Interface (T6)
+## Effets, finitions et app installable (v2, ONBO-117)
 
-- Assets embarqués dans `internal/server/static/` et servis publiquement sous `/static/` (la page de
-  connexion en a besoin avant toute session) : `style.css` et `app.js`, tous deux en `'self'`
-  (CSP stricte) ; jamais de `style=`, `onclick=` ni de script en ligne.
-- Mobile d'abord : cibles tactiles d'au moins 44 px (`min-height: 44px` sur liens, boutons, champs ;
-  `.check .box` fait 44×44), pas de défilement horizontal de la page (les tableaux défilent dans
-  `.scroll`). Clair / sombre via variables CSS et `prefers-color-scheme` ; ne coder une couleur
-  qu'en variable, en gardant le contraste AA dans les deux modes.
-- Le script intercepte les formulaires `data-toggle`, poste avec `Accept: application/json` et met à
-  jour la case ; sans JS ou en cas d'échec réseau côté `fetch` indisponible, le formulaire part
-  normalement. Le message d'erreur va dans `#status` (`role="status"`).
-
-- Refonte esthétique (ONBO-106) : effets inspirés de React Bits (aurore, projecteur au survol,
-  titre dégradé, pop de la coche) en CSS et JS maison, **sans React ni dépendance** (NF1). Toute
-  animation doit être neutralisée par `prefers-reduced-motion` ; le script n'écrit que des
-  variables CSS via `style.setProperty` (compatible avec la CSP).
+- Effets dans `web/src/ui/effects/`, **copiés** de React Bits et adaptés (aucune dépendance au-delà
+  de React et Motion, D9) : `CountUp` (pourcentage du grand anneau, Motion), `ShinyText` (série, reflet
+  en CSS), `SpotlightCard` (cartes de Stats ; n'écrit que des variables CSS par `style.setProperty`,
+  compatible avec la CSP), `ClickSpark` (canvas plein écran, étincelle à la couleur `--tone` de
+  l'habitude touchée). L'aurore de l'en-tête d'Aujourd'hui est en CSS (`.today-header::before`).
+  GradientText n'est pas utilisé. Un effet qui demanderait une autre dépendance : demander à Noah.
+- `prefers-reduced-motion` : `effects/motion.ts` (`prefersReducedMotion`) est lu au démarrage de chaque
+  effet JS (CountUp affiche la valeur, ClickSpark ne dessine rien, confettis non montés) et un bloc CSS
+  neutralise aurore, reflet et canvas. Toute nouvelle animation doit faire de même.
+- Clair / sombre par `prefers-color-scheme` (variables en tête de `styles.css`) : ne coder une couleur
+  qu'en variable, contraste AA dans les deux thèmes (le clair est la référence). Cibles ≥ 44 px, aucun
+  défilement horizontal à 360 px. Clavier : toucher = Entrée / Espace (boutons natifs), appui long =
+  bouton « Saisir une valeur ».
+- Installable (F9) : `web/public/manifest.webmanifest` (standalone, icônes 192 / 512 / maskable),
+  `apple-touch-icon.png` et métadonnées dans `index.html`. Les PNG sont produits par
+  `python3 scripts/icons.py` (bibliothèque standard, à relancer si le dessin change). Le serveur déclare
+  le type `application/manifest+json` (`internal/server/static.go`) : l'image distroless n'a pas de
+  `/etc/mime.types`.
+- Recette manuelle restante (CA14, CA15) : revue sur téléphone du contraste, du 360 px et de l'ajout à
+  l'écran d'accueil iOS (Safari) / Android (Chrome).
 
 ## Décisions
 

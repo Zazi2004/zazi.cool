@@ -35,6 +35,12 @@ func TestStaticFiles(t *testing.T) {
 		t.Errorf("favicon body = %q", rec.Body.String())
 	}
 
+	// F9: the manifest must be served with its own media type, or browsers ignore it.
+	rec = get(t, h, http.MethodGet, "/manifest.webmanifest")
+	if got := rec.Header().Get("Content-Type"); got != "application/manifest+json" {
+		t.Errorf("manifest Content-Type = %q, want application/manifest+json", got)
+	}
+
 	// A missing asset must not become the HTML page: a <script> would receive HTML.
 	if rec := get(t, h, http.MethodGet, "/assets/missing.js"); rec.Code != http.StatusNotFound {
 		t.Errorf("missing asset = %d, want 404", rec.Code)
