@@ -36,6 +36,8 @@ type fakeStore struct {
 	editErr error
 	patches *[]habit.Patch
 	orders  *[]orderCall
+	// histories is what ActiveHistories returns and HabitHistory looks into.
+	histories []habit.History
 }
 
 type orderCall struct {
@@ -117,6 +119,19 @@ func (f fakeStore) SetNote(_ context.Context, day time.Time, text string) error 
 		*f.notes = append(*f.notes, noteCall{day, text})
 	}
 	return nil
+}
+
+func (f fakeStore) ActiveHistories(context.Context, time.Time) ([]habit.History, error) {
+	return f.histories, nil
+}
+
+func (f fakeStore) HabitHistory(_ context.Context, id int64, _ time.Time) (habit.History, error) {
+	for _, h := range f.histories {
+		if h.Habit.ID == id {
+			return h, nil
+		}
+	}
+	return habit.History{}, habit.ErrNotFound
 }
 
 var testStatic = fstest.MapFS{

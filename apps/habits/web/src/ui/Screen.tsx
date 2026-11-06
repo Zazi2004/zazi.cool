@@ -1,15 +1,17 @@
 import type { Route } from "../router";
 import { Habits } from "./Habits";
+import { Stats } from "./Stats";
+import { StatsHabit } from "./StatsHabit";
 import { Today } from "./Today";
 
-// Stats is empty for now: the following tickets fill it in.
 export function Screen({ route }: { route: Route }) {
   switch (route.name) {
     case "today":
       return <Today key={route.date ?? "today"} date={route.date} />;
     case "stats":
+      return <Stats />;
     case "statsHabit":
-      return <Page title="Stats" />;
+      return <StatsHabit key={route.id} id={route.id} />;
     case "habits":
       return <Habits />;
     default:

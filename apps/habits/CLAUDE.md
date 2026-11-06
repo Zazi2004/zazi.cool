@@ -105,8 +105,8 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   de police.
 - `EDIT_WINDOW_DAYS` (défaut 7) alimente `server.Config.EditWindowDays` ; `TZ_NAME` définit le jour de
   `server.Config.Location`.
-- Ce qui suit (statistiques, interface T6) décrit la v1 : les pages HTML sont supprimées de cette
-  branche et ces sections seront réécrites avec les tickets qui les remplacent.
+- La section « Interface (T6) » ci-dessous décrit la v1 : les pages HTML sont supprimées de cette
+  branche et elle sera réécrite avec ONBO-117.
 
 ## Habitudes (v2, ONBO-111)
 
@@ -206,7 +206,7 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   de la période en cours **selon la nouvelle période**, les versions de `valid_from` ≥ celui-ci sont
   remplacées, aucune version passée n'est touchée ; règle inchangée = aucune écriture ; modification
   annulée dans la même période = version supprimée. Le statut « interrompue » (D8) n'est pas stocké :
-  les statistiques (ONBO-116) le déduisent du `valid_from` de la version suivante.
+  les statistiques (ONBO-116, voir plus bas) le déduisent du `valid_from` de la version suivante.
 - Nom, emoji, couleur, unité, pas : non versionnés. Changer de moment place l'habitude en dernier du
   nouveau moment ; restaurer la place en dernier de son moment ; l'ordre posé par `order` est celui
   de l'écran Aujourd'hui (avant le tri « réussies en bas »).
@@ -216,16 +216,35 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   `Habits.tsx` réordonne par poignée (événements pointeur, aperçu local puis `PUT` au relâchement,
   retour à l'ordre précédent en cas d'erreur) ou par les flèches ↑ ↓ ; section repliée « Archivées ».
 
-## Statistiques
+## Statistiques (v2, ONBO-116)
 
-- Les règles de calcul sont pures et testées en table dans `internal/habit/stats.go`
-  (`History.Applies`, `Tally`, `Streak`) ; le store ne fait que lire (`Store.History`, 2 requêtes
-  SQL quelle que soit la période, NF6) et les handlers (`internal/server/stats.go`) mettent en page.
-- Taux = jours faits ÷ jours concernés **et** existants jusqu'à aujourd'hui inclus ; le rendu est
-  « 67 % » (espace insécable), « — » si rien n'était dû. Série : voir `Streak` (aujourd'hui non
-  coché ne casse pas la série ; un jour non concerné la saute ; une habitude archivée n'en a pas).
-- Les cellules portent des classes `lvl-none`, `lvl-0` à `lvl-4` (par quarts) et `done` / `missed` /
-  `future` / `na` pour que T6 les colore ; il n'y a aucun style en ligne (CSP).
+- `GET /api/stats` (`{habits: HabitSummary[]}`, habitudes actives) et `GET /api/stats/habits/{id}?year=`
+  (`HabitStats` ; année par défaut = courante, hors 2000…année courante → `422` `invalid_year`,
+  habitude inconnue → `404`, une habitude archivée reste lisible). Goldens `stats.json` et
+  `habit-stats.json`.
+- Règles pures dans `internal/habit/stats.go`, testées en table : `History.Periods` (toutes les
+  périodes, la plus ancienne d'abord), `Streaks`, `Rate`, `History.Summary`, `History.Heatmap`.
+  Le store (`internal/store/stats.go`) ne fait que lire : `ActiveHistories` et `HabitHistory`, **3
+  requêtes** (habitudes, règles, saisies) quel que soit l'âge de l'habitude ou le nombre d'habitudes
+  (le test les compte avec un traceur pgx).
+- Une période est évaluée avec la règle de son premier jour ; la première période d'une habitude
+  commence au début de la période qui contient sa création. `day` : une « période » = un jour autorisé.
+  La dernière période d'une règle remplacée par un **changement de période** est coupée la veille de
+  la version suivante et vaut `interrupted` (D8) : ni série, ni taux. Statuts : `success` (cible
+  atteinte, y compris pour la période en cours), `current` (en cours, pas atteinte), `missed`
+  (close, pas atteinte).
+- Série : périodes `success` consécutives en remontant ; `current` et `interrupted` sont sautées ;
+  `missed` l'arrête. `null` si la règle en vigueur est `year`. Habitude archivée : calculs arrêtés
+  la veille de l'archivage.
+- Taux (fraction 0..1, `null` = « — ») : réussies ÷ (réussies + manquées) parmi les périodes qui
+  **chevauchent** l'intervalle (30 derniers jours ; année affichée).
+- Heatmap : une case par jour de l'année, `level` `null` hors vie de l'habitude ou jour non autorisé ;
+  `day` = progression du jour en quarts, autres périodes = valeur ÷ plus forte valeur de l'année.
+  `periods` : plus récente d'abord, vide pour `day`.
+- Front : `ui/Stats.tsx` (cartes), `ui/StatsHabit.tsx` (page, année en état local ; « année
+  précédente » désactivée si l'année affichée ne contient aucun jour de l'habitude), `stats.ts` (mise
+  en forme seulement). La heatmap est une grille CSS (semaines en colonnes, `row-N` place le 1ᵉʳ janvier),
+  sans style en ligne.
 
 ## Interface (T6)
 
