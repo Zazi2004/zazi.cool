@@ -1053,11 +1053,11 @@ h2 {
   width: 56px;
   height: 56px;
   padding: 0;
+  display: grid;
+  place-items: center;
   border-radius: 50%;
   background: var(--tab-active);
   color: var(--on-tab-active);
-  font-size: 1.75rem;
-  line-height: 1;
   box-shadow: var(--shadow-float);
 }
 
