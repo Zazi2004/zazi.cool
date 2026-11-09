@@ -82,16 +82,19 @@ jobs:
             sleep 5
           done
 
+      # Right after a rollout the ingress can still send a request to the old pod's address,
+      # which hangs until the timeout (seen on habits: /version ok, next request times out).
+      # One retry loop per check absorbs that; a real outage still fails after ~30 s.
       - name: Check /healthz
-        run: curl -fsS --max-time 10 "$URL/healthz"
+        run: curl -fsS --max-time 10 --retry 3 --retry-delay 5 --retry-all-errors "$URL/healthz"
 
       - name: Check /readyz
-        run: curl -fsS --max-time 10 "$URL/readyz"
+        run: curl -fsS --max-time 10 --retry 3 --retry-delay 5 --retry-all-errors "$URL/readyz"
 
       - name: Check HTTP to HTTPS redirect
         run: |
           set -euo pipefail
-          read -r code location < <(curl -sS --max-time 10 -o /dev/null -w '%{http_code} %{redirect_url}\n' "http://$HOST/healthz")
+          read -r code location < <(curl -sS --max-time 10 --retry 3 --retry-delay 5 --retry-all-errors -o /dev/null -w '%{http_code} %{redirect_url}\n' "http://$HOST/healthz")
           echo "http://$HOST/healthz -> $code $location"
           case "$code" in 301|302|307|308) ;; *) echo "::error::expected a redirect, got $code"; exit 1 ;; esac
           [[ "$location" == https://"$HOST"/* ]] || { echo "::error::redirect does not target https://$HOST: $location"; exit 1; }
@@ -100,7 +103,7 @@ jobs:
         run: |
           set -euo pipefail
           # curl without -k already fails on an invalid, expired or mismatched certificate.
-          curl -fsS --max-time 10 -o /dev/null "$URL/healthz"
+          curl -fsS --max-time 10 --retry 3 --retry-delay 5 --retry-all-errors -o /dev/null "$URL/healthz"
           cert=$(echo | openssl s_client -connect "$HOST:443" -servername "$HOST" -verify_hostname "$HOST" -verify_return_error 2>/dev/null | openssl x509 -noout -enddate -issuer)
           echo "$cert"
           end=$(echo "$cert" | sed -n 's/^notAfter=//p')
