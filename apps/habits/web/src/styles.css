@@ -883,6 +883,10 @@ h2 {
 
 .today-header h1 {
   margin: 0.125rem 0 0;
+  /* The longest date (« Dimanche 29 septembre », about 11.7 em, plus a 3 % margin) must stay
+     on one line beside the streak: the width left is the screen minus the page padding, the
+     pill (three digits at most) and the gap. */
+  font-size: min(1.75rem, calc((100vw - 7.75rem) / 12));
 }
 
 .today-header h1::first-letter {
