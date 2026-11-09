@@ -2,9 +2,9 @@ import type { MouseEvent } from "react";
 import { navigate, type Route } from "../router";
 
 const tabs = [
-  { href: "/", label: "Aujourd'hui", names: ["today"] },
-  { href: "/stats", label: "Stats", names: ["stats", "statsHabit"] },
-  { href: "/habits", label: "Habitudes", names: ["habits"] },
+  { href: "/", label: "Aujourd'hui", icon: "◉", names: ["today"] },
+  { href: "/stats", label: "Stats", icon: "▦", names: ["stats", "statsHabit"] },
+  { href: "/habits", label: "Habitudes", icon: "☰", names: ["habits"] },
 ];
 
 export function TabBar({ route }: { route: Route }) {
@@ -24,6 +24,7 @@ export function TabBar({ route }: { route: Route }) {
           aria-current={tab.names.includes(route.name) ? "page" : undefined}
           onClick={(e) => go(e, tab.href)}
         >
+          <span aria-hidden="true">{tab.icon}</span>
           {tab.label}
         </a>
       ))}

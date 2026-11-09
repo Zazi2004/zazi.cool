@@ -175,11 +175,11 @@ Routes côté client : `/`, `/day/{AAAA-MM-JJ}`, `/stats`, `/stats/{id}`, `/habi
 
 ### Effets (React Bits)
 - Composants React Bits copiés dans le code (ils se distribuent en copier-coller) : CountUp,
-  ShinyText, GradientText, SpotlightCard, ClickSpark, et un fond Aurora discret sur l'en-tête si
-  le rendu le justifie. Animations via **Motion**. Un composant qui exigerait une autre
+  ShinyText, SpotlightCard, ClickSpark. Pas d'aurore ni de GradientText : la variante A n'en a pas.
+  Animations via **Motion**. Un composant qui exigerait une autre
   dépendance (ex. `ogl`, `gsap`) demande l'accord de Noah.
 - `prefers-reduced-motion` neutralise toutes les animations non essentielles (confettis,
-  étincelles, aurore, dégradés animés).
+  étincelles, reflets).
 
 ## 6. Exigences
 
@@ -377,8 +377,7 @@ posé explicitement à `7` dans l'overlay de production (`infra/apps/habits/over
 - [x] **D7** — Pas d'incrément par habitude (`step`, défaut 1).
 - [x] **D8** — Changer la **période** rend « interrompue » la période en cours de l'ancienne
   règle (ni réussie ni manquée).
-- [x] **D9** — Composants React Bits limités à ceux qui ne demandent que React + Motion ;
-  l'aurore est faite en CSS.
+- [x] **D9** — Composants React Bits limités à ceux qui ne demandent que React + Motion.
 - [x] **D10** — Bascule en un bloc à la fin (ONBO-118) ; la v1 reste en ligne jusque-là.
 
 ### Ouvertes

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { hasSession } from "../api";
 import { matchRoute, navigate, usePath } from "../router";
+import { FxCanvas } from "./effects/fx";
 import { Login } from "./Login";
 import { Screen } from "./Screen";
 import { TabBar } from "./TabBar";
@@ -46,6 +47,7 @@ export function App() {
     <>
       <Screen route={route} />
       <TabBar route={route} />
+      <FxCanvas />
     </>
   );
 }

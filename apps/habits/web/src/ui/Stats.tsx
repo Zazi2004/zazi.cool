@@ -4,7 +4,7 @@ import { navigate } from "../router";
 import { formatStreak, totalLine } from "../stats";
 import { paceClass } from "./paceClass";
 import type { HabitSummary } from "../types";
-import { MiniRing } from "./MiniRing";
+import { Ring } from "./Ring";
 import { SpotlightCard } from "./effects/SpotlightCard";
 
 type State =
@@ -93,7 +93,7 @@ function SummaryCard({ summary }: { summary: HabitSummary }) {
               </span>
             )}
           </span>
-          <MiniRing progress={summary.progress} />
+          <Ring size={44} stroke={5} progress={summary.progress} />
         </a>
       </SpotlightCard>
     </li>

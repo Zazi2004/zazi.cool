@@ -73,11 +73,23 @@ export function EntrySheet({ item, onSave, onClose }: Props) {
         onPointerCancel={dragEnd}
       />
       <form onSubmit={submit}>
-        <header className="sheet-header">
-          <h2 id="entry-title">
-            <span aria-hidden="true">{h.emoji}</span> {h.name}
-          </h2>
-          <button type="button" className="ghost" onClick={() => dialog.current?.close()}>
+        <header className="entry-head">
+          <span className="habit-emoji" aria-hidden="true">
+            {h.emoji}
+          </span>
+          <div className="habit-text">
+            <h2 id="entry-title">{h.name}</h2>
+            <p className="muted">
+              Objectif {h.target}
+              {h.unit ? ` ${h.unit}` : ""}
+              {h.period !== "day" ? " sur la période" : ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="ghost reveal-on-focus"
+            onClick={() => dialog.current?.close()}
+          >
             Fermer
           </button>
         </header>
@@ -90,31 +102,28 @@ export function EntrySheet({ item, onSave, onClose }: Props) {
           >
             −
           </button>
-          <div className="field">
-            <label htmlFor="entry-value">Valeur{h.unit ? ` (${h.unit})` : ""}</label>
-            <input
-              id="entry-value"
-              inputMode="numeric"
-              autoComplete="off"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              aria-invalid={value === null}
-            />
-          </div>
+          <label className="visually-hidden" htmlFor="entry-value">
+            Valeur{h.unit ? ` (${h.unit})` : ""}
+          </label>
+          <input
+            id="entry-value"
+            inputMode="numeric"
+            autoComplete="off"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            aria-invalid={value === null}
+          />
           <button type="button" aria-label="Plus" onClick={() => step(h.step || 1)}>
             +
           </button>
         </div>
-        <p className="muted">
-          Objectif : {h.target}
-          {h.unit ? ` ${h.unit}` : ""}. 0 supprime la saisie.
-        </p>
+        <p className="entry-unit muted">{h.unit || "fois"}</p>
         {value === null && (
           <p className="error" role="alert">
             Saisissez un nombre entier entre 0 et 100 000.
           </p>
         )}
-        <button type="submit" disabled={value === null}>
+        <button type="submit" className="entry-save" disabled={value === null}>
           Enregistrer
         </button>
       </form>

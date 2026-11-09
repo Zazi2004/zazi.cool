@@ -7,35 +7,61 @@
 }
 
 :root {
-  --bg: #f5f4f8;
+  --bg: #f6f7fb;
   --surface: #ffffff;
-  --text: #1b1a22;
-  --muted: #5f5d6e;
-  --accent: #5b47d6;
+  --text: #0f172a;
+  --muted: #617087;
+  --accent: #4f46e5;
   --on-accent: #ffffff;
-  --error: #b3261e;
-  --ok: #1a7f45;
-  --border: #dedce8;
-  --glass: rgb(255 255 255 / 0.72);
-  --ring-from: #7c5cf0;
-  --ring-to: #2f7cf6;
+  --error: #be123c;
+  --ok: #047857;
+  --border: #e2e8f0;
+  --divider: #f1f5f9;
+  --track: rgb(15 23 42 / 0.08);
+  --press: #f8fafc;
+  --tab-active: #0f172a;
+  --on-tab-active: #ffffff;
+  --glass: rgb(255 255 255 / 0.75);
+  --glass-edge: rgb(255 255 255 / 0.8);
+  --week: #6366f1;
+  --ring-from: #6366f1;
+  --ring-to: #ec4899;
+  --streak: #c2410c;
+  --shine: rgb(255 255 255 / 0.95);
+  --warn-bg: #fef3c7;
+  --warn-text: #92400e;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 8px 24px rgb(15 23 42 / 0.04);
+  --shadow-float: 0 8px 30px rgb(15 23 42 / 0.12);
   color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #14131a;
-    --surface: #1f1d28;
-    --text: #f1f0f7;
-    --muted: #a9a6bc;
-    --accent: #9d8cff;
-    --on-accent: #14131a;
-    --error: #ff8a80;
-    --ok: #5fd08a;
-    --border: #35324a;
-    --glass: rgb(31 29 40 / 0.72);
-    --ring-from: #9d8cff;
-    --ring-to: #5aa0ff;
+    --bg: #10131c;
+    --surface: #1a1f2c;
+    --text: #f1f5f9;
+    --muted: #a3afc2;
+    --accent: #a5b4fc;
+    --on-accent: #10131c;
+    --error: #fda4af;
+    --ok: #6ee7b7;
+    --border: #2d3446;
+    --divider: #262c3b;
+    --track: rgb(255 255 255 / 0.1);
+    --press: #222838;
+    --tab-active: #f1f5f9;
+    --on-tab-active: #10131c;
+    --glass: rgb(26 31 44 / 0.75);
+    --glass-edge: rgb(255 255 255 / 0.08);
+    --week: #818cf8;
+    --ring-from: #818cf8;
+    --ring-to: #f472b6;
+    --streak: #fdba74;
+    --shine: rgb(255 255 255 / 0.9);
+    --warn-bg: #422006;
+    --warn-text: #fde68a;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-float: 0 8px 30px rgb(0 0 0 / 0.45);
   }
 }
 
@@ -52,20 +78,8 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
-h1 {
-  margin: 0 0 0.5rem;
-  font-size: 1.75rem;
-  letter-spacing: -0.02em;
-}
-
 .muted {
   color: var(--muted);
-}
-
-.page {
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 2rem 1.25rem calc(6rem + env(safe-area-inset-bottom));
 }
 
 .center {
@@ -75,14 +89,6 @@ h1 {
   justify-items: center;
   gap: 1rem;
   padding: 1.25rem;
-}
-
-.card {
-  width: min(100%, 22rem);
-  padding: 1.5rem;
-  border: 1px solid var(--border);
-  border-radius: 1.25rem;
-  background: var(--surface);
 }
 
 .login {
@@ -139,66 +145,6 @@ button:disabled {
   font-size: 0.9rem;
 }
 
-.tabbar {
-  position: fixed;
-  right: 1rem;
-  bottom: calc(1rem + env(safe-area-inset-bottom));
-  left: 1rem;
-  display: flex;
-  max-width: 28rem;
-  margin: 0 auto;
-  padding: 0.375rem;
-  gap: 0.25rem;
-  border: 1px solid var(--border);
-  border-radius: 1.5rem;
-  background: var(--glass);
-  backdrop-filter: blur(16px) saturate(1.4);
-  -webkit-backdrop-filter: blur(16px) saturate(1.4);
-}
-
-.tabbar a {
-  display: grid;
-  flex: 1;
-  min-height: 44px;
-  place-content: center;
-  border-radius: 1.125rem;
-  color: var(--muted);
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.tabbar a[aria-current="page"] {
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
-/* Palette of the habits (spec §4): each key sets --tone, tints are derived from it. */
-.color-amber {
-  --tone: #d98a00;
-}
-.color-violet {
-  --tone: #7c5cf0;
-}
-.color-blue {
-  --tone: #2f7cf6;
-}
-.color-red {
-  --tone: #e5484d;
-}
-.color-green {
-  --tone: #2f9e5f;
-}
-.color-teal {
-  --tone: #14a3a3;
-}
-.color-slate {
-  --tone: #64708a;
-}
-.color-pink {
-  --tone: #e5559b;
-}
-
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -208,104 +154,8 @@ button:disabled {
   white-space: nowrap;
 }
 
-h2 {
-  margin: 0 0 0.5rem;
-  font-size: 0.8125rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
 .group {
   margin-top: 1.5rem;
-}
-
-.habit-list {
-  display: grid;
-  margin: 0;
-  padding: 0;
-  gap: 0.5rem;
-  list-style: none;
-}
-
-.habit {
-  display: flex;
-  min-height: 56px;
-  align-items: center;
-  padding: 0.5rem 0.75rem;
-  gap: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 1rem;
-  background: var(--surface);
-}
-
-.habit-emoji {
-  display: grid;
-  width: 2.5rem;
-  height: 2.5rem;
-  flex: none;
-  place-content: center;
-  border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--tone) 18%, var(--surface));
-  font-size: 1.25rem;
-}
-
-.habit-text {
-  display: grid;
-  min-width: 0;
-}
-
-.habit-name {
-  overflow: hidden;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.habit-rule {
-  font-size: 0.8125rem;
-}
-
-.fab {
-  position: fixed;
-  right: max(1.25rem, calc(50% - 14rem));
-  bottom: calc(5.5rem + env(safe-area-inset-bottom));
-  width: 56px;
-  padding: 0;
-  border-radius: 50%;
-  font-size: 1.75rem;
-  line-height: 1;
-  box-shadow: 0 6px 20px rgb(0 0 0 / 0.2);
-}
-
-.sheet {
-  width: min(100%, 32rem);
-  max-width: none;
-  max-height: 90dvh;
-  margin: auto auto 0;
-  padding: 1rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom));
-  border: 0;
-  border-radius: 1.5rem 1.5rem 0 0;
-  background: var(--surface);
-  color: var(--text);
-  animation: sheet-in 0.25s ease-out;
-}
-
-.sheet::backdrop {
-  background: rgb(0 0 0 / 0.4);
-}
-
-@keyframes sheet-in {
-  from {
-    transform: translateY(2rem);
-    opacity: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sheet {
-    animation: none;
-  }
 }
 
 .sheet form {
@@ -467,98 +317,6 @@ button.primary {
   color: var(--on-accent);
 }
 
-/* Today screen. */
-.ring {
-  position: relative;
-  width: 12rem;
-  margin: 1rem auto 0;
-}
-
-.ring svg {
-  display: block;
-  width: 100%;
-  transform: rotate(-90deg);
-}
-
-.ring-track,
-.mini-track {
-  fill: none;
-  stroke: var(--border);
-  stroke-width: 12;
-}
-
-.ring-value {
-  fill: none;
-  stroke-linecap: round;
-  stroke-width: 12;
-  transition: stroke-dashoffset 0.5s ease;
-}
-
-.ring-label {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  align-content: center;
-  justify-items: center;
-}
-
-.ring-label strong {
-  font-size: 2rem;
-}
-
-.ring-label span {
-  color: var(--muted);
-  font-size: 0.8125rem;
-}
-
-.habit-tap {
-  display: flex;
-  width: 100%;
-  min-height: 44px;
-  align-items: center;
-  padding: 0;
-  gap: 0.75rem;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-}
-
-.habit:has(.habit-tap) {
-  padding: 0;
-}
-
-.habit-tap {
-  padding: 0.5rem 0.75rem;
-}
-
-.habit-tap .habit-text {
-  flex: 1;
-}
-
-.habit.is-done {
-  opacity: 0.55;
-}
-
-.mini-ring {
-  width: 2.25rem;
-  flex: none;
-  transform: rotate(-90deg);
-}
-
-.mini-track {
-  stroke-width: 4;
-}
-
-.mini-value {
-  fill: none;
-  stroke: var(--tone);
-  stroke-linecap: round;
-  stroke-width: 4;
-  transition: stroke-dashoffset 0.3s ease;
-}
-
 .toast {
   position: fixed;
   right: 1rem;
@@ -576,154 +334,6 @@ button.primary {
   display: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .ring-value,
-  .mini-value {
-    transition: none;
-  }
-}
-
-/* Days: header, week strip, read-only banner, note, exact-value sheet, confetti. */
-.today {
-  touch-action: pan-y;
-}
-
-.today-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.today-header h1 {
-  margin-bottom: 0;
-}
-
-.today-date {
-  margin: 0.25rem 0 0;
-}
-
-.streak {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  gap: 0.25rem;
-  margin: 0;
-  padding: 0 0.875rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface);
-  font-weight: 700;
-}
-
-.week {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 0.25rem;
-  margin-top: 1rem;
-}
-
-.week-day {
-  display: grid;
-  min-height: 44px;
-  justify-items: center;
-  gap: 0.125rem;
-  padding: 0.25rem 0;
-  border: 1px solid transparent;
-  border-radius: 0.75rem;
-  background: none;
-  color: var(--text);
-}
-
-.week-day[aria-current="date"] {
-  border-color: var(--accent);
-  background: var(--surface);
-}
-
-.week-day:disabled {
-  opacity: 0.4;
-}
-
-.week-initial {
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.week-day .mini-ring {
-  --tone: var(--accent);
-  width: 1.75rem;
-}
-
-.readonly {
-  margin: 1rem 0 0;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.75rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  font-weight: 600;
-  text-align: center;
-}
-
-.habit {
-  display: flex;
-  align-items: stretch;
-}
-
-.habit-tap {
-  flex: 1;
-  min-width: 0;
-  -webkit-touch-callout: none;
-  user-select: none;
-}
-
-.habit-tap:disabled {
-  color: inherit;
-}
-
-.habit-enter {
-  width: 44px;
-  flex: none;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font-size: 1.125rem;
-}
-
-.habit-enter:disabled {
-  visibility: hidden;
-}
-
-.note {
-  margin-top: 1.5rem;
-}
-
-.note textarea {
-  width: 100%;
-  min-height: 6rem;
-  padding: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  resize: vertical;
-}
-
-.note-meta {
-  display: flex;
-  justify-content: space-between;
-  margin: 0.25rem 0 0;
-  font-size: 0.8125rem;
-}
-
-.day-nav {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 1.5rem;
-}
-
 .sheet-grip {
   width: 3rem;
   height: 0.375rem;
@@ -734,86 +344,6 @@ button.primary {
   box-shadow: 0 0 0 0.75rem transparent;
   touch-action: none;
   cursor: grab;
-}
-
-.stepper {
-  display: grid;
-  grid-template-columns: 3rem 1fr 3rem;
-  align-items: end;
-  gap: 0.75rem;
-}
-
-.stepper button {
-  min-height: 48px;
-  font-size: 1.5rem;
-}
-
-.stepper input {
-  text-align: center;
-  font-size: 1.5rem;
-}
-
-.confetti {
-  position: fixed;
-  top: 40%;
-  left: 50%;
-  z-index: 10;
-  pointer-events: none;
-}
-
-.confetti span {
-  position: absolute;
-  width: 0.5rem;
-  height: 0.875rem;
-  border-radius: 2px;
-  background: var(--color);
-  opacity: 0;
-  animation: confetti-burst 1.5s ease-out var(--delay) forwards;
-}
-
-@keyframes confetti-burst {
-  0% {
-    opacity: 1;
-    transform: translate(0, 0) rotate(0);
-  }
-  60% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(var(--x), calc(var(--y) + 380px)) rotate(var(--turn));
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .confetti {
-    display: none;
-  }
-}
-
-.pace-ahead {
-  color: var(--ok);
-}
-
-.pace-behind {
-  color: var(--error);
-}
-
-/* Habits screen: edit, reorder, archived. */
-.habit-edit {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  align-items: center;
-  padding: 0;
-  gap: 0.75rem;
-  background: transparent;
-  color: inherit;
-  text-align: left;
-}
-
-.habit-edit .habit-text {
-  flex: 1;
 }
 
 .reorder {
@@ -833,11 +363,6 @@ button.icon {
 button.handle {
   cursor: grab;
   touch-action: none;
-}
-
-.habit.is-dragging {
-  border-color: var(--accent);
-  box-shadow: 0 6px 20px rgb(0 0 0 / 0.15);
 }
 
 .archived {
@@ -861,7 +386,6 @@ button.danger {
   color: var(--error);
 }
 
-/* Stats screens. */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -869,14 +393,6 @@ button.danger {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-.stats-list .habit {
-  padding: 0;
-}
-
-.stats-list .habit-tap {
-  text-decoration: none;
 }
 
 .back {
@@ -910,13 +426,6 @@ button.danger {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0 0 1.5rem;
   gap: 0.5rem;
-}
-
-.figure {
-  padding: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 1rem;
-  background: var(--surface);
 }
 
 .figure dt {
@@ -1008,18 +517,6 @@ button.danger {
   list-style: none;
 }
 
-.period {
-  display: grid;
-  min-height: 44px;
-  align-items: center;
-  padding: 0.5rem 0.75rem;
-  grid-template-columns: 1fr auto auto;
-  gap: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: 1rem;
-  background: var(--surface);
-}
-
 .period-status {
   min-width: 5.5rem;
   font-size: 0.8125rem;
@@ -1037,52 +534,652 @@ button.danger {
 
 .period-interrupted,
 .period-current {
-  border-style: dashed;
+  outline: 1px dashed var(--muted);
+  outline-offset: -1px;
 }
 
 .period-interrupted .period-status {
   color: var(--muted);
 }
 
-/* Effects (spec §5): aurora in CSS, shiny text, spotlight card, click sparks. */
-.today-header {
+/* Layout and text. */
+h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  margin: 0 0.375rem 0.5rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.page {
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + 2.25rem) 1rem calc(6.5rem + env(safe-area-inset-bottom));
+}
+
+.card {
+  width: min(100%, 22rem);
+  padding: 1.5rem;
+  border-radius: 1.375rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Floating tab bar. */
+.tabbar {
+  position: fixed;
+  z-index: 5;
+  bottom: calc(0.875rem + env(safe-area-inset-bottom));
+  left: 50%;
+  display: flex;
+  width: max-content;
+  max-width: calc(100vw - 1rem);
+  padding: 0.375rem;
+  gap: 0.25rem;
+  border-radius: 999px;
+  background: var(--glass);
+  box-shadow:
+    var(--shadow-float),
+    inset 0 0 0 1px var(--glass-edge);
+  transform: translateX(-50%);
+  backdrop-filter: blur(16px) saturate(1.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+}
+
+.tabbar a {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 0 1rem;
+  gap: 0.375rem;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.tabbar a span {
+  font-size: 0.75rem;
+}
+
+.tabbar a[aria-current="page"] {
+  background: var(--tab-active);
+  color: var(--on-tab-active);
+}
+
+/* Palette of the habits (spec §4): each key sets --tone, tints are derived from it. */
+.color-amber {
+  --tone: #f59e0b;
+}
+.color-violet {
+  --tone: #8b5cf6;
+}
+.color-blue {
+  --tone: #3b82f6;
+}
+.color-red {
+  --tone: #f43f5e;
+}
+.color-green {
+  --tone: #10b981;
+}
+.color-teal {
+  --tone: #0ea5a4;
+}
+.color-slate {
+  --tone: #64748b;
+}
+.color-pink {
+  --tone: #ec4899;
+}
+
+/* Rings. */
+.ring {
   position: relative;
-  isolation: isolate;
+  display: inline-block;
+  flex: none;
 }
 
-.today-header::before {
+.ring svg {
+  display: block;
+  transform: rotate(-90deg);
+}
+
+.ring-track {
+  fill: none;
+  stroke: var(--track);
+}
+
+.ring-value {
+  fill: none;
+  stroke-linecap: round;
+}
+
+/* The big ring sets its gradient in the `stroke` attribute, which any CSS stroke would beat. */
+.ring-value:not([stroke]) {
+  stroke: var(--tone, var(--week));
+}
+
+.ring-centre {
   position: absolute;
-  z-index: -1;
-  inset: -2rem -1.25rem -1rem;
-  background:
-    radial-gradient(
-      40% 70% at 20% 30%,
-      color-mix(in srgb, var(--ring-from) 28%, transparent),
-      transparent
-    ),
-    radial-gradient(
-      40% 70% at 80% 20%,
-      color-mix(in srgb, var(--ring-to) 24%, transparent),
-      transparent
-    );
-  background-size: 140% 140%;
-  content: "";
-  animation: aurora 14s ease-in-out infinite alternate;
-  pointer-events: none;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
 }
 
-@keyframes aurora {
-  to {
-    background-position: 100% 60%;
+.hero {
+  display: grid;
+  place-items: center;
+  padding: 1.125rem 0 0.5rem;
+}
+
+.hero-percent {
+  font-size: 2.875rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.hero-percent small {
+  color: var(--muted);
+  font-size: 1.375rem;
+}
+
+.hero-count {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+/* Habit rows: one card per group, rows separated by a thin line. */
+.group {
+  margin-top: 1.125rem;
+}
+
+.habit-list {
+  margin: 0;
+  padding: 0;
+  border-radius: 1.375rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  list-style: none;
+}
+
+.habit {
+  position: relative;
+  display: flex;
+  min-height: 68px;
+  align-items: center;
+  border-radius: 1.375rem;
+  transition: opacity 0.3s;
+}
+
+.habit + .habit {
+  border-top: 1px solid var(--divider);
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.habit:not(:last-child) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.habit.is-done {
+  opacity: 0.5;
+}
+
+.habit-tap,
+.habit-edit {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 68px;
+  flex: 1;
+  align-items: center;
+  padding: 0.75rem 0.875rem;
+  gap: 0.75rem;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  transition: background 0.15s;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.habit-tap:active,
+.habit-edit:active {
+  background: var(--press);
+}
+
+.habit-tap:disabled {
+  color: inherit;
+  cursor: default;
+  opacity: 1;
+}
+
+.stats-list .habit-tap {
+  text-decoration: none;
+}
+
+.habit-tap .habit-text,
+.habit-edit .habit-text {
+  flex: 1;
+}
+
+/* The reorder buttons leave little room on this screen: long names wrap. */
+.habit-edit .habit-name {
+  white-space: normal;
+}
+
+.habit-emoji {
+  display: grid;
+  width: 2.625rem;
+  height: 2.625rem;
+  flex: none;
+  place-content: center;
+  border-radius: 0.8125rem;
+  background: color-mix(in srgb, var(--tone) 14%, var(--surface));
+  font-size: 1.375rem;
+}
+
+.habit-text {
+  display: grid;
+  min-width: 0;
+  gap: 0.125rem;
+}
+
+.habit-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.is-done .habit-name {
+  text-decoration: line-through;
+  text-decoration-color: var(--border);
+}
+
+.habit-rule {
+  font-size: 0.8125rem;
+}
+
+.habit-mark {
+  color: var(--tone);
+  font-size: 1.125rem;
+  font-weight: 800;
+}
+
+.pace-ahead,
+.pace-on,
+.pace-done {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.pace-behind {
+  color: var(--error);
+  font-weight: 600;
+}
+
+.habit.is-dragging {
+  z-index: 1;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+}
+
+/* Keyboard alternative to the long press: invisible until it has the focus. */
+.habit-enter {
+  position: absolute;
+  top: 50%;
+  right: 4rem;
+  width: 44px;
+  padding: 0;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 1.125rem;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.habit-enter:focus-visible {
+  opacity: 1;
+}
+
+.habit-enter:disabled {
+  visibility: hidden;
+}
+
+/* Today: header, week strip, banner, note. */
+.today-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.today-header h1 {
+  margin: 0.125rem 0 0;
+}
+
+.today-header h1::first-letter {
+  text-transform: uppercase;
+}
+
+.streak {
+  flex: none;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  color: var(--streak);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.week {
+  display: flex;
+  justify-content: space-between;
+  margin: 0.5rem -0.375rem 0;
+}
+
+.week-day {
+  display: flex;
+  min-width: 44px;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.375rem 0.25rem;
+  gap: 0.25rem;
+  border-radius: 0.875rem;
+  background: none;
+  color: var(--text);
+}
+
+.week-day[aria-current="date"] {
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgb(99 102 241 / 0.18);
+}
+
+.week-day:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.week-initial {
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.week-number {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* The bleed gives the cards' shadows room inside the clipping of the slide. Both days share
+   one grid cell while they cross: Motion's popLayout would need an inline <style> (CSP). */
+.swiper {
+  display: grid;
+  overflow: hidden;
+  margin: 0 -1rem;
+  padding: 0 1rem;
+}
+
+.swiper > div {
+  min-width: 0;
+  padding-bottom: 1rem;
+  grid-area: 1 / 1;
+}
+
+.readonly {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.625rem;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.note {
+  margin-top: 1.25rem;
+  padding: 0.875rem 1rem;
+  border-radius: 1.375rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.note-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.note h2 {
+  margin: 0;
+  font-size: 0.8125rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.note-meta {
+  display: flex;
+  margin: 0;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.note textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.375rem;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9375rem;
+  resize: none;
+}
+
+.note:focus-within {
+  box-shadow:
+    var(--shadow-card),
+    0 0 0 2px var(--accent);
+}
+
+.day-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.day-nav:not(:focus-within) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  margin: 0;
+  clip-path: inset(50%);
+}
+
+.reveal-on-focus:not(:focus-visible) {
+  position: absolute;
+  width: 1px;
+  min-height: 0;
+  height: 1px;
+  overflow: hidden;
+  padding: 0;
+  clip-path: inset(50%);
+}
+
+/* Bottom sheets. */
+.fab {
+  position: fixed;
+  right: max(1rem, calc(50% - 14rem));
+  bottom: calc(5.25rem + env(safe-area-inset-bottom));
+  width: 56px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--tab-active);
+  color: var(--on-tab-active);
+  font-size: 1.75rem;
+  line-height: 1;
+  box-shadow: var(--shadow-float);
+}
+
+.sheet {
+  width: min(100%, 32rem);
+  max-width: none;
+  max-height: 90dvh;
+  margin: auto auto 0;
+  padding: 0.625rem 1.5rem calc(2rem + env(safe-area-inset-bottom));
+  border: 0;
+  border-radius: 1.75rem 1.75rem 0 0;
+  background: var(--surface);
+  box-shadow: 0 -10px 40px rgb(0 0 0 / 0.15);
+  color: var(--text);
+  animation: sheet-in 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.sheet::backdrop {
+  background: rgb(15 23 42 / 0.35);
+  backdrop-filter: blur(2px);
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
   }
 }
 
+.entry-head {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.entry-head .habit-emoji {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 1rem;
+  font-size: 1.75rem;
+}
+
+.entry-head h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.entry-head p {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1.625rem;
+  gap: 1.125rem;
+}
+
+.stepper button {
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--divider);
+  color: var(--text);
+  font-size: 1.75rem;
+  font-weight: 400;
+}
+
+.stepper input {
+  width: 7rem;
+  border: 0;
+  background: none;
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+}
+
+.entry-unit {
+  margin: -0.75rem 0 0.375rem;
+  text-align: center;
+}
+
+/* The tones are bright: darkened so that the white label stays readable (AA). */
+.entry-save {
+  width: 100%;
+  height: 54px;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--tone) 68%, black);
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+/* Stats cards. */
+.figure {
+  padding: 0.75rem;
+  border-radius: 1rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.period {
+  display: grid;
+  min-height: 44px;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.75rem;
+  border-radius: 1rem;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+/* Effects (after React Bits): shiny text, spotlight card, sparks and confetti canvas. */
 .shiny {
-  background: linear-gradient(110deg, var(--text) 40%, var(--ring-from) 50%, var(--text) 60%);
+  background: linear-gradient(110deg, currentColor 35%, var(--shine) 50%, currentColor 65%) 0 0 /
+    250% 100%;
   background-clip: text;
-  background-size: 250% 100%;
-  color: transparent;
-  animation: shiny 3s linear infinite;
+  -webkit-text-fill-color: transparent;
+  animation: shiny 3.5s linear infinite;
 }
 
 @keyframes shiny {
@@ -1090,7 +1187,7 @@ button.danger {
     background-position: 150% 0;
   }
   to {
-    background-position: -50% 0;
+    background-position: -100% 0;
   }
 }
 
@@ -1114,25 +1211,29 @@ button.danger {
   pointer-events: none;
 }
 
-.click-spark {
+.fx-canvas {
   position: fixed;
   z-index: 30;
   inset: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .today-header::before,
+  .sheet,
   .shiny {
     animation: none;
   }
 
   .shiny {
     background: none;
-    color: inherit;
+    -webkit-text-fill-color: currentColor;
   }
 
-  .click-spark {
-    display: none;
+  .habit,
+  .habit-tap,
+  .habit-edit {
+    transition: none;
   }
 }

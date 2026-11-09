@@ -7,7 +7,7 @@ import { Today } from "./Today";
 export function Screen({ route }: { route: Route }) {
   switch (route.name) {
     case "today":
-      return <Today key={route.date ?? "today"} date={route.date} />;
+      return <Today date={route.date} />;
     case "stats":
       return <Stats />;
     case "statsHabit":
