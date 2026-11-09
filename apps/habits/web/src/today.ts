@@ -52,10 +52,13 @@ const periodSuffix = {
   year: " cette année",
 };
 
-/** « 1 / 2 pilules », « 132 / 150 séances cette année ». */
+/** « Fait », « À faire », « 1 / 2 pilules », « 132 / 150 séances cette année ». */
 export function subtitle(item: DayHabit): string {
-  const unit = item.habit.unit ? ` ${item.habit.unit}` : "";
-  return `${item.total} / ${item.habit.target}${unit}${periodSuffix[item.habit.period]}`;
+  const h = item.habit;
+  const suffix = periodSuffix[h.period];
+  if (isBinary(h)) return `${item.complete ? "Fait" : "À faire"}${suffix}`;
+  const unit = h.unit ? ` ${h.unit}` : "";
+  return `${item.total} / ${h.target}${unit}${suffix}`;
 }
 
 /** The pace label of a period habit and its tone; the label is computed by the server. */
@@ -97,6 +100,11 @@ const longFormat = new Intl.DateTimeFormat("fr-FR", {
 /** « vendredi 6 novembre ». */
 export function longDate(date: string): string {
   return longFormat.format(parseDate(date));
+}
+
+/** Day of the month of a YYYY-MM-DD date. */
+export function dayOfMonth(date: string): number {
+  return Number(date.slice(8));
 }
 
 /** One-letter weekday of the week strip: L M M J V S D. */

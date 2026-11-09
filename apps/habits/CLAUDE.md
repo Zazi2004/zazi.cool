@@ -149,7 +149,7 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   `ui/useLongPress.ts`. Un mouvement de plus de 10 px annule l'appui long ; `touch-action: pan-y` sur
   la page laisse le défilement vertical au navigateur. Le bouton « Saisir une valeur » est l'alternative
   clavier à l'appui long.
-- Confettis (`ui/Confetti.tsx`, CSS seul, sans dépendance) : seulement quand la réponse du serveur à
+- Confettis (`confetti()` de `ui/effects/fx.tsx`, canvas partagé avec les étincelles) : seulement quand la réponse du serveur à
   une action passe `complete` de faux à vrai (`shouldCelebrate`) ; jamais à l'ouverture d'un jour ni
   avec `prefers-reduced-motion`.
 - Note : `ui/DayNote.tsx`, enregistrement 800 ms après la dernière frappe, envoi immédiat du texte non
@@ -222,17 +222,31 @@ Depuis `apps/habits/` (détails dans le `README.md`) : `make up` / `make down`, 
   en forme seulement). La heatmap est une grille CSS (semaines en colonnes, `row-N` place le 1ᵉʳ janvier),
   sans style en ligne.
 
+## Fidélité à la maquette
+
+L'écran Aujourd'hui reproduit la variante A « Anneaux » du prototype (branche `proto/habits-redesign`,
+`npm run dev` dans `apps/habits/prototype-web/`) : c'est la référence visuelle, à consulter avant de
+modifier l'interface. Seuls écarts voulus : gris et accent un peu plus foncés et bouton « Enregistrer »
+assombri, pour le contraste AA (NF6).
+
+- Le jour glisse avec le doigt (`ui/DaySwiper.tsx`, Motion). **Pas de `mode="popLayout"`** : il injecte
+  un `<style>` bloqué par la CSP ; les deux jours partagent une même cellule de grille pendant la
+  transition.
+- Les jours déjà vus et les jours voisins sont en cache (`Today.tsx`) pour glisser sans écran de
+  chargement. La note attend la réponse du serveur : écrire sur un texte du cache pourrait en écraser
+  un plus récent.
+
 ## Effets, finitions et app installable (v2, ONBO-117)
 
 - Effets dans `web/src/ui/effects/`, **copiés** de React Bits et adaptés (aucune dépendance au-delà
   de React et Motion, D9) : `CountUp` (pourcentage du grand anneau, Motion), `ShinyText` (série, reflet
   en CSS), `SpotlightCard` (cartes de Stats ; n'écrit que des variables CSS par `style.setProperty`,
-  compatible avec la CSP), `ClickSpark` (canvas plein écran, étincelle à la couleur `--tone` de
-  l'habitude touchée). L'aurore de l'en-tête d'Aujourd'hui est en CSS (`.today-header::before`).
-  GradientText n'est pas utilisé. Un effet qui demanderait une autre dépendance : demander à Noah.
+  compatible avec la CSP), `fx.tsx` (un seul canvas plein écran, `FxCanvas`, pour les étincelles à la
+  couleur `--tone` de l'habitude touchée et les confettis). GradientText et l'aurore ne sont pas utilisés
+  (absents de la maquette A). Un effet qui demanderait une autre dépendance : demander à Noah.
 - `prefers-reduced-motion` : `effects/motion.ts` (`prefersReducedMotion`) est lu au démarrage de chaque
-  effet JS (CountUp affiche la valeur, ClickSpark ne dessine rien, confettis non montés) et un bloc CSS
-  neutralise aurore, reflet et canvas. Toute nouvelle animation doit faire de même.
+  effet JS (CountUp affiche la valeur, `Ring` sans ressort, `spark` et `confetti` ne font rien) et un bloc CSS
+  neutralise reflet, panneaux et transitions. Toute nouvelle animation doit faire de même.
 - Clair / sombre par `prefers-color-scheme` (variables en tête de `styles.css`) : ne coder une couleur
   qu'en variable, contraste AA dans les deux thèmes (le clair est la référence). Cibles ≥ 44 px, aucun
   défilement horizontal à 360 px. Clavier : toucher = Entrée / Espace (boutons natifs), appui long =

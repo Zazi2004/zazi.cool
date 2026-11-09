@@ -86,7 +86,15 @@ describe("display", () => {
     expect(subtitle({ ...item({ target: 2, unit: "pilules" }, 1), total: 1 })).toBe(
       "1 / 2 pilules",
     );
-    expect(subtitle({ ...item({ target: 1, unit: "" }, 0), total: 0 })).toBe("0 / 1");
+  });
+
+  it("subtitle of a yes/no habit says whether it is done", () => {
+    const todo = { ...item({ target: 1, unit: "" }, 0), total: 0, complete: false };
+    expect(subtitle(todo)).toBe("À faire");
+    expect(subtitle({ ...todo, complete: true })).toBe("Fait");
+    expect(subtitle({ ...todo, habit: { ...todo.habit, period: "week" } })).toBe(
+      "À faire cette semaine",
+    );
   });
 
   it("subtitle names the period", () => {

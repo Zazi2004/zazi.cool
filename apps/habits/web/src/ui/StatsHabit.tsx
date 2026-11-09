@@ -13,7 +13,7 @@ import {
 } from "../stats";
 import { localDate } from "../today";
 import type { HabitStats } from "../types";
-import { MiniRing } from "./MiniRing";
+import { Ring } from "./Ring";
 import { paceClass } from "./paceClass";
 
 type State =
@@ -117,7 +117,7 @@ function Header({ stats }: { stats: HabitStats }) {
           )}
         </p>
       </div>
-      <MiniRing progress={stats.progress} />
+      <Ring size={44} stroke={5} progress={stats.progress} />
     </header>
   );
 }

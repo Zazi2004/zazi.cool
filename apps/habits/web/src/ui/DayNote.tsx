@@ -66,24 +66,26 @@ export function DayNote({
   const length = noteLength(text);
   return (
     <section className="note" aria-labelledby="note-title">
-      <h2 id="note-title">Note du jour</h2>
+      <div className="note-head">
+        <h2 id="note-title">Note du jour</h2>
+        <p id="note-count" className="note-meta">
+          <span aria-live="polite">
+            {saved === "saving" && "Enregistrement…"}
+            {saved === "saved" && "Enregistré"}
+          </span>
+          <span className={length > noteLimit ? "error" : undefined}>
+            {length} / {noteLimit}
+          </span>
+        </p>
+      </div>
       <textarea
         value={text}
-        rows={4}
+        rows={3}
         readOnly={!editable}
         placeholder={editable ? "Comment s'est passée la journée ?" : ""}
         aria-describedby="note-count"
         onChange={(e) => change(e.target.value)}
       />
-      <p id="note-count" className="muted note-meta">
-        <span aria-live="polite">
-          {saved === "saving" && "Enregistrement…"}
-          {saved === "saved" && "Enregistré"}
-        </span>
-        <span className={length > noteLimit ? "error" : undefined}>
-          {length} / {noteLimit}
-        </span>
-      </p>
       {error && (
         <p className="error" role="alert">
           {error}
