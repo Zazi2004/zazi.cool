@@ -1051,6 +1051,7 @@ h2 {
   right: max(1rem, calc(50% - 14rem));
   bottom: calc(5.25rem + env(safe-area-inset-bottom));
   width: 56px;
+  height: 56px;
   padding: 0;
   border-radius: 50%;
   background: var(--tab-active);
